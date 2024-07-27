@@ -2,30 +2,37 @@ import threading
 import tkinter.font as tkfont
 from PIL import Image, ImageDraw
 import pystray
-import winreg
 from pystray import MenuItem as item
-from common_function import *
 from tiktok_management import TikTokManager
+from facebook import FacebookManager
 from youtube import YouTubeManager
+from common_function import *
+from common_function_CTK import *
 from Common import *
 
 class MainApp:
     def __init__(self):
         try:
-            self.font_size = 15
             self.root = ctk.CTk()
+            font_label = ctk.CTkFont(family="Arial", size=font_size)
+            font_button = ctk.CTkFont( family="Arial", size=font_size, weight="bold")
             self.root.title("Super App")
-            self.font_label = ctk.CTkFont(family="Arial", size=self.font_size)
-            self.font_button = ctk.CTkFont( family="Arial", size=self.font_size, weight="bold")
             self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+            self.lock = threading.Lock()
+            self.download_thread = threading.Thread()
+            self.upload_thread = threading.Thread()
             self.config = load_config()
             if not self.config['output_folder']:
                 self.config['output_folder'] = output_folder
-            self.youtube = {}
-            self.tiktok = {}
-            self.facebook = {}
-            self.windows = {}
-            self.titles = {}
+            self.youtube = None
+            self.is_youtube_window = False
+            self.tiktok = None
+            self.is_tiktok_window = False
+            self.is_sign_up_tiktok = False
+            self.facebook = None
+            self.is_sign_up_facebook = False
+            self.is_facebook_window = False
+            
             self.load_secret_info()
 
             self.engine = pyttsx3.init()
@@ -44,34 +51,34 @@ class MainApp:
             self.convert_multiple_record = False
             self.load_translate()
 
-            self.text_show_width = 350
             self.is_start_app = True
             self.is_setting = False
             self.is_edit_video_window = False
             self.is_edit_audio_window = False
-            self.is_youtube_window = False
-            self.is_tiktok_window = False
-            self.is_facebook_window = False
+            self.is_more_edit_video = False
+
             self.is_editing_video = False
-            self.thread = None
             self.thread_main = None
             self.icon = None
-            self.is_auto_upload = False
+            self.is_auto_upload_youtube = False
+            self.is_add_new_channel_id = False
+            self.is_setting_auto_upload = False
+            self.pre_time_check_auto_upload = 0
 
-            self.next_time_check_quocta = 0
-            
-            # self.start_main_check_thread()
+            self.get_templates()
+            self.channels_of_gmail = [self.templates['channel_info'][id] for id in self.templates.keys() if id != 'channel_info']
+            self.start_main_check_thread()
             self.setting_window_size()
             self.create_icon()
             self.get_start_window()
 
             if self.config["auto_start"]:
-                self.set_autostart()
+                set_autostart()
             else:
-                self.unset_autostart()
+                unset_autostart()
         except:
             getlog()
-
+#------------------------------------------------main thread----------------------------------------------------
     def start_main_check_thread(self):
             self.thread_main = threading.Thread(target=self.main_check_thread)
             self.thread_main.daemon = True  # Để thread kết thúc khi chương trình chính kết thúc
@@ -82,60 +89,102 @@ class MainApp:
             try:
                 self.check_quota_reset()
                 self.auto_upload_every_day()
-                
-                print("main_check_thread đang chạy...")
-                sleep(300)
+                sleep(5)
             except:
                 getlog()
+    def check_process_status(self):
+        if self.youtube:
+            if self.youtube.is_stop_download:
+                self.youtube.download_thread.join()
+    def auto_upload_every_day(self):
+        try:
+            if time() - self.pre_time_check_auto_upload >= 30:
+                self.pre_time_check_auto_upload = time()
+                if self.is_auto_upload_youtube:
+                    self.config = get_json_data(config_path)
+                    auto_channel_id = self.config['registered_channel']
+                    for channel_id in auto_channel_id: #những channel muốn chạy auto
+                        self.get_templates(channel_id)
+                        channel_name = self.templates['channel_info'][channel_id]
+                        if channel_id in self.templates:
+                            current_time = datetime.now()
+                            current_date_str = current_time.strftime('%Y-%m-%d')
+                            if 'last_auto_upload_date' not in self.templates[channel_id]:
+                                self.templates[channel_id]['last_auto_upload_date'] = ""
+                            last_auto_upload_date_str = self.templates[channel_id]['last_auto_upload_date'] #yyyy-mm-dd
+                            if current_date_str != last_auto_upload_date_str:
+                                gmail = self.templates[channel_id].get('gmail', None)
+                                if not gmail:
+                                    continue 
+                                oauth_path = f'app.py-{gmail}-{channel_id}.json'
+                                if os.path.isfile(oauth_path):
+                                    
+                                    print(f"đang check auto upload channel {channel_name} ...")
+                                    recent_upload_date_str = self.templates[channel_id].get('start_date')
+                                    recent_upload_date = None
+                                    if recent_upload_date_str:
+                                        recent_upload_date = datetime.strptime(recent_upload_date_str, '%Y-%m-%d')
+                                    else:
+                                        recent_upload_date = current_time
+                                    next_upload_date = recent_upload_date + timedelta(days=1)
+                                    if next_upload_date <= current_time:
+                                        next_upload_date = current_time
+                                    # Cập nhật lại ngày đăng tiếp theo trong thông tin YouTube
+                                    self.templates[channel_id]['start_date'] = next_upload_date.strftime('%Y-%m-%d')
+                                    self.save_templates()
+                                    
+                                    auto_youtube= YouTubeManager(self.config, self.secret_info, gmail, channel_id, is_auto_upload=True)
+                                    rp = auto_youtube.schedule_videos()
+                                    if rp:
+                                        self.templates[channel_id]['last_auto_upload_date'] = current_date_str
+                                        self.save_templates()
+                                    else:
+                                        warning_message(f"Có lỗi trong quá trình upload video cho channel {channel_name}")
+                            else:
+                                print(f"Hôm nay đã check auto upload cho channel {channel_name}")
+                    # self.is_auto_upload_youtube = False
+        except:
+            getlog()
+                
+            
+    def check_quota_reset(self):
+        if time() - self.next_time_check_quocta >= 0:
+            self.is_auto_upload_youtube = True
+            for gmail in self.config['registered_gmails']:
+                if self.youtube:
+                    if gmail in self.youtube:
+                        self.youtube.is_quotaExceeded = False
+                        self.config[gmail]['cnt_request_upload'] = 0
+            self.save_config()
+#------------------------------------------------
+    def get_tiktok_config(self):
+        self.tiktok_config = get_json_data(tiktok_config_path)
+        if not self.tiktok_config:
+            self.tiktok_config = {}
+        if 'template' not in self.tiktok_config:
+            self.tiktok_config['template'] = {}
+        if 'registered_account' not in self.tiktok_config:
+            self.tiktok_config['registered_account'] = []
 
-    def get_templates(self, channel_id):
+    def get_facebook_config(self):
+        self.facebook_config = get_json_data(facebook_config_path)
+        if not self.facebook_config:
+            self.facebook_config = {}
+        if 'template' not in self.facebook_config:
+            self.facebook_config['template'] = {}
+        if 'registered_account' not in self.facebook_config:
+            self.facebook_config['registered_account'] = []
+
+    def get_templates(self, channel_id=None):
         self.templates = get_json_data(templates_path)
         if not self.templates:
             self.templates = {}
         if channel_id and channel_id not in self.templates:
             self.templates[channel_id] = {}
-    def save_template(self):
+        if 'channel_info' not in self.templates:
+            self.templates['channel_info'] = {}
+    def save_templates(self):
         save_to_json_file(self.templates, templates_path)
-
-    def auto_upload_every_day(self):
-        
-        if self.is_auto_upload:
-            for channel_id in self.config['auto_channel_id']: #những channel muốn chạy auto
-                self.get_templates(channel_id)
-                if channel_id in self.templates.keys: 
-                    gmail = self.templates[channel_id].get('gmail', None)
-                    if not gmail:
-                        continue 
-                    oauth_path = f'app.py-{gmail}-{channel_id}.json'
-                    if os.path.isfile(oauth_path):
-                        recent_upload_date_str = self.templates[channel_id].get('start_date')
-                        recent_upload_date = None
-                        if recent_upload_date_str:
-                            recent_upload_date = datetime.strptime(recent_upload_date_str, '%Y-%m-%d')
-                        current_time = datetime.now()
-                        auto_upload_time_str = self.templates[channel_id]['auto_upload_time']
-                        auto_upload_time = convert_date_string_to_datetime(auto_upload_time_str)
-                        if current_time >= auto_upload_time:
-                            if recent_upload_date:
-                                next_upload_date = recent_upload_date + timedelta(days=1)
-                            else:
-                                next_upload_date = current_time.date() + timedelta(days=1)
-                            # Cập nhật lại ngày đăng tiếp theo trong thông tin YouTube
-                            self.templates[channel_id]['start_date'] = next_upload_date.strftime('%Y-%m-%d')
-                            self.save_template()
-                            self.youtube[gmail] = YouTubeManager(self.config, self.secret_info, gmail, channel_id)
-                            self.youtube[gmail].schedule_videos()
-                            sleep(30)
-           
-            
-    def check_quota_reset(self):
-        if time() - self.next_time_check_quocta >= 0:
-            for gmail in self.config['registered_gmails']:
-                if self.youtube:
-                    if gmail in self.youtube:
-                        self.youtube[gmail].is_quotaExceeded = False
-                        self.config[gmail]['cnt_request_upload'] = 0
-            self.save_config()
 
     def load_secret_info(self):
         secret_data = get_json_data(secret_path)
@@ -152,56 +201,225 @@ class MainApp:
     def get_start_window(self):
         if not self.is_start_app:
             self.reset()
-            self.is_start_app = True
-            self.setting_window_size()
-        self.is_start_app = False
         self.show_window()
-        self.input_gmail = self.create_settings_input("Choose Gmail Account", "current_gmail" ,values=self.config['registered_gmails'], left=0.4, right=0.6)
-        self.input_current_channel = self.create_settings_input("Choose Channel Id", "current_channel" ,values=self.config['registered_channel'], left=0.4, right=0.6)
-        self.create_button(text="Open YouTube Management", command=self.open_youtube_window)
-        self.create_button(text="Open Tiktok Management", command=self.open_tiktok_window)
-        self.create_button(text="Open Facebook Management", command=self.open_facebook_window)
-        self.create_button(text="Text To MP3", command=self.open_text_to_mp3_window)
-        self.create_button(text="Edit Videos 16:9", command=self.open_edit_video_window)
-        self.create_button(text="Edit Videos 9:16", command=self.open_edit_video_window)
-        self.create_button(text="Download And Edit Audio", command=self.open_edit_audio_window)
-        self.create_button(text="Common Settings", command=self.open_common_settings)
-    
-    def open_youtube_window(self):
-        gmail = self.input_gmail.get()
-        channel_id = self.input_current_channel.get()
-        if gmail not in self.config['registered_gmails']:
-            self.config['registered_gmails'].append(gmail)
-        if channel_id not in self.config['registered_channel'].keys():
-            self.config['registered_channel'].append(channel_id)
-        self.config['current_gmail'] = gmail
-        self.config['current_channel'] = channel_id
-        self.save_config()
-        if gmail not in self.config['registered_gmails']:
-            message_box("Warning", "Your account does not have access!")
-            return
-        self.reset()
-        self.youtube[gmail] = YouTubeManager(self.config, self.secret_info, gmail, channel_id)
-        self.youtube[gmail].get_start_youtube()
-        
+        self.is_start_app = True
+        self.setting_window_size()
+        self.is_start_app = False
+        def on_input_gmail_select(event):
+            current_gmail = self.input_gmail.get()
+            print(f"Gmail đã chọn: {current_gmail}")
+            self.channels_of_gmail = [self.templates['channel_info'][id] for id in self.templates.keys() if id != 'channel_info' and self.templates[id]['gmail'] == current_gmail]
+            self.input_current_channel_id.configure(values=self.channels_of_gmail)
 
-    def open_tiktok_window(self):
-        gmail = self.input_gmail.get()
-        if gmail not in self.config['registered_gmails']:
-            self.config['registered_gmails'].append(gmail)
+        self.input_gmail = self.create_settings_input("Choose Gmail Account", "current_gmail" ,values=self.config['registered_gmails'], left=0.4, right=0.6)
+        self.input_gmail.bind('<<ComboboxSelected>>',on_input_gmail_select)
+        self.input_current_channel_id = self.create_settings_input("Choose Youtube Channel Id", "current_channel" ,values=self.channels_of_gmail, left=0.4, right=0.4, add_button=True, text='Add New', command=self.add_new_channel_id)
+        create_button(frame=self.root, text="Open YouTube Management", command=self.open_youtube_window)
+        create_button(frame=self.root, text="Open Tiktok Management", command=self.open_tiktok_window)
+        create_button(frame=self.root, text="Open Facebook Management", command=self.open_facebook_window)
+        create_button(frame=self.root, text="Setting Auto Upload", command=self.setting_auto_upload)
+        create_button(frame=self.root, text="Text To MP3", command=self.open_text_to_mp3_window)
+        create_button(frame=self.root, text="Edit Videos 16:9", command=self.open_edit_video_window)
+        create_button(frame=self.root, text="Edit Videos 9:16", command=self.open_edit_video_window)
+        create_button(frame=self.root, text="More Edit Videos", command=self.more_edit_video)
+        create_button(frame=self.root, text="Download And Edit Audio", command=self.open_edit_audio_window)
+        create_button(frame=self.root, text="Common Settings", command=self.open_common_settings)
+
+        
+    def setting_auto_upload(self):
+        self.reset()
+        self.is_setting_auto_upload = True
+        self.setting_window_size()
+        self.show_window()
+        create_button(frame=self.root, text="Auto upload Youtube", command=self.auto_upload_youtube)
+        create_button(frame=self.root, text="Auto upload Tiktok", command=self.auto_upload_tiktok)
+        create_button(frame=self.root, text="Auto upload Facebook", command=self.auto_upload_facebook)
+    def auto_upload_youtube(self):
+        self.is_auto_upload_youtube = True
+        notification(f"Start checking youtube channels")
+    def auto_upload_tiktok(self):
+        self.is_auto_upload_youtube = True
+        notification(f"Start checking tiktok channels")
+    def auto_upload_facebook(self):
+        self.is_auto_upload_youtube = True
+        notification(f"Start checking facebook pages")
+
+    def add_new_channel_id(self):
+        self.reset()
+        self.is_add_new_channel_id = True
+        self.setting_window_size()
+        self.show_window()
+        self.input_gmail = create_frame_label_and_input(self.root, label_text="Gmail")
+        self.input_current_channel_id = create_frame_label_and_input(self.root, label_text="Channel Id")
+        self.input_current_channel_name = create_frame_label_and_input(self.root, label_text="Channel Name")
+        create_button(frame=self.root, text="Submit And Verify Now", command=self.open_youtube_window)
+
+    def open_youtube_window(self):
+        gmail = self.input_gmail.get().strip()
+        channel_name = self.input_current_channel_id.get().strip()
+        if self.is_add_new_channel_id:
+            channel_name = self.input_current_channel_name.get()
+            channel_id = self.input_current_channel_id.get()
+            if not gmail or not channel_id or not channel_name:
+                warning_message("Please enter complete information!")
+                return
+            if channel_id not in self.templates:
+                self.templates[channel_id] = {}
+            self.templates[channel_id]['gmail'] = gmail
+            self.templates[channel_id]['channel_name'] = channel_name
+            self.templates[channel_id]['title'] = ""
+            self.templates[channel_id]['is_title_plus_video_name'] = True
+            self.templates[channel_id]['description'] = ""
+            self.templates[channel_id]['tags'] = ""
+            self.templates[channel_id]['category_id'] = ""
+            self.templates[channel_id]['privacy_status'] = "private"
+            self.templates[channel_id]['license'] = "creativeCommon"
+            self.templates[channel_id]['is_delete_video'] = False
+            self.templates[channel_id]['start_date'] = ""
+            self.templates[channel_id]['publish_times'] = ""
+            self.templates[channel_id]['upload_folder'] = ""
+            self.templates[channel_id]['last_auto_upload_date'] = ""
+        else:
+            channel_id = [id for id in self.templates['channel_info'].keys() if self.templates['channel_info'][id] == channel_name][0]
+            if not gmail or not channel_id:
+                warning_message("Please enter gmail and channel_id information!")
+            if channel_id not in self.config['registered_channel']:
+                warning_message("This channel id is not registered")
+                return
+            if gmail not in self.config['registered_gmails']:
+                warning_message("This gmail is not registered")
+                return
+
         self.config['current_gmail'] = gmail
+        self.config['current_channel'] = channel_name
         self.save_config()
-        if gmail not in self.config['registered_gmails']:
-            message_box("Warning", "Your account does not have access!")
-            return
+
+
+        if self.is_add_new_channel_id:
+            self.templates['channel_info'][channel_id] = channel_name
+            self.is_add_new_channel_id = False
+        self.save_templates()
+        self.reset()
+        self.youtube = YouTubeManager(self.config, self.secret_info, gmail, channel_id, is_auto_upload=False, lock=self.lock, download_thread=self.download_thread, upload_thread=self.upload_thread)
+        self.youtube.get_start_youtube()
+    
+    def open_tiktok_window(self):
+        self.get_tiktok_config()
+        self.reset()
+        self.is_tiktok_window = True
+        self.show_window()
+        self.setting_window_size()
+        self.tiktok_account_var = self.create_settings_input(label_text="Choose Gmail", config_key="current_tiktok_account", values=self.tiktok_config['registered_account'])
+        create_button(self.root, text="Start Tiktok Management", command=self.start_tiktok_management)
+        create_button(self.root, text="Sign Up A Account", command=self.sign_up_tiktok_window)
+
+    def sign_up_tiktok_window(self):
+        self.reset()
+        self.is_sign_up_tiktok = True
+        self.show_window()
+        self.setting_window_size()
+        def sign_up_tiktok():
+            self.is_sign_up_tiktok = True
+            self.tiktok_account = self.tiktok_account_var.get()
+            self.tiktok_password = self.tiktok_password_var.get()
+            if not self.tiktok_account or not self.tiktok_password:
+                warning_message("Hãy nhập đầy đủ thông tin!")
+                return
+            if self.tiktok_account not in self.tiktok_config['template']:
+                self.tiktok_config['template'][self.tiktok_account] = {}
+            self.config['current_tiktok_account'] = self.tiktok_account
+            self.tiktok_config['template'][self.tiktok_account]['account'] = self.tiktok_account
+            self.tiktok_config['template'][self.tiktok_account]['password'] = self.tiktok_password
+            self.tiktok_config['template'][self.tiktok_account]['upload_folder'] = ""
+            self.tiktok_config['template'][self.tiktok_account]['publish_times'] = ""
+            self.tiktok_config['template'][self.tiktok_account]['title'] = ""
+            self.tiktok_config['template'][self.tiktok_account]['is_title_plus_video_name'] = False
+            self.tiktok_config['template'][self.tiktok_account]['upload_date'] = datetime.now().strftime('%Y-%m-%d')
+            self.tiktok_config['registered_account'].append(self.tiktok_account)
+            save_to_json_file(self.tiktok_config, tiktok_config_path)
+            self.start_tiktok_management()
+
+        self.tiktok_account_var = create_frame_label_and_input(self.root, label_text="Input A tiktok Account")
+        self.tiktok_password_var = create_frame_label_and_input(self.root, label_text="Input Password")
+        create_button(self.root, text="Sign Up Now", command=sign_up_tiktok)
+
+    def start_tiktok_management(self):
+        self.tiktok_account = self.tiktok_account_var.get()
+        if not self.is_sign_up_tiktok:
+            if self.tiktok_account not in self.tiktok_config['registered_account'] or self.tiktok_account not in self.tiktok_config['template']:
+                warning_message("Account này chưa đăng ký")
+                return
+        self.config['current_tiktok_account'] = self.tiktok_account
+        self.tiktok_password = self.tiktok_config['template'][self.tiktok_account]['password']
+        self.save_config()
         self.reset()
         self.setting_window_size()
-        self.tiktok[gmail] = TikTokManager(self.config, gmail)
-        self.tiktok[gmail].get_start_tiktok()
+        self.tiktok = TikTokManager(self.tiktok_account, self.tiktok_password, self.upload_thread)
+        self.tiktok.get_start_tiktok()
 
     def open_facebook_window(self):
-        pass
+        self.get_facebook_config()
+        self.reset()
+        self.is_facebook_window = True
+        self.show_window()
+        self.setting_window_size()
+        self.facebook_account_var = self.create_settings_input(label_text="Choose Gmail", config_key="current_facebook_account", values=self.facebook_config['registered_account'])
+        self.facebook_page_name_var = self.create_settings_input(label_text="Choose Page Name", config_key="current_page", values=[key for key in self.facebook_config['template'].keys()])
+        create_button(self.root, text="Start Facebook Management", command=self.start_facebook_management)
+        create_button(self.root, text="Sign Up A Account", command=self.sign_up_facebook_window)
 
+    def sign_up_facebook_window(self):
+        self.reset()
+        self.is_sign_up_facebook = True
+        self.show_window()
+        self.setting_window_size()
+        def sign_up_facebook():
+            self.is_sign_up_facebook = True
+            self.facebook_account = self.facebook_account_var.get()
+            self.facebook_password = self.facebook_password_var.get()
+            self.facebook_page_name = self.facebook_page_name_var.get()
+            if not self.facebook_account or not self.facebook_password or not self.facebook_page_name:
+                warning_message("Please input full infomation!")
+                return
+            if self.facebook_page_name not in self.facebook_config['template']:
+                self.facebook_config['template'][self.facebook_page_name] = {}
+            self.config['current_facebook_account'] = self.facebook_account
+            self.config['current_page'] = self.facebook_page_name
+            self.facebook_config['template'][self.facebook_page_name]['account'] = self.facebook_account
+            self.facebook_config['template'][self.facebook_page_name]['password'] = self.facebook_password
+            self.facebook_config['template'][self.facebook_page_name]['upload_folder'] = ""
+            self.facebook_config['template'][self.facebook_page_name]['publish_times'] = ""
+            self.facebook_config['template'][self.facebook_page_name]['title'] = ""
+            self.facebook_config['template'][self.facebook_page_name]['is_title_plus_video_name'] = False
+            self.facebook_config['template'][self.facebook_page_name]['upload_date'] = datetime.now().strftime('%Y-%m-%d')
+            save_to_json_file(self.facebook_config, facebook_config_path)
+            self.start_facebook_management()
+
+        self.facebook_account_var = create_frame_label_and_input(self.root, label_text="Input A Facebook Account")
+        self.facebook_password_var = create_frame_label_and_input(self.root, label_text="Input Password")
+        self.facebook_page_name_var = create_frame_label_and_input(self.root, label_text="Input A Page Name")
+        create_button(self.root, text="Sign Up Now", command=sign_up_facebook)
+
+    def start_facebook_management(self):
+        self.facebook_page_name = self.facebook_page_name_var.get()
+        self.facebook_account = self.facebook_account_var.get()
+        if not self.is_sign_up_facebook:
+            if not self.facebook_page_name or not self.facebook_account:
+                warning_message("Please input full infomation!")
+                return
+            if self.facebook_page_name not in self.facebook_config['template']:
+                warning_message("This page not registered!")
+                return
+            if self.facebook_account != self.facebook_config['template'][self.facebook_page_name]['account']:
+                warning_message("Account not registered!")
+                return
+        self.config['current_facebook_account'] = self.facebook_account
+        self.config['current_page'] = self.facebook_page_name
+        self.save_config()
+        self.reset()
+        self.facebook_password = self.facebook_config['template'][self.facebook_page_name]['password']
+        self.facebook = FacebookManager(self.facebook_account, self.facebook_password, self.facebook_page_name, self.download_thread, self.upload_thread)
+        self.facebook.get_start_facebook()
 #---------------------------------------------------------------------edit audio
     def open_edit_audio_window(self):
         self.reset()
@@ -212,10 +430,10 @@ class MainApp:
         self.end_cut_audio_var = self.create_settings_input("End Cut", "end_cut_audio", values=["5", "10", "15"])
         self.audio_speed_var = self.create_settings_input("Audio Speed", "audio_speed", values=["0.8", "0.9", "1", "1.1", "1.2"])
         self.reversed_audio_var = self.create_settings_input("Reversed Audio", "reversed_audio", values=["Yes", "No"])
-        self.video_get_audio_url = self.create_frame_label_and_input(label_text="Get Audio From Video URL", left=0.4, right=0.6)
-        self.audio_edit_path = self.create_frame_button_and_input(text="Edit Audio From MP3 File", command= self.choose_audio_edit_file, left=0.4, right=0.6)
-        self.video_get_audio_path = self.create_frame_button_and_input(text="Get Audio From Video", command= self.choose_video_get_audio_path, left=0.4, right=0.6)
-        self.create_button(text="Start Edit Audio", command=self.create_thread_edit_audio)
+        self.video_get_audio_url = create_frame_label_and_input(self.root, label_text="Get Audio From Video URL", left=0.4, right=0.6)
+        self.audio_edit_path = create_frame_button_and_input(self.root,text="Edit Audio From MP3 File", command= self.choose_audio_edit_file, left=0.4, right=0.6)
+        self.video_get_audio_path = create_frame_button_and_input(self.root,text="Get Audio From Video", command= self.choose_video_get_audio_path, left=0.4, right=0.6)
+        create_button(frame=self.root, text="Start Edit Audio", command=self.create_thread_edit_audio, padx=8)
 
     def choose_audio_edit_file(self):
         audio_edit_path = filedialog.askopenfilename()
@@ -262,12 +480,73 @@ class MainApp:
         edit_audio(audio_path=self.config['audio_edit_path'], video_path=self.config['video_get_audio_path'], video_url=self.config['video_get_audio_url'], speed=self.config['speed'], first_cut_audio=self.config['first_cut_audio'], end_cut_audio=self.config['end_cut_audio'], reversed_audio=self.config['reversed_audio'])
 
 #---------------------------------------------------------------------edit video 9:16
+    def more_edit_video(self):
+        self.reset()
+        self.is_more_edit_video = True
+        self.show_window()
+        self.setting_window_size()
+        self.videos_folder_handle_path = create_frame_button_and_input(self.root, "Choose videos folder", width=self.width, command=self.choose_videos_edit_folder, left=0.4, right=0.6)
+        self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
+        self.choose_zoom_size = create_frame_button_and_input(self.root, text="convert video 16:9 to 9:16", width=self.width, command=lambda: self.convert_videos(is_169_to_916=True), left=0.4, right=0.6, place_holder="Zoom Size")
+        create_button(self.root, text="convert video 9:16 to 16:9", width=self.width, command=lambda: self.convert_videos(is_169_to_916=False))
+        self.segments = create_frame_button_and_input(self.root, "cut_video_by_timeline", width=self.width, command=self.cut_videos_by_timeline, left=0.4, right=0.6)
+        self.choose_is_connect = self.create_settings_input(label_text="Is Connect", values=["Yes", "No"], left=0.4, right=0.6)
+        self.choose_is_connect.set(value="No")
+    
+    def cut_videos_by_timeline(self, segments=None):
+        segments = self.segments.get()
+        if not segments:
+            warning_message("Enter the time intervals to trim the video. For example: 05:50,60:90,...")
+            return
+        videos_folder = self.videos_folder_handle_path.get()
+        self.config['videos_edit_folder'] = videos_folder
+        self.save_config()
+        is_connect = self.choose_is_connect.get() == "Yes"
+        edit_videos = os.listdir(videos_folder)
+        if len(edit_videos) == 0:
+            return
+        list_edit_finished = []
+        for i, video_file in enumerate(edit_videos):
+            if '.mp4' not in video_file:
+                continue
+            video_path = f'{videos_folder}\\{video_file}'
+            is_edit_ok = cut_video_by_timeline(video_path, segments=segments, is_connect=is_connect)
+            if is_edit_ok:
+                list_edit_finished.append(video_file)
+        cnt = len(list_edit_finished)
+        if cnt > 0:
+            notification(f"Successfully edited {cnt} files: {list_edit_finished}")
+
+    def convert_videos(self, is_169_to_916=True):
+        zoom_size = self.choose_zoom_size.get()
+        videos_folder = self.videos_folder_handle_path.get()
+        self.config['videos_edit_folder'] = videos_folder
+        self.save_config()
+        edit_videos = os.listdir(videos_folder)
+        if len(edit_videos) == 0:
+            return
+        list_edit_finished = []
+        for i, video_file in enumerate(edit_videos):
+            if '.mp4' not in video_file:
+                continue
+            video_path = f'{videos_folder}\\{video_file}'
+            if is_169_to_916:
+                # is_edit_ok = convert_video_169_to_916_test(video_path, zoom_size=zoom_size)
+                is_edit_ok = convert_video_169_to_916(video_path, zoom_size=zoom_size)
+            else:
+                is_edit_ok = convert_video_916_to_169(video_path)
+            if is_edit_ok:
+                list_edit_finished.append(video_file)
+        cnt = len(list_edit_finished)
+        if cnt > 0:
+            notification(f"Successfully edited {cnt} files: {list_edit_finished}")
+
     def open_edit_video_window(self):
         self.reset()
         self.is_edit_video_window = True
         self.setting_window_size()
         self.show_window()
-        self.file_name_var, self.start_index_var = self.create_frame_label_input_input("Batch file naming by index", place_holder1="Input file name containing the string <index>", place_holder2="start index")
+        self.file_name_var, self.start_index_var = create_frame_label_input_input(self.root, label_text="Batch file naming by index", width=self.width, place_holder1="Input file name containing the string <index>", place_holder2="start index")
         self.quantity_split_var = self.create_settings_input("Quantity split", "quantity_split", values=["1", "2", "3", "4", "5"])
         self.first_cut_var = self.create_settings_input("First Cut", "first_cut", values=["3", "4", "5"])
         self.end_cut_var = self.create_settings_input("End Cut", "end_cut", values=["3", "4", "5"])
@@ -282,16 +561,16 @@ class MainApp:
         self.top_height_var = self.create_settings_input("Top Overlay Height", "top_height", values=["100", "150", "200"])
         self.bot_height_var = self.create_settings_input("Bot Overlay Height", "bot_height", values=["100", "150", "200"])
         self.is_delete_original_audio_var = self.create_settings_input("Is Delete Original Audio", "is_delete_original_audio", values=["Yes", "No"])
-        self.background_music_path, self.background_music_volume_var = self.create_frame_button_input_input(text="Choose background music", command= self.choose_background_music, place_holder1="background music path", place_holder2="Volume")
-        self.water_path_var = self.create_frame_button_and_input("Choose WaterMask Image", command= self.choose_water_mask_image, left=0.4, right=0.6)
+        self.background_music_path, self.background_music_volume_var = create_frame_button_input_input(self.root,text="Choose background music", width=self.width, command= self.choose_background_music, place_holder1="background music path", place_holder2="Volume")
+        self.water_path_var = create_frame_button_and_input(self.root,text="Choose WaterMask Image", width=self.width, command= self.choose_water_mask_image, left=0.4, right=0.6)
         self.vertical_watermask_position_var = self.create_settings_input("Vertical Watermask Position", "vertical_watermask_position", values=["top", "center", "bottum"])
         self.horizontal_watermask_position_var = self.create_settings_input("Horizontal Watermask Position", "horizontal_watermask_position", values=["left", "center", "right"])
-        self.videos_folder_handle_path = self.create_frame_button_and_input(text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6)
+        self.videos_folder_handle_path = create_frame_button_and_input(self.root,text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         self.background_music_path.insert(0, self.config['background_music_path'])
         self.background_music_volume_var.insert(0, self.config['background_music_volume'])
         self.water_path_var.insert(0, self.config['water_path'])
         self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
-        self.create_button(text="Start Edit Videos", command=self.create_thread_edit_video)
+        create_button(frame=self.root, text="Start Edit Videos", command=self.create_thread_edit_video, width=self.width)
 
     def create_thread_edit_video(self):
         self.list_edit_finished = []
@@ -334,7 +613,6 @@ class MainApp:
             return
 
         self.save_config()
-        edit_videos = os.listdir(video_folder)
         self.batch_file_name = self.file_name_var.get()
         if self.batch_file_name and "<index>" not in self.batch_file_name:
             warning_message("Please enter a file name containing the string \"<index>\"")
@@ -348,6 +626,9 @@ class MainApp:
         else:
             index = 0
         
+        edit_videos = os.listdir(video_folder)
+        if len(edit_videos) == 0:
+            return
         for i, video_file in enumerate(edit_videos):
             if '.mp4' not in video_file:
                 continue
@@ -449,27 +730,12 @@ class MainApp:
     #     self.horizontal_position_var = self.create_settings_input("Horizontal Display", "horizontal_position", values=["left", "center", "right"])
     #     self.min_time_to_change_zoom_var = self.create_settings_input("Min Time To Change Zoom", "min_time_to_change_zoom", values=["3", "4", "5"])
     #     self.max_time_to_change_zoom_var = self.create_settings_input("Max Time To Change Zoom", "max_time_to_change_zoom", values=["5", "10", "15"])
-    #     self.background_music_path = self.create_frame_button_and_input(text="Choose background music", command= self.choose_background_music, left=0.4, right=0.6)
+    #     self.background_music_path = create_frame_button_and_input(self.root,text="Choose background music", command= self.choose_background_music, left=0.4, right=0.6)
     #     self.background_music_volume_var = self.create_settings_input("Background music volume", "background_music_volume", values=["5", "10", "15"])
-    #     self.videos_folder_handle_path = self.create_frame_button_and_input(text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6)
+    #     self.videos_folder_handle_path = create_frame_button_and_input(self.root,text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6)
     #     self.background_music_path.insert(0, self.config['background_music_path'])
     #     self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
-    #     self.create_button(text="Start Edit Videos", command=self.create_thread_edit_video)
-
-    def choose_background_music(self):
-        background_music_path = filedialog.askopenfilename()
-        self.background_music_path.delete(0, ctk.END)
-        self.background_music_path.insert(0, background_music_path)
-
-    def choose_videos_edit_folder(self):
-        videos_edit_folder = filedialog.askdirectory()
-        self.videos_folder_handle_path.delete(0, ctk.END)
-        self.videos_folder_handle_path.insert(0, videos_edit_folder)
-
-    def choose_water_mask_image(self):
-        water_mask_image = filedialog.askopenfilename()
-        self.water_path_var.delete(0, ctk.END)
-        self.water_path_var.insert(0, water_mask_image)
+    #     create_button(frame=self.root, text="Start Edit Videos", command=self.create_thread_edit_video)
 
     # def create_thread_edit_video(self):
     #     self.list_edit_finished = []
@@ -575,59 +841,67 @@ class MainApp:
     #         getlog()
     #         return False
 
-#---------------------------------------------------------------------Các Hàm common
+#---------------------------------------------------------------------Các Hàm gọi chung
     def open_common_settings(self):
         pass
 
-    def create_settings_input(self, label_text, config_key, values=None, is_textbox = False, left=0.4, right=0.6, add_combobox = False):
-        frame = self.create_frame()
-        self.create_label(frame, text=label_text, side=LEFT, width=self.width*left, anchor='w')
+    def choose_background_music(self):
+        background_music_path = filedialog.askopenfilename()
+        self.background_music_path.delete(0, ctk.END)
+        self.background_music_path.insert(0, background_music_path)
+
+    def choose_videos_edit_folder(self):
+        videos_edit_folder = filedialog.askdirectory()
+        self.videos_folder_handle_path.delete(0, ctk.END)
+        self.videos_folder_handle_path.insert(0, videos_edit_folder)
+
+    def choose_water_mask_image(self):
+        water_mask_image = filedialog.askopenfilename()
+        self.water_path_var.delete(0, ctk.END)
+        self.water_path_var.insert(0, water_mask_image)
+
+    def create_settings_input(self, label_text, config_key=None, values=None, is_textbox = False, left=0.4, right=0.6, add_button=False, text=None, command=None):
+        frame = create_frame(self.root)
+        if add_button:
+            create_button(frame= frame, text=text, command=command, width=0.2, side=RIGHT)
+        create_label(frame, text=label_text, side=LEFT, width=self.width*left, anchor='w')
 
         if values:
-            val = self.config[config_key]
-            if self.config[config_key] == True:
-                val = "Yes"
-            elif self.config[config_key] == False:
-                val = "No"
+            if not config_key:
+                val = ""
+            elif config_key not in self.config:
+                val = ""
+            else:
+                val = self.config[config_key]
+                if self.config[config_key] == True:
+                    val = "Yes"
+                elif self.config[config_key] == False:
+                    val = "No"
             var = ctk.StringVar(value=str(val))
 
             combobox = ctk.CTkComboBox(frame, values=values, variable=var, width=self.width*right)
             combobox.pack(side="right", padx=padx)
+            # combobox.set(val)
             if config_key == "category_id":
                 combobox.set(val[0])
             setattr(self, f"{config_key}_var", var)
-            return combobox
-        
+            result = combobox
         elif is_textbox:
             textbox = ctk.CTkTextbox(frame, height=120, width=self.width*right)
             textbox.insert("1.0", self.config[config_key])  # Đặt giá trị ban đầu vào textbox
             textbox.pack(side=RIGHT, padx=padx)
-            return textbox
+            result = textbox
         else:
-            var = self.config[config_key]
+            if not config_key:
+                var = ""
+            else:
+                var = self.config[config_key]
             entry = ctk.CTkEntry(frame, width=self.width*right)
             entry.pack(side="right", padx=padx)
             entry.insert(0, var)
             setattr(self, f"{config_key}_var", var)
-            return entry
-#------------------------------------------------------------------------------------------------------------------------------
-
-    def translate_to_vi(self, original):
-        if original:
-            original = original.strip().lower()
-            if "_" in original:
-                original = original.replace("_", " ")
-            if "-" in original:
-                original = original.replace("-", " ")
-            try:
-                translation = self.translator.translate(original)
-                translation = re.sub(r"\(.*?\)", "", translation)
-                return original, translation
-            except Exception as e:
-                print(f"An error occurred during translation: {e}")
-                return None, None
-        else:
-            return None, None
+            result = entry
+        return result
         
 
 #--------------------------------------------------------------------------------------------------------------------------------------
@@ -638,106 +912,14 @@ class MainApp:
         self.is_facebook_window= False
         self.is_edit_video_window= False
         self.is_edit_video_window= False
+        self.is_add_new_channel_id= False
+        self.is_sign_up_facebook = False
+        self.is_sign_up_tiktok = False
         self.clear_after_action()
-        self.clear_widgets()
+        clear_widgets(self.root)
 
     def clear_after_action(self):
         self.root.withdraw()
-
-    def clear_widgets(self):
-        for widget in self.root.winfo_children():
-            widget.pack_forget()
-
-    def create_button_icon( self, frame = None, command=None, image=None, side=None, width=60):
-        button = ctk.CTkButton( master=frame, text="", command=command, image=image, width=width)
-        if side:
-            button.pack(side=side, padx=0, pady=0)
-        else:    
-            button.pack(padx=0, pady=0)
-        return button
-    def create_button( self, frame = None, text="", command=None, width=0, height=height_element, compound="left", anchor="center", image=None, side=None, pady=pady, padx=padx):
-        if width == 0:
-            width = self.width
-        if frame:
-            button = ctk.CTkButton( frame, text=text, command=command, image=image, font=self.font_button, width=width, height= height_element, compound=compound, anchor=anchor, )
-        else:
-            button = ctk.CTkButton( self.root, text=text, command=command, image=image, font=self.font_button, width=width, height= height_element, compound=compound, anchor=anchor, )
-        if side:
-            button.pack(side=side, pady=pady, padx=padx)
-        else:    
-            button.pack(pady=pady, padx=padx)
-        return button
-
-    def create_label( self, frame=None, text="", compound="center", anchor="w", width=None, height=height_element, wraplength=None, side=None):
-        if not width:
-            width = self.width
-        wraplength = max(400, self.text_show_width - 20)
-        if frame:
-            label = ctk.CTkLabel( frame, text=text, font=self.font_label, width=width, height= height_element, wraplength=wraplength, anchor=anchor, compound=compound)
-        else:
-            label = ctk.CTkLabel( self.root, text=text, font=self.font_label, width=width, height= height_element, wraplength=wraplength, anchor=anchor, compound=compound)
-        if side:
-            label.pack(side=side, pady=pady, padx=padx)
-        else:
-            label.pack(pady=pady, padx=padx)
-        return label
-
-    def create_frame(self, fill='x', side=None):
-        frame = ctk.CTkFrame(self.root, height=height_element*0.9)
-        frame.pack(padx=padx, pady=pady, fill=fill, side=side)
-        return frame
-
-    def create_text_input(self, frame, width=None, placeholder=None, side="right", default=""):
-        if not width:
-            width = self.width
-        text_input = ctk.CTkEntry(master=frame, width=width, height=height_element*0.8, placeholder_text=placeholder, textvariable=default)
-        text_input.pack(pady=pady, padx=padx, side=side)
-        return text_input
-    
-    def create_frame_label_input_input(self, label_text="", place_holder1=None, place_holder2=None, left=0.3, mid=0.575, right=0.125):
-        frame = self.create_frame()
-        label = self.create_label(frame=frame, text=label_text, side=LEFT, width=self.width*left, compound=LEFT, anchor='w')
-        entry1 = self.create_text_input(frame=frame, width=self.width*mid, placeholder=place_holder1, side=RIGHT)
-        entry2 = self.create_text_input(frame=frame, width=self.width*right, placeholder=place_holder2)
-        return entry1, entry2
-    def create_frame_label_and_input(self, label_text="", place_holder=None, left=left, right=right):
-        frame = self.create_frame()
-        label = self.create_label(frame=frame, text=label_text, side=LEFT, width=self.width*left, compound=LEFT, anchor='center')
-        entry = self.create_text_input(frame=frame, width=self.width*right, placeholder=place_holder)
-        return entry
-    def create_frame_label_and_progress_bar(self, frame, label_text="", left=left, right=right):
-        label = self.create_label(frame=frame, text=label_text, side=LEFT, width=self.width*left, compound=LEFT)
-        processbar = self.create_progress_bar(frame=frame, width=self.width*right, side=RIGHT)
-        return frame, processbar
-    def create_progress_bar(self, frame=None, width=None):
-        if not frame:
-            frame = self.root
-        if not width:
-            width = self.width
-        processbar = ctk.CTkProgressBar(master=frame, width=width)
-        processbar.pack(padx=padx, pady=pady)
-        return processbar
-    def create_frame_button_input_input(self, text, place_holder1=None, place_holder2=None, command=None, left=0.25, mid=0.575, right=0.165):
-        frame = self.create_frame()
-        button = self.create_button(frame=frame, text=text, width=self.width*left, side=LEFT, command=command)
-        entry1 = self.create_text_input(frame, width=self.width*mid, placeholder=place_holder1, side=RIGHT)
-        entry2 = self.create_text_input(frame, width=self.width*right, placeholder=place_holder2)
-        return entry1, entry2
-    def create_frame_button_and_input(self, text, place_holder=None, command=None, left=left, right=right):
-        frame = self.create_frame()
-        button = self.create_button(frame=frame, text=text, width=self.width*left, side=LEFT, command=command)
-        entry = self.create_text_input(frame, width=self.width*right, placeholder=place_holder)
-        return entry
-    def create_frame_button_and_combobox(self, text, command=None, values=None, variable=None, left=left, right=right):
-        frame = self.create_frame()
-        button = self.create_button(frame=frame, text=text, width=self.width*left, side=LEFT, command=command)
-        combobox = self.create_combobox(frame, width=self.width*right, side=RIGHT, values=values, variable=variable)
-        return combobox
-    def create_frame_button_and_button(self, text1, text2, command1=None, command2=None, left=left, right=right):
-        frame = self.create_frame()
-        button1 = self.create_button(frame=frame, text=text1, width=self.width*left , side=LEFT, command=command1)
-        button2 = self.create_button(frame=frame, text=text2, width=self.width*right -15, side=RIGHT, command=command2)
-        return button1, button2
     
     def load_translate(self):
         from_language = self.config["from_language"]
@@ -759,7 +941,6 @@ class MainApp:
         
     def create_icon(self):
         try:
-            # icon_path = get_file_path("icon.png")
             icon_path = os.path.join(current_dir, 'icon.png')
             if not os.path.exists(icon_path):
                 icon_path = None
@@ -767,6 +948,9 @@ class MainApp:
             image = self.create_image(icon_path)
             menu = (
                 item("Open Menu", self.get_start_window),
+                item("Stop Download", self.stop_download),
+                item("Stop Upload", self.stop_upload),
+                item("Stop All Process", self.stop_all_process),
                 item("Exit", self.exit_app),
             )
             self.icon = pystray.Icon("Smart Reminder", image, "Smart Reminder", menu)
@@ -775,6 +959,28 @@ class MainApp:
             tray_thread.start()
         except:
             getlog()
+
+    def stop_download(self):
+        if self.youtube:
+            self.youtube.is_stop_download = True
+        if self.facebook:
+            self.facebook.is_stop_download = True
+        if self.tiktok:
+            self.tiktok.is_stop_download = True
+    def stop_upload(self):
+        if self.youtube:
+            self.youtube.is_stop_upload = True
+        if self.facebook:
+            self.facebook.is_stop_upload = True
+        if self.tiktok:
+            self.tiktok.is_stop_upload = True
+
+    def stop_all_process(self):
+        self.stop_download()
+        self.stop_upload()
+        self.youtube = None
+        self.facebook = None
+        self.tiktok = None
 
     def create_image(self, icon_path=None):
         if icon_path:
@@ -817,71 +1023,71 @@ class MainApp:
     def setting_window_size(self):
         if self.is_start_app:
             self.width = 500
-            self.height_window = 570
+            self.height_window = 630
         else:
             if self.is_setting:
                 self.root.title("Setting")
                 self.width = 300
                 self.height_window = 600
                 self.is_setting = False
-            # elif self.is_edit_video_window:
-            #     self.root.title("Edit Videos 16:9")
-            #     self.width = 500
-            #     self.height_window = 950
-            #     self.is_edit_video_window = False
+            elif self.is_add_new_channel_id:
+                self.root.title("Add New Youtube Channel")
+                self.width = 500
+                self.height_window = 400
+            elif self.is_setting_auto_upload:
+                self.root.title("Setting Auto Upload")
+                self.width = 500
+                self.height_window = 300
+                self.is_setting_auto_upload = False
             elif self.is_edit_video_window:
                 self.root.title("Edit Videos 9:16")
-                self.width = 800
+                self.width = 700
                 self.height_window = 1080
                 self.is_edit_video_window = False
             elif self.is_edit_audio_window:
                 self.root.title("Edit Audio")
                 self.width = 500
-                self.height_window = 550
+                self.height_window = 460
                 self.is_edit_audio_window = False
+            elif self.is_more_edit_video:
+                self.root.title("More Edit Video")
+                self.width = 500
+                self.height_window = 460
+                self.is_more_edit_video = False
+            elif self.is_facebook_window:
+                self.root.title("Facebook Window")
+                self.width = 500
+                self.height_window = 300
+                self.is_facebook_window = False
+            elif self.is_sign_up_facebook:
+                self.root.title("Sign Up")
+                self.width = 500
+                self.height_window = 300
+                self.is_sign_up_facebook = False
+            elif self.is_tiktok_window:
+                self.root.title("Tiktok Window")
+                self.width = 500
+                self.height_window = 300
+                self.is_tiktok_window = False
+            elif self.is_sign_up_tiktok:
+                self.root.title("Sign Up")
+                self.width = 500
+                self.height_window = 300
+                self.is_sign_up_tiktok = False
             else:
                 self.width = 500
                 self.height_window = 500
         self.setting_screen_position()
-    # Hàm để thêm ứng dụng vào danh sách khởi động cùng Windows
-    def set_autostart(self):
-        try:
-            # Lấy đường dẫn tới file app.py
-            script_path = os.path.abspath(sys.argv[0])
-            key = winreg.HKEY_CURRENT_USER
-            key_value = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-            key_path = "VocabularyReminder"
-            with winreg.OpenKey(
-                key, key_value, 0, winreg.KEY_SET_VALUE
-            ) as registry_key:
-                winreg.SetValueEx(registry_key, key_path, 0, winreg.REG_SZ, script_path)
-        except Exception as e:
-            print(f"Could not set autostart: {e}")
-
-    # Hàm để xóa ứng dụng khỏi danh sách khởi động cùng Windows
-    def unset_autostart(self):
-        try:
-            key = winreg.HKEY_CURRENT_USER
-            key_value = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
-            key_path = "VocabularyReminder"
-            with winreg.OpenKey(
-                key, key_value, 0, winreg.KEY_SET_VALUE
-            ) as registry_key:
-                winreg.DeleteValue(registry_key, key_path)
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            print(f"Could not unset autostart: {e}")
 
     def open_text_to_mp3_window(self):
         self.reset()
         self.is_text_to_speech = True
         self.setting_window_size()
         self.is_text_to_speech = False
-        self.create_button(text="Choose place to save the file", command= self.choose_directory_save_mp3_file)
-        self.create_button(text="Choose file want to convert", command= self.choose_directory_get_txt_file)
-        self.create_button(text="Convert line by line to mp3", command= self.convert_line_by_line_to_mp3)
-        self.create_button(text="convert", command= self.text_to_mp3)
+        create_button(frame=self.root, text="Choose place to save the file", command= self.choose_directory_save_mp3_file)
+        create_button(frame=self.root, text="Choose file want to convert", command= self.choose_directory_get_txt_file)
+        create_button(frame=self.root, text="Convert line by line to mp3", command= self.convert_line_by_line_to_mp3)
+        create_button(frame=self.root, text="convert", command= self.text_to_mp3)
         self.show_window()
 
     def choose_directory_save_mp3_file(self):

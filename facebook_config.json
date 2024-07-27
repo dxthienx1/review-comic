@@ -1,0 +1,18 @@
+{
+   "registered_account": [
+      "badboymmo1901@gmail.com",
+      "dxthienx2@gmail.com"
+   ],
+   "template": {
+      "Super Review": {
+         "account": "badboymmo1901@gmail.com",
+         "password": "thien191!",
+         "upload_folder": "E:/Python/developping/Super-Social-Media/test",
+         "publish_times": "01:00:AM,07:30:AM, 07:30:PM",
+         "title": "",
+         "description": "#phim #phimreview #phimhay #phimanime #reviewphim  #reviewphimhay #reviewanime #phimanime #phimhoathinh #phimhoathinhnhatban #topphim #phimhaynhat #phimmoinhay",
+         "is_title_plus_video_name": true,
+         "upload_date": "2024-07-29"
+      }
+   }
+}

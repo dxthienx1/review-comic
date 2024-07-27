@@ -1,0 +1,24 @@
+{
+   "dxthienx10@gmail.com": {
+      "Session": "oihvlh:1721825618042",
+      "ares_last_signal_flush": "1720961571931",
+      "armadillo_msgr_local_takeover": "8ac3te",
+      "armadillo_msgr_mutex": "8ac3te",
+      "banzai:last_storage_flush": "1721825427450.7",
+      "bdz_playback_state": "{\"session_key\":\"lylk33h7\",\"buffer_length\":60}",
+      "hb_timestamp": "1721825408678",
+      "mw_encrypted_backups_restore_upsell_first_impression_time_key": "1721825571573",
+      "signal_flush_timestamp": "1721825408701"
+   },
+   "badboymmo1901@gmail.com": {
+      "Session": "sfvptf:1721826776378",
+      "ares_last_signal_flush": "1720962685598",
+      "armadillo_msgr_local_takeover": "zky4i2",
+      "armadillo_msgr_mutex": "zky4i2",
+      "banzai:last_storage_flush": "1721826687713.3",
+      "bdz_playback_state": "{\"session_key\":\"lylkqyse\",\"buffer_length\":60}",
+      "hb_timestamp": "1721826666437",
+      "mw_encrypted_backups_restore_upsell_first_impression_time_key": "1721826686667",
+      "signal_flush_timestamp": "1721826666454"
+   }
+}

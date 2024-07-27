@@ -10,31 +10,19 @@ def load_config():
     else:
         config = {
             "registered_gmails":["dxthienx2@gmail.com", "dxthienx10@gmail.com", "tranhangbk.001@gmail.com", "tranghangbk.002@gmail.com"],
-            "registered_channel":["Trắc nghiệm IQ", "BrainTraining", "NhungDieuThuVi", "KnowledgeAroundUs", "the_interesting_things_02", "Animal_Funny_Version", "Animal Funny Best Version"],
-            "output_folder":"",
+            "registered_channel":["UCw84Zm5eXZHTMONt_OiqRXA", "UCxBuEz6aETSTRB55MoV9pKA", "UChWQUjInuNW5rVWvVlN-mJg", "UC9D6E5sCF2wGx1ApLEnr5XQ", "UCgxzKC2hwgkod7Xb2Lpb5uA"],
+            "auto_channel_id":"",
             "download_folder":"",
-            "finish_upload_folder":"",
-            "finish_edit_folder":"",
+            "output_folder":"",
             "from_language": "en-us",
             "to_language": "vi",
             "auto_start": False,
 
             "current_gmail": "dxthienx2@gmail.com",
-            "current_channel": "Trắc nghiệm IQ",
-            "current_channel_id": "UCYJd1eetbGhbwJ8A9TP2Eiw",
-            "is_title_plus_video_name": False,
-            "title": "gg",
-            "description": "Let's equip our minds with the most powerful tools - The knowledge! \nFollow me now !",
-            "tags": "shorts,howto,KnowledgeQuiz,BrainTraining,EducationalQuiz,Braintest,CriticalThinking,MindChallenge,LearnWithFun,IntellectualGrowth,SmartLearning,BoostYourBrain,QuizMaster,EducationMatters,KnowledgeBoost,QuizChallenge,BrainWorkout,ThinkSmart,QuizFun,LearningJourney,TriviaTime,KnowledgeIsPower,Quiz,education,learning,trendingvideo,xuhuong2024,Knowledge,upgradebrain,upgradeknowlege,upgrademindset,upgrademind,supplementknowledge,improveyourself ,perfectyourself",
-            "category_id": "27",
-            "privacy_status": "private",
-            "license": "creativeCommon",
-            "selfDeclaredMadeForKids": False,
-            "thumbnail_file": "",
-            "upload_folder": "",
-            "start_date": "2024-07-20",
-            "publish_times": "01:00:00,09:00:00,19:00:00",
-            "is_delete_video": False,
+            "current_tiktok_account": "dxthienx2@gmail.com",
+            "current_facebook_account": "dxthienx2@gmail.com",
+            "current_channel": "",
+            "current_channel_id": "",
 
             "download_by_video_url": "",
             "download_by_channel_id": "",
@@ -74,7 +62,6 @@ def load_config():
             "audio_edit_path": "", 
             "video_get_audio_path": "", 
             "video_get_audio_url": "", 
-            
 
             "supported_languages": {
                 "ar": "Arabic",

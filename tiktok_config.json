@@ -1,0 +1,20 @@
+{
+   "output_folder": "",
+   "download_by_channel_url": "",
+   "filter_by_like": 20000,
+   "filter_by_views": 500000,
+   "template": {
+      "dxthienx1@gmail.com": {
+         "account": "dxthienx1@gmail.com",
+         "password": "thien191!",
+         "upload_folder": "",
+         "publish_times": "",
+         "title": "",
+         "is_title_plus_video_name": false,
+         "upload_date": "2024-07-27"
+      }
+   },
+   "registered_account": [
+      "dxthienx1@gmail.com"
+   ]
+}

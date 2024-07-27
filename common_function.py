@@ -11,10 +11,10 @@ from time import sleep, time
 from tzlocal import get_localzone
 import subprocess
 import hashlib
-import ctypes
 import threading
 import traceback
 import pyttsx3
+import winreg
 from moviepy.video.fx.all import resize, crop, mirror_x
 from moviepy.video.fx.speedx import speedx
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, afx, vfx, TextClip, CompositeVideoClip, ImageClip, ColorClip
@@ -25,21 +25,21 @@ import requests
 import speech_recognition as sr
 from pydub import AudioSegment
 from unidecode import unidecode
-from tkinter import messagebox, filedialog
-import customtkinter as ctk
 import yt_dlp
 import portalocker
-
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium_stealth import stealth
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from common_function_CTK import warning_message
 
 current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(current_dir)
 icon_path = os.path.join(current_dir, 'icon.png')
-youtube_info_path = os.path.join(current_dir, 'youtube_info.json')
 config_path = os.path.join(current_dir, 'config.json')
 output_folder = f'{current_dir}\\output_folder'
 secret_path = os.path.join(current_dir, 'secret.json')
@@ -48,24 +48,17 @@ templates_path = os.path.join(current_dir, 'templates.json')
 download_folder = f"{current_dir}\\downloads"
 test_folder = f'{current_dir}\\test'
 finish_folder = f"{current_dir}\\finish"
+local_storage_path = os.path.join(current_dir, 'local_storage.json')
+cookies_path = os.path.join(current_dir, 'cookies.json')
+youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
+tiktok_config_path = os.path.join(current_dir, 'tiktok_config.json')
+facebook_config_path = os.path.join(current_dir, 'facebook_config.json')
+
 
 if not os.path.exists(download_folder):
     os.makedirs(download_folder)
 if not os.path.exists(finish_folder):
     os.makedirs(finish_folder)
-
-padx = 5
-pady = 2
-font_size = 14
-height_element = 40
-user32 = ctypes.windll.user32
-screen_width = user32.GetSystemMetrics(0)
-screen_height = user32.GetSystemMetrics(1)
-LEFT = 'left'
-left = 1/4
-right = 3/4
-RIGHT = 'right'
-CENTER = 'center'
 
 ffmpeg_dir = os.path.join(os.path.dirname(__file__), "ffmpeg", "bin")
 # Cập nhật đường dẫn PATH trong mã Python
@@ -73,6 +66,30 @@ os.environ["PATH"] += os.pathsep + ffmpeg_dir
 # Đảm bảo rằng pydub có thể tìm thấy ffmpeg
 AudioSegment.converter = os.path.join(ffmpeg_dir, "ffmpeg.exe")
 
+def convert_date_format_yyyymmdd_to_mmddyyyy(date_str):
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    formatted_date = date_obj.strftime("%m/%d/%Y")
+    return formatted_date
+
+def is_format_date_yyyymmdd(date_str, daydelta=None):
+    # Kiểm tra định dạng ngày bằng biểu thức chính quy
+    date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    if not date_pattern.match(date_str):
+        return False, "Invalid date format"
+    if timedelta:
+        try:
+            # Chuyển đổi từ chuỗi ngày sang đối tượng datetime
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            return False, "Invalid date format"
+
+        # Lấy ngày hiện tại
+        current_date = datetime.now()
+        
+        # Kiểm tra khoảng cách giữa ngày nhập vào và ngày hiện tại
+        if date_obj > current_date + timedelta(days=daydelta):
+            return False, "Date is more than 30 days in the future"
+    return True, "Valid date"
 
 def convert_time_to_UTC(year, month, day, hour, minute, second=0, iso8601=True):
     local_tz = get_localzone()
@@ -122,20 +139,55 @@ def get_file_path(file_name=None):
         return os.path.join(file_parent_path, file_name)
     else:
         return file_parent_path
+# Hàm để thêm ứng dụng vào danh sách khởi động cùng Windows
+def set_autostart():
+    try:
+        # Lấy đường dẫn tới file app.py
+        script_path = os.path.abspath(sys.argv[0])
+        key = winreg.HKEY_CURRENT_USER
+        key_value = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+        key_path = "VocabularyReminder"
+        with winreg.OpenKey(
+            key, key_value, 0, winreg.KEY_SET_VALUE
+        ) as registry_key:
+            winreg.SetValueEx(registry_key, key_path, 0, winreg.REG_SZ, script_path)
+    except Exception as e:
+        print(f"Could not set autostart: {e}")
+# Hàm để xóa ứng dụng khỏi danh sách khởi động cùng Windows
+def unset_autostart():
+    try:
+        key = winreg.HKEY_CURRENT_USER
+        key_value = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+        key_path = "VocabularyReminder"
+        with winreg.OpenKey(
+            key, key_value, 0, winreg.KEY_SET_VALUE
+        ) as registry_key:
+            winreg.DeleteValue(registry_key, key_path)
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"Could not unset autostart: {e}")
 
+def translate_now(translator, original):
+    if original:
+        original = original.strip().lower()
+        if "_" in original:
+            original = original.replace("_", " ")
+        if "-" in original:
+            original = original.replace("-", " ")
+        try:
+            translation = translator.translate(original)
+            translation = re.sub(r"\(.*?\)", "", translation)
+            return translation
+        except Exception as e:
+            print(f"An error occurred during translation: {e}")
+            return None
+    else:
+        return None
+    
 def convert_sang_tieng_viet_khong_dau(input_str):
     convert_text = unidecode(input_str)
     return re.sub(r'[\\/*?:"<>|]', "", convert_text)
-
-
-def message_box(title, message):
-    messagebox.askquestion(title=title, message=message)
-def notification(message):
-    messagebox.askquestion(title="Notification", message=message)
-def warning_message(message):
-    messagebox.askquestion(title="WARNING", message=message)
-def error_message(message):
-    messagebox.askquestion(title="ERROR", message=message)
 
 def remove_file(file_path):
     if os.path.exists(file_path):
@@ -396,8 +448,8 @@ def edit_audio(audio_path=None, video_path=None, video_url=None, reversed_audio=
         output_folder, output_audio_path, file_name = get_output_folder(video_path)
         audio_clip = get_audio_clip_from_video(video_path)
     elif video_url:
-        video_path = download_video_by_url(video_url)
         output_folder, output_audio_path, file_name = get_output_folder(video_path)
+        video_path = download_video_by_url(video_url, output_folder)
         audio_clip = get_audio_clip_from_video(video_path)
     else:
         warning_message("Vui lòng chọn nguồn để edit video")
@@ -457,8 +509,10 @@ def get_output_folder(input_video_path):
     file_name = os.path.basename(input_video_path)
     output_folder = f'{folder_input}\\output_folder'
     os.makedirs(output_folder, exist_ok=True)
+    finish_folder = f'{folder_input}\\finish_folder'
+    os.makedirs(finish_folder, exist_ok=True)
     output_file_path = f'{output_folder}\\{file_name}'
-    return output_folder, output_file_path, file_name
+    return output_folder, output_file_path, file_name, finish_folder
 
 #Áp dụng cho tất cả url
 def download_video_by_url(url, download_folder=output_folder):
@@ -532,8 +586,119 @@ def download_video_no_watermask_from_tiktok(video_url, download_folder=output_fo
         except:
             getlog()
 
+    
+def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1280", is_move=False):
+    try:
+        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
+        move_file_path = f"{finish_folder}\\{file_name}"
+        video = VideoFileClip(input_video_path)
+        width, height = video.size
+        if zoom_size:
+            zoom_size = float(zoom_size)
+            zoomed_video = video.resize(zoom_size)
+        else:
+            # Tính toán tỷ lệ zoom để đảm bảo không hụt chiều cao
+            new_height = height
+            new_width = height * 9 / 16
+            if new_width > width:
+                new_width = width
+                new_height = width * 16 / 9
 
+            zoom_factor = new_height / height
+            zoomed_video = video.resize(zoom_factor)
+        # Thêm lớp màu đen vào video để đạt được tỷ lệ 9:16 mà không kéo giãn video
+        resolution = list(map(int, resolution.split('x')))
+        background = ColorClip(size=resolution, color=(0, 0, 0), duration=video.duration)
+        
+        zoomed_width, zoomed_height = zoomed_video.size
+        x_pos = (resolution[0] - zoomed_width) / 2
+        y_pos = (resolution[1] - zoomed_height) / 2
 
+        final_video = CompositeVideoClip([background, zoomed_video.set_position((x_pos, y_pos))], size=resolution)
+        final_video.write_videofile(output_file_path, codec='libx264', audio_codec='aac')
+        
+        try:
+            final_video.close()
+            zoomed_video.close()
+            video.close()
+            if is_move:
+                shutil.move(input_video_path, move_file_path)
+        except:
+            getlog()
+        return True
+    except:
+        getlog()
+        return False
+
+def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_move=False):
+    try:
+        if not resolution:
+            resolution = '1920x1080'
+        resolution = resolution.split('x')
+        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
+        move_file_path = f"{finish_folder}\\{file_name}"
+        video = VideoFileClip(input_video_path)
+        input_width, input_height = video.size
+        new_height = input_width * 9 / 16
+        if new_height <= input_height:
+            # Crop video từ giữa theo chiều cao
+            y1 = (input_height - new_height) / 2
+            y2 = y1 + new_height
+            cropped_video = video.crop(x1=0, x2=input_width, y1=y1, y2=y2)
+        else:
+            # Thêm viền đen để giữ nguyên cảnh quay
+            new_width = input_height * 16 / 9
+            black_bar = ColorClip(size=(int(new_width), input_height), color=(0, 0, 0))
+            video = video.set_position(("center", "center"))
+            cropped_video = CompositeVideoClip([black_bar, video]).set_duration(video.duration)
+        resized_video = cropped_video.resize(newsize=(resolution[0], resolution[1]))
+        resized_video.write_videofile(output_file_path, codec='libx264', audio_codec='aac')
+        try:
+            resized_video.close()
+            video.close()
+            if is_move:
+                shutil.move(input_video_path, move_file_path)
+        except:
+            getlog()
+        return True
+    except:
+        getlog()
+        return False
+
+def cut_video_by_timeline(input_video_path, segments, is_connect):
+    try:
+        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
+        move_file_path = f"{finish_folder}\\{file_name}"
+        
+        # Tạo danh sách các đoạn video cắt ra
+        segments = segments.split(',')
+        clips = []
+        i = 0
+        for segment in segments:
+            video = VideoFileClip(input_video_path)
+            segment = segment.strip()
+            start, end = map(int, segment.split(':'))
+            clip= video.subclip(start, end)
+            if is_connect:
+                clips.append(clip)
+                clip.close()
+                video.close()
+                sleep(1)
+            else:
+                i += 1
+                file_path = f"{output_folder}\\{file_name.split('.')[0]}_{i}.mp4"
+                clip.write_videofile(file_path, codec='libx264')
+                clip.close()
+                sleep(2)
+                video.close()
+        try:
+            shutil.move(input_video_path, move_file_path)
+        except Exception as e:
+            # getlog()
+            print(f"Lỗi khi di chuyển tệp: {e}")
+    except Exception as e:
+        getlog()
+        warning_message("Có lỗi trong quá trình cắt video")
 
 
 
@@ -559,4 +724,41 @@ def download_video_no_watermask_from_tiktok(video_url, download_folder=output_fo
 #         # In nội dung phụ đề
 #         print("Subtitle content:")
 #         print(subtitle_content)
+
+def get_xpath(maintag, class_name, attribute=None, attribute_value=None):
+    if attribute and attribute_value:
+        xpath = f"//{maintag}[@class=\"{class_name}\" and @{attribute}=\"{attribute_value}\"]"
+    else:
+        xpath = f"//{maintag}[@class=\"{class_name}\"]"
+    return xpath
+def get_xpath_by_multi_attribute(maintag, attributes):
+    attribute = " and @".join(attributes)
+    attribute = f"@{attribute}"
+    xpath = f"//{maintag}[{attribute}]"
+    return xpath
+
+def get_element_by_xpath(self, xpath, key=None):
+    kq = []
+    cnt=0
+    while(len(kq)==0):
+        cnt+=1
+        elements = self.driver.find_elements(By.XPATH, xpath)
+        if key:
+            key = key.lower()
+            for ele in elements:
+                if key in ele.accessible_name.lower() or key in ele.text.lower() or key in ele.tag_name.lower() or key in ele.aria_role.lower():
+                    kq.append(ele)
+                    break
+            if len(kq) > 0:
+                return kq[0]
+            else:
+                return None
+        else:
+            if len(elements) > 0:
+                ele = elements[0]
+                return ele
+        sleep(1)
+        if cnt > 10:
+            print(f"Không tìm thấy: {key}: {xpath}")
+            break
 
