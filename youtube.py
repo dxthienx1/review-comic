@@ -16,50 +16,37 @@ YOUTUBE_API_VERSION = "v3"
 
 #-----------------------------------------------------------------------------------------------------------------
 class YouTubeManager():
-    def __init__(self, config, secret_info, gmail, channel_id, is_auto_upload=False, lock=None, download_thread=None, upload_thread=None):
+    def __init__(self, gmail, channel_name, is_auto_upload=False, lock=None, download_thread=None, upload_thread=None):
         # if lock:
         #     self.lock = lock
         # else:
         #     lock = threading.Lock()
-        self.download_thread = download_thread
-        self.upload_thread = upload_thread
-        self.config = config
-        self.secret_info = secret_info
-        self.gmail = gmail
-        self.channel_id = channel_id
-        self.is_auto_upload = is_auto_upload
-        self.youtube = self.get_authenticated_service()
-        if not self.youtube:
-            return
-        else:
-            if gmail not in self.config['registered_gmails']:
-                self.config['registered_gmails'].append(gmail)
-            if channel_id not in self.config['registered_channel']:
-                self.config['registered_channel'].append(channel_id)
-            self.save_config()
         self.root = ctk.CTk()
+        self.is_auto_upload = is_auto_upload
         if not is_auto_upload:
             self.title = self.root.title(gmail)
-            sfont_label = ctk.CTkFont(family="Arial", size=font_size)
-            font_button = ctk.CTkFont( family="Arial", size=font_size, weight="bold" )
             self.root.protocol("WM_DELETE_WINDOW", self.on_close)
             self.width = width_window
             self.is_start_youtube = True
+        self.download_thread = download_thread
+        self.upload_thread = upload_thread
+        self.gmail = gmail
+        self.channel_name = channel_name
+        self.get_youtube_config()
+        self.youtube = self.get_authenticated_service()
+        if not self.youtube:
+            return
 
 
-        self.templates = get_json_data(templates_path)
-        if not self.templates:
-            self.templates = {}
-        if self.channel_id not in self.templates:
-            self.templates[self.channel_id] = {}
             
         self.pre_time_check_status = 0
-        if self.gmail not in self.config:
-            self.config[self.gmail] = {}
-        if "cnt_request_upload" not in self.config[self.gmail]:
-            self.config[self.gmail]['cnt_request_upload'] = 0
+        if self.gmail not in self.youtube_config:
+            self.youtube_config[self.gmail] = {}
+        if "cnt_request_upload" not in self.youtube_config[self.gmail]:
+            self.youtube_config[self.gmail]['cnt_request_upload'] = 0
 
         self.list_waiting_dowload_videos = []
+        self.list_videos_download_from_channel = []
         self.list_videos_detail = []
         self.list_video_ids_delete = []
         self.validate_message = ""
@@ -74,9 +61,31 @@ class YouTubeManager():
         self.is_stop_download = False
         self.is_stop_upload = False
 
-    def load_secret(self):
-        self.oauth_path = self.secret_info[self.gmail]["oauth_path"]
-        self.api_key = self.secret_info[self.gmail]["api"]
+    def get_youtube_config(self):
+        self.youtube_config = get_json_data(youtube_config_path)
+    def save_youtube_config(self):
+        save_to_json_file(self.youtube_config, youtube_config_path)
+
+    def load_secret_info(self):
+        try:
+            self.secret_data = get_json_data(secret_path)
+            self.secret_info={}
+            gmails = [self.youtube_config['template'][channel_name]['gmail'] for channel_name in self.youtube_config['template'].keys()]
+            for gmail in gmails:
+                oauth = self.secret_data[gmail]['oauth']
+                api = self.secret_data[gmail]['api']
+                oauth_path = f'{current_dir}\\oauth\\{gmail}.json'
+                save_to_json_file(oauth, oauth_path)
+                self.secret_info[gmail] = {}
+                self.secret_info[gmail]["oauth_path"] = oauth_path
+                self.secret_info[gmail]["api"] = api
+            self.oauth_path = self.secret_info[self.gmail]["oauth_path"]
+            self.api_key = self.secret_info[self.gmail]["api"]
+        except:
+            getlog()
+            self.oauth_path = None
+            self.api_key = None
+
     def get_start_youtube(self):
         self.show_window()
         self.setting_window_size()
@@ -94,52 +103,53 @@ class YouTubeManager():
         self.show_window()
 
         def save_download_settings():
-            if not self.output_folder:
-                warning_message("Please select the folder containing the downloaded file.")
-                return
-            self.config['download_folder'] = self.output_folder
-            self.config['download_by_video_url'] = self.download_by_video_url.get()
-            self.config['download_by_channel_id'] = self.download_by_channel_id.get()
-            self.config['filter_by_like'] = self.filter_by_like_var.get()
-            self.config['filter_by_views'] = self.filter_by_views_var.get()
-            self.save_config()
+            download_folder = self.output_folder_var.get()
+            download_url = self.download_by_video_url.get()
+            download_channel_id = self.download_by_channel_id.get()
+            if not self.youtube_config['download_folder']:
+                warning_message("hãy chọn thư mục lưu file tải về.")
+                return False
+            if not download_url or not download_channel_id:
+                warning_message("hãy nhập url hoặc Id channel muốn tải video.")
+                return False
+            self.youtube_config['download_folder'] = download_folder
+            self.youtube_config['download_by_video_url'] = download_url
+            self.youtube_config['download_by_channel_id'] = download_channel_id
+            self.youtube_config['filter_by_like'] = self.filter_by_like_var.get()
+            self.youtube_config['filter_by_views'] = self.filter_by_views_var.get()
+            self.save_youtube_config()
+            return True
 
         def start_download_by_video_url():
             if not self.download_thread or not self.download_thread.is_alive():
                 self.is_stop_download = False
-                save_download_settings()
-                self.download_thread = threading.Thread(target=self.download_video_by_video_url)
-                # self.download_thread_url.daemon = True
-                self.download_thread.start()
+                if save_download_settings():
+                    self.download_thread = threading.Thread(target=self.download_video_by_video_url)
+                    self.download_thread.start()
+                else:
+                    return
 
         def start_download_by_channel_id():
             if not self.download_thread or not self.download_thread.is_alive():
                 self.is_stop_download = False
-                save_download_settings()
-                self.download_thread = threading.Thread(target=self.download_videos_by_channel_id)
-                # self.download_thread.daemon = True
-                self.download_thread.start()
+                if save_download_settings():
+                    self.download_thread = threading.Thread(target=self.download_videos_by_channel_id)
+                    self.download_thread.start()
+                else:
+                    return
 
         self.output_folder_var = create_frame_button_and_input(self.root,text="Choose folder to save", command=self.choose_folder_to_save)
-        self.output_folder_var.insert(0, self.config['download_folder'])
+        self.output_folder_var.insert(0, self.youtube_config['download_folder'])
         self.download_by_video_url = create_frame_button_and_input(self.root,text="Download By Video URL", command=start_download_by_video_url)
         self.download_by_channel_id = create_frame_button_and_input(self.root,text="Download By Channel Id", command=start_download_by_channel_id)
-        self.filter_by_like_var = self.create_settings_input("Filter By Number Of Likes", "filter_by_like", values=["10000", "20000", "30000", "50000", "100000"])
-        self.filter_by_views_var = self.create_settings_input("Filter By Number Of Views", "filter_by_views", values=["200000", "500000", "1000000", "2000000", "5000000"])
+        self.filter_by_like_var = self.create_settings_input("Filter By Number Of Likes", "filter_by_like", is_data_in_template= False, values=["10000", "20000", "30000", "50000", "100000"])
+        self.filter_by_views_var = self.create_settings_input("Filter By Number Of Views", "filter_by_views", is_data_in_template=False, values=["100000", "200000", "300000", "500000", "1000000"])
 
     def choose_folder_to_save(self):
-        self.output_folder = filedialog.askdirectory()
-        self.output_folder_var.delete(0, ctk.END)
-        self.output_folder_var.insert(0, self.output_folder)
-
-    # def auto_check_status_videos(self):
-    #     if time() - self.pre_time_check_status > self.config['check_status_cycle']:
-    #         print("start check video status")
-    #         self.pre_time_check_status = time()
-    #         my_video_ids = self.get_video_ids_by_channel_id(mine=True)
-    #         self.get_video_details(my_video_ids, check_status=True)
-    #         for video_id_del in self.list_video_ids_delete:
-    #             self.delete_video(video_id_del)
+        output_folder = filedialog.askdirectory()
+        if output_folder:
+            self.output_folder_var.delete(0, ctk.END)
+            self.output_folder_var.insert(0, output_folder)
         
 
     def open_upload_video_window(self):
@@ -154,10 +164,9 @@ class YouTubeManager():
                 self.upload_folder_var.insert(0, folder_path)
 
         def load_template():
-            self.templates = get_json_data(templates_path) or {}
+            self.get_youtube_config()
             template_name = self.load_template_combobox.get()
-            template_id = [id for id in self.templates['channel_info'].keys() if self.templates['channel_info'][id] == template_name][0]
-            template = self.templates[template_id]
+            template = self.youtube_config['template'][template_name]
             # Clear existing values
             self.title_var.delete(0, ctk.END)
             self.description_var.delete("1.0", ctk.END)
@@ -195,38 +204,35 @@ class YouTubeManager():
         self.publish_times_var = self.create_settings_input("Publish Times", "publish_times", left=left, right=right)
         self.is_delete_video_var = self.create_settings_input("Delete video after upload", "is_delete_video", values=["Yes", "No"], left=left, right=right )
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Select Videos Folder", command=set_upload_folder, width=self.width)
-        self.upload_folder_var.insert(0, self.templates[self.channel_id]['upload_folder'])
-        self.load_template_combobox = create_frame_button_and_combobox(self.root,text="Load Template", width=self.width, command=load_template, values=[self.templates['channel_info'][temp] for temp in self.templates.keys() if temp != 'channel_info' and temp in self.templates['channel_info']])
+        self.upload_folder_var.insert(0, self.youtube_config['template'][self.channel_name]['upload_folder'])
+        self.load_template_combobox = create_frame_button_and_combobox(self.root,text="Load Template", width=self.width, command=load_template, values=list(self.youtube_config['template'].keys()))
+        self.load_template_combobox.set(self.youtube_config['current_channel'])
         create_frame_button_and_button(self.root,text1="Start upload video now", width=self.width, command1=self.start_upload_videos_now, text2="Start upload video with schedule", command2=self.start_upload_videos_with_schedule)
         self.show_window()
 
     def save_upload_setting(self):
         try:
-            self.templates = get_json_data(templates_path)
-            if not self.templates:
-                self.templates = {}
-            if self.channel_id not in self.templates:
-                self.templates[self.channel_id] = {}
-            self.templates[self.channel_id]["title"] = self.title_var.get()
-            self.templates[self.channel_id]["is_title_plus_video_name"] = self.is_title_plus_video_name_var.get() == "Yes"
-            self.templates[self.channel_id]["description"] = self.description_var.get("1.0", ctk.END).strip()
-            self.templates[self.channel_id]["tags"] = self.tags_var.get()
-            self.templates[self.channel_id]["category_id"] = self.category_id_var.get()
-            self.templates[self.channel_id]["privacy_status"] = self.privacy_status_var.get()
-            self.templates[self.channel_id]["license"] = self.license_var.get()
-            self.templates[self.channel_id]["is_delete_video"] = self.is_delete_video_var.get() == "Yes"
-            self.templates[self.channel_id]["start_date"] = self.start_date_var.get()
-            self.templates[self.channel_id]["publish_times"] = self.publish_times_var.get()
-            self.templates[self.channel_id]["upload_folder"] = self.upload_folder_var.get()
-            self.templates[self.channel_id]['gmail'] = self.gmail
-            save_to_json_file(self.templates, templates_path)
-            if len(self.templates[self.channel_id]["title"]) > 100:
+            self.get_youtube_config()
+            self.youtube_config['template'][self.channel_name]["title"] = self.title_var.get()
+            self.youtube_config['template'][self.channel_name]["is_title_plus_video_name"] = self.is_title_plus_video_name_var.get() == "Yes"
+            self.youtube_config['template'][self.channel_name]["description"] = self.description_var.get("1.0", ctk.END).strip()
+            self.youtube_config['template'][self.channel_name]["tags"] = self.tags_var.get()
+            self.youtube_config['template'][self.channel_name]["category_id"] = self.category_id_var.get()
+            self.youtube_config['template'][self.channel_name]["privacy_status"] = self.privacy_status_var.get()
+            self.youtube_config['template'][self.channel_name]["license"] = self.license_var.get()
+            self.youtube_config['template'][self.channel_name]["is_delete_video"] = self.is_delete_video_var.get() == "Yes"
+            self.youtube_config['template'][self.channel_name]["start_date"] = self.start_date_var.get()
+            self.youtube_config['template'][self.channel_name]["publish_times"] = self.publish_times_var.get()
+            self.youtube_config['template'][self.channel_name]["upload_folder"] = self.upload_folder_var.get()
+            self.youtube_config['template'][self.channel_name]['gmail'] = self.gmail
+            self.save_youtube_config()
+            if len(self.youtube_config['template'][self.channel_name]["title"]) > 100:
                 self.validate_message += "The maximum length of Title is 100 characters.\n"
-            if len(self.templates[self.channel_id]["description"]) > 5000:
+            if len(self.youtube_config['template'][self.channel_name]["description"]) > 5000:
                 self.validate_message += "The maximum length of Description is 5000 characters.\n"
-            if len(self.templates[self.channel_id]["tags"]) > 500:
+            if len(self.youtube_config['template'][self.channel_name]["tags"]) > 500:
                 self.validate_message += "The maximum length of tags is 500 characters.\n"
-            if not self.templates[self.channel_id]["upload_folder"]:
+            if not self.youtube_config['template'][self.channel_name]["upload_folder"]:
                 self.validate_message += "The folder containing the videos has not been selected.\n"
             if self.validate_message:
                 warning_message(self.validate_message)
@@ -241,13 +247,11 @@ class YouTubeManager():
     def start_upload_videos_now(self):
         self.is_schedule = False
         if self.save_upload_setting():
-            self.hide_window()
             self.start_thread_upload_video()
 
     def start_upload_videos_with_schedule(self):
         self.is_schedule = True
         if self.save_upload_setting():
-            self.hide_window()
             self.start_thread_upload_video()
             
     def start_thread_upload_video(self):
@@ -262,10 +266,17 @@ class YouTubeManager():
 
     def get_authenticated_service(self):
         try:
-            self.load_secret()
-            flow = flow_from_clientsecrets(self.oauth_path, scope=SCOPES, message="ERR get_authenticated_service")
-            storage = Storage(f"{sys.argv[0]}-{self.gmail}-{self.channel_id}.json")
-            credentials = storage.get()
+            self.load_secret_info()
+            if not self.oauth_path:
+                warning_message("Tài khoản gmail này chưa đăng ký hoặc đã hết hạn.")
+                return
+            try:
+                flow = flow_from_clientsecrets(self.oauth_path, scope=SCOPES, message="ERR get_authenticated_service")
+                storage = Storage(f"{sys.argv[0]}-{self.gmail}-{self.channel_name}.json")
+                credentials = storage.get()
+            except:
+                getlog()
+                credentials = None
             if credentials is None or credentials.invalid:
                 credentials = run_flow(flow, storage, None)
             return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, http=credentials.authorize(httplib2.Http()))
@@ -275,7 +286,7 @@ class YouTubeManager():
             return None
 
     def upload_video(self, video_file, publish_at=None):
-        cnt_request_upload = self.config[self.gmail]['cnt_request_upload']
+        cnt_request_upload = self.youtube_config[self.gmail]['cnt_request_upload']
         if cnt_request_upload >= 6:
             if not self.is_auto_upload:
                 warning_message(f"Gmail {self.gmail} can only post a maximum of 6 videos per day")
@@ -283,21 +294,21 @@ class YouTubeManager():
                 print(f"Gmail {self.gmail} can only post a maximum of 6 videos per day")
             return
         try:
-            category_name = self.templates[self.channel_id]['category_id']
+            category_name = self.youtube_config['template'][self.channel_name]['category_id']
             category_id = int(youtube_category[category_name])
             body = {
                 "snippet": {
                     "title": self.full_title,
-                    "description": self.templates[self.channel_id]['description'],
-                    "tags": self.templates[self.channel_id]['tags'],
+                    "description": self.youtube_config['template'][self.channel_name]['description'],
+                    "tags": self.youtube_config['template'][self.channel_name]['tags'],
                     "categoryId": category_id,
                     "defaultLanguage": "en",  # Thêm ngôn ngữ tiếng Anh
                     "automaticChapters": False  # Tắt tự động chương và khoảnh khắc chính
                 },
                 "status": {
-                    "privacyStatus": self.templates[self.channel_id]['privacy_status'],
+                    "privacyStatus": self.youtube_config['template'][self.channel_name]['privacy_status'],
                     "selfDeclaredMadeForKids": False,
-                    'license': self.templates[self.channel_id]['license'],
+                    'license': self.youtube_config['template'][self.channel_name]['license'],
                     'notifySubscribers': False,   # Disable notifications to subscribers
                 }
             }
@@ -308,7 +319,7 @@ class YouTubeManager():
                 part=",".join(body.keys()),
                 body=body,
                 media_body=MediaFileUpload(video_file, chunksize=-1, resumable=True),
-                # onBehalfOfContentOwner=self.config['channel_id']  #chưa xử lý được
+                # onBehalfOfContentOwner=self.youtube_config['channel_id']  #chưa xử lý được
             )
             video_id = self.resumable_upload(insert_request)
             if video_id:
@@ -325,8 +336,8 @@ class YouTubeManager():
             try:
                 if self.is_stop_upload:
                     return None
-                self.config[self.gmail]['cnt_request_upload'] += 1
-                self.save_config()
+                self.youtube_config[self.gmail]['cnt_request_upload'] += 1
+                self.save_youtube_config()
                 print ("Uploading file...")
                 status, response = insert_request.next_chunk()
                 if response is not None and 'id' in response:
@@ -357,13 +368,13 @@ class YouTubeManager():
         try:
             self.finished_upload_videos = []
             if self.is_schedule:
-                start_date_str = self.templates[self.channel_id]['start_date']
-                publish_times = self.templates[self.channel_id]['publish_times'].split(',')
+                start_date_str = self.youtube_config['template'][self.channel_name]['start_date']
+                publish_times = self.youtube_config['template'][self.channel_name]['publish_times'].split(',')
                 start_date = convert_date_string_to_datetime(start_date_str)
                 if not start_date:
                     warning_message("format of date is yyyy-mm-dd")
                     return False
-            videos = os.listdir(self.templates[self.channel_id]['upload_folder'])
+            videos = os.listdir(self.youtube_config['template'][self.channel_name]['upload_folder'])
             if len(videos) == 0:
                 return
             for k in videos:
@@ -377,8 +388,8 @@ class YouTubeManager():
                 if '.mp4' not in video_file:
                     continue
                 video_name = os.path.splitext(video_file)[0] #lấy tên
-                title = self.templates[self.channel_id]['title']
-                if self.templates[self.channel_id]['is_title_plus_video_name']:
+                title = self.youtube_config['template'][self.channel_name]['title']
+                if self.youtube_config['template'][self.channel_name]['is_title_plus_video_name']:
                     self.full_title = f"{title}{video_name}"
                 else:
                     self.full_title = title
@@ -386,7 +397,7 @@ class YouTubeManager():
                     if not self.is_auto_upload:
                         warning_message(f"The maximum length of Title is 100 characters:\n{self.full_title}: {len(self.full_title)} characters")
                     return False
-                video_path = os.path.join(self.templates[self.channel_id]['upload_folder'], video_file)
+                video_path = os.path.join(self.youtube_config['template'][self.channel_name]['upload_folder'], video_file)
                 if self.is_schedule:
                     # Xác định thời gian đăng cho video
                     publish_time_str = publish_times[upload_count % len(publish_times)]
@@ -404,12 +415,12 @@ class YouTubeManager():
                 if not self.is_quotaExceeded:
                     if self.upload_video(video_path, publish_at=publish_at):
                         self.finished_upload_videos.append(f"{video_name}")
-                        old_video_path = os.path.join(self.templates[self.channel_id]['upload_folder'], video_file)
+                        old_video_path = os.path.join(self.youtube_config['template'][self.channel_name]['upload_folder'], video_file)
                         
-                        if self.templates[self.channel_id]['is_delete_video']:
+                        if self.youtube_config['template'][self.channel_name]['is_delete_video']:
                             os.remove(old_video_path)
                         else:
-                            finish_folder = os.path.join(self.templates[self.channel_id]['upload_folder'], 'upload_finished')
+                            finish_folder = os.path.join(self.youtube_config['template'][self.channel_name]['upload_folder'], 'upload_finished')
                             new_video_path = os.path.join(finish_folder, video_file)
                             # Di chuyển video vào thư mục finish
                             os.makedirs(finish_folder, exist_ok=True)
@@ -424,7 +435,10 @@ class YouTubeManager():
                         #         start_date += timedelta(days=1)
                         upload_count += 1
                         print(f"Uploaded video '{video_file}' scheduled for {publish_at} UTC")
-                        if upload_count == len(publish_times):
+                        if self.is_schedule:
+                            if upload_count == len(publish_times):
+                                break
+                        else:
                             break
                     else:
                         print("uploaded fail")
@@ -488,7 +502,7 @@ class YouTubeManager():
             if mine:
                 response = self.youtube.channels().list(part="contentDetails", maxResults=50, mine=True).execute()
             else:
-                response = self.youtube.channels().list(part="contentDetails", id=self.config['download_by_channel_id']).execute()
+                response = self.youtube.channels().list(part="contentDetails", id=self.youtube_config['download_by_channel_id']).execute()
             if "items" not in response or len(response["items"]) == 0:
                 raise Exception("No items found in channel details response.")
             uploads_playlist_id = response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
@@ -548,15 +562,17 @@ class YouTubeManager():
 
     
     def download_video_by_video_url(self):
+        self.youtube_config['download_folder'] = self.output_folder_var.get()
         video_url = self.download_by_video_url.get()
         self.download_video_youtube_by_url(video_url)
 
     def download_videos_by_channel_id(self):
+        self.youtube_config['download_folder'] = self.output_folder_var.get()
         self.list_videos_download_from_channel = []
         video_ids = self.get_video_ids_by_channel_id()
         self.get_video_details(video_ids)
         if len(self.list_videos_detail) > 0:
-            self.download_info = get_json_data(download_info_path)
+            self.get_download_info()
             if not self.download_info:
                 self.download_info = {}
             if 'waiting_download_urls' not in self.download_info:
@@ -577,7 +593,7 @@ class YouTubeManager():
             statistics = video['statistics']
             like_count = int(statistics.get('likeCount', 0))
             view_count = int(statistics.get('viewCount', 0))
-            if like_count > int(self.config['filter_by_like']) and view_count > int(self.config['filter_by_views']):
+            if like_count > int(self.youtube_config['filter_by_like']) and view_count > int(self.youtube_config['filter_by_views']):
                 video_id = video['id']
                 video_url = f'https://www.youtube.com/watch?v={video_id}'
                 if video_url in self.download_info['downloaded_urls'] or video_url in self.download_info['waiting_download_urls']:
@@ -585,18 +601,26 @@ class YouTubeManager():
                     continue
                 print(f"bắt đầu tải video: {video_url} với {like_count} lượt thích và {view_count} lượt xem")
                 title = self.video_info[video_id]['title']
-                download_folder = self.config['download_folder']
-                self.temp_file_path = f'{download_folder}\\temp.mp4'
-                self.file_name = f"{convert_sang_tieng_viet_khong_dau(title)}.mp4"
-                self.video_file_path = f'{finish_folder}\\{self.file_name}'
-                if not os.path.exists(self.video_file_path):
+                download_folder = self.youtube_config['download_folder']
+                file_name = f"{convert_sang_tieng_viet_khong_dau(title)}.mp4"
+                video_file_path = f'{download_folder}\\{file_name}'
+                if not os.path.exists(video_file_path):
                     self.list_waiting_dowload_videos.append(video_url)
                     # Tải video sử dụng pytube
                     self.download_video_youtube_by_url(video_url)
 
+    def get_download_info(self):
+        self.download_info = get_json_data(download_info_path)
+        if not self.download_info:
+            self.download_info = {}
+        if 'waiting_download_urls' not in self.download_info:
+            self.download_info['waiting_download_urls'] = []
+        if 'downloaded_urls' not in self.download_info:
+            self.download_info['downloaded_urls'] = []
     def download_video_youtube_by_url(self, video_url):
         try:
-            download_video_by_url(video_url, self.output_folder)
+            self.get_download_info()
+            download_video_by_url(video_url, self.youtube_config['download_folder'])
             self.list_videos_download_from_channel.append(video_url)
             if video_url in self.download_info['waiting_download_urls']:
                 self.download_info['waiting_download_urls'].remove(video_url)
@@ -618,12 +642,12 @@ class YouTubeManager():
 
     def setting_window_size(self):
         if self.is_start_youtube:
-            self.root.title(f"{self.gmail}: {self.channel_id}")
+            self.root.title(f"{self.gmail}: {self.channel_name}")
             self.width = 400
             self.height_window = 250
             self.is_start_youtube = False
         elif self.is_upload_video_window:
-            self.root.title(f"Upload video: {self.channel_id}")
+            self.root.title(f"Upload video: {self.channel_name}")
             self.width = 800
             self.height_window = 910
             self.is_upload_video_window = False
@@ -634,15 +658,11 @@ class YouTubeManager():
             self.is_download_window = False
         self.setting_screen_position()
 
-    def save_config(self):
-        save_to_json_file(self.config, config_path)
-
     def exit_app(self):
         self.reset()
         self.root.destroy()
 
     def on_close(self):
-        self.save_config()
         self.reset()
         self.hide_window()
         self.root.destroy()
@@ -664,19 +684,25 @@ class YouTubeManager():
     def clear_after_action(self):
         self.root.withdraw()
 
-    def create_settings_input(self, label_text, config_key, values=None, is_textbox = False, left=0.5, right=0.5):
+    def create_settings_input(self, label_text, config_key, values=None, is_textbox = False, left=0.5, right=0.5, is_data_in_template=True):
+        if is_data_in_template:
+            config = config=self.youtube_config['template'][self.channel_name]
+        else:
+            config = self.youtube_config
         frame = create_frame(self.root)
         create_label(frame, text=label_text, side=LEFT, width=self.width*left, anchor='w')
 
         if values:
-            if config_key in self.config:
-                val = self.config[config_key]
+            if not config_key:
+                val = ""
+            elif config_key not in config:
+                val = ""
             else:
-                val = self.templates[self.channel_id][config_key]
-            if val == True:
-                val = "Yes"
-            elif val == False:
-                val = "No"
+                val = config[config_key]
+                if config[config_key] == True:
+                    val = "Yes"
+                elif config[config_key] == False:
+                    val = "No"
 
             var = ctk.StringVar(value=str(val))
             combobox = ctk.CTkComboBox(frame, values=values, variable=var, width=self.width*right)
@@ -686,11 +712,11 @@ class YouTubeManager():
         
         elif is_textbox:
             textbox = ctk.CTkTextbox(frame, height=120, width=self.width*right)
-            textbox.insert("1.0", self.templates[self.channel_id][config_key])  # Đặt giá trị ban đầu vào textbox
+            textbox.insert("1.0", config[config_key])  # Đặt giá trị ban đầu vào textbox
             textbox.pack(side=RIGHT, padx=padx)
             return textbox
         else:
-            var = self.templates[self.channel_id][config_key]
+            var = config[config_key]
             entry = ctk.CTkEntry(frame, width=self.width*right)
             entry.pack(side="right", padx=padx)
             entry.insert(0, var)

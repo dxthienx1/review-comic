@@ -27,6 +27,7 @@ class FacebookManager:
         self.is_schedule = False
         self.is_auto_upload = False
         self.is_stop_upload = False
+        self.is_stop_download = False
 
     def init_driver(self):
         service = Service(ChromeDriverManager().install())
@@ -163,8 +164,10 @@ class FacebookManager:
             self.cookies_info = get_json_data(cookies_path)
             if not self.cookies_info:
                 self.cookies_info = {}
-            if self.account in self.cookies_info:
-                current_cookies = self.cookies_info[self.account]
+            if 'facebook' not in self.cookies_info:
+                self.cookies_info['facebook'] = {}
+            if self.account in self.cookies_info['facebook']:
+                current_cookies = self.cookies_info['facebook'][self.account]
                 for cookie in current_cookies:
                     if 'domain' in cookie and cookie['domain'] in self.driver.current_url:
                         self.driver.add_cookie(cookie)
@@ -177,18 +180,24 @@ class FacebookManager:
             self.local_storage_info = get_json_data(local_storage_path)
             if not self.local_storage_info:
                 self.local_storage_info = {}
-            if self.account in self.local_storage_info:
-                local_storage = self.local_storage_info[self.account]
+            if 'facebook' not in self.local_storage_info:
+                self.local_storage_info['facebook'] = {}
+            if self.account in self.local_storage_info['facebook']:
+                local_storage = self.local_storage_info['facebook'][self.account]
                 for key, value in local_storage.items():
                     self.driver.execute_script(f"window.localStorage.setItem('{key}', '{value}');")
         except FileNotFoundError:
             pass
 
     def save_session(self):
-        self.cookies_info[self.account] = self.driver.get_cookies()
+        if 'facebook' not in self.cookies_info:
+            self.cookies_info['facebook'] = {}
+        self.cookies_info['facebook'][self.account] = self.driver.get_cookies()
         save_to_json_file(self.cookies_info, cookies_path)
+        if 'facebook' not in self.local_storage_info:
+            self.local_storage_info['facebook'] = {}
         local_storage = self.driver.execute_script("return {...window.localStorage};")
-        self.local_storage_info[self.account] = local_storage
+        self.local_storage_info['facebook'][self.account] = local_storage
         save_to_json_file(self.local_storage_info, local_storage_path)
 
     def login(self):

@@ -4,25 +4,21 @@ import os
 import re
 import shutil
 import random
-import csv
 from natsort import natsorted
 from datetime import datetime, timedelta, timezone, time as dtime
 from time import sleep, time
 from tzlocal import get_localzone
-import subprocess
-import hashlib
 import threading
 import traceback
 import pyttsx3
 import winreg
 from moviepy.video.fx.all import resize, crop, mirror_x
 from moviepy.video.fx.speedx import speedx
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, afx, vfx, TextClip, CompositeVideoClip, ImageClip, ColorClip
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, afx, vfx, CompositeVideoClip, ImageClip, ColorClip
 from moviepy.audio.AudioClip import CompositeAudioClip
 from pytube import YouTube
 from translate import Translator
 import requests
-import speech_recognition as sr
 from pydub import AudioSegment
 from unidecode import unidecode
 import yt_dlp
@@ -41,24 +37,17 @@ current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(current_dir)
 icon_path = os.path.join(current_dir, 'icon.png')
 config_path = os.path.join(current_dir, 'config.json')
-output_folder = f'{current_dir}\\output_folder'
 secret_path = os.path.join(current_dir, 'secret.json')
 download_info_path = os.path.join(current_dir, 'download_info.json')
-templates_path = os.path.join(current_dir, 'templates.json')
-download_folder = f"{current_dir}\\downloads"
+youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
 test_folder = f'{current_dir}\\test'
-finish_folder = f"{current_dir}\\finish"
 local_storage_path = os.path.join(current_dir, 'local_storage.json')
 cookies_path = os.path.join(current_dir, 'cookies.json')
+cookies_tiktok_path = os.path.join(current_dir, 'cookies_tiktok.pkl')
+# cookies_youtube_path = os.path.join(current_dir, 'cookies_youtube.pkl')
 youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
 tiktok_config_path = os.path.join(current_dir, 'tiktok_config.json')
 facebook_config_path = os.path.join(current_dir, 'facebook_config.json')
-
-
-if not os.path.exists(download_folder):
-    os.makedirs(download_folder)
-if not os.path.exists(finish_folder):
-    os.makedirs(finish_folder)
 
 ffmpeg_dir = os.path.join(os.path.dirname(__file__), "ffmpeg", "bin")
 # Cập nhật đường dẫn PATH trong mã Python
@@ -76,7 +65,7 @@ def is_format_date_yyyymmdd(date_str, daydelta=None):
     date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
     if not date_pattern.match(date_str):
         return False, "Invalid date format"
-    if timedelta:
+    if daydelta:
         try:
             # Chuyển đổi từ chuỗi ngày sang đối tượng datetime
             date_obj = datetime.strptime(date_str, "%Y-%m-%d")
@@ -87,8 +76,8 @@ def is_format_date_yyyymmdd(date_str, daydelta=None):
         current_date = datetime.now()
         
         # Kiểm tra khoảng cách giữa ngày nhập vào và ngày hiện tại
-        if date_obj > current_date + timedelta(days=daydelta):
-            return False, "Date is more than 30 days in the future"
+        if date_obj > current_date + timedelta(days=daydelta-1):
+            return False, f"Date is more than {daydelta} days in the future"
     return True, "Valid date"
 
 def convert_time_to_UTC(year, month, day, hour, minute, second=0, iso8601=True):
@@ -282,7 +271,7 @@ def strip_first_and_end_video(clip, first_cut, end_cut):
     if first_cut < 0:
         first_cut = 0
     if end_cut < 0 or end_cut >= clip.duration:
-        warning_message("Invalid end_cut")
+        warning_message("Thời gian cắt video không hợp lệ.")
         return None
     return clip.subclip(first_cut, clip.duration - end_cut)
 
@@ -291,7 +280,6 @@ def zoom_and_crop(clip, zoom_factor, vertical_position='center', horizontal_posi
     new_width, new_height = resized_clip.size
     y1, y2 = 0, new_height
     x1, x2 = 0, new_width
-    
     # Tính toán vị trí cắt theo chiều dọc
     if vertical_position == 'center':
         y1 = (new_height - clip.h) // 2
@@ -302,7 +290,6 @@ def zoom_and_crop(clip, zoom_factor, vertical_position='center', horizontal_posi
     elif vertical_position == 'bot':
         y1 = new_height - clip.h
         y2 = new_height
-
     # Tính toán vị trí cắt theo chiều ngang
     if horizontal_position == 'center':
         x1 = (new_width - clip.w) // 2
@@ -313,7 +300,6 @@ def zoom_and_crop(clip, zoom_factor, vertical_position='center', horizontal_posi
     elif horizontal_position == 'right':
         x1 = new_width - clip.w
         x2 = new_width
-    
     cropped_clip = resized_clip.crop(x1=x1, y1=y1, x2=x2, y2=y2)
     return cropped_clip
 
@@ -322,7 +308,7 @@ def apply_zoom(clip, zoom_factor, vertical_position, horizontal_position):
         return clip
     zoom_factor = float(zoom_factor)
     if zoom_factor < 0 or zoom_factor > 3:
-        warning_message('invalid zoom size')
+        warning_message('Tỷ lệ zoom không hợp lệ.')
         return None
     return zoom_and_crop(clip, zoom_factor, vertical_position, horizontal_position)
 
@@ -374,13 +360,13 @@ def speed_up_clip(clip, speed):
 def detect_video_ratio(clip, tolerance=0.02):
     clip_width, clip_height = clip.size
     ratio = clip_width / clip_height
-    
     if abs(ratio - (16/9)) < tolerance:  # Kiểm tra xem tỷ lệ gần bằng 16:9
         return (16,9)
     elif abs(ratio - (9/16)) < tolerance:  # Kiểm tra xem tỷ lệ gần bằng 9:16
         return (9,16)
     else:
         return False
+    
 def resize_clip(clip):
     target_ratio = detect_video_ratio(clip)
     target_width, target_height = target_ratio
@@ -515,7 +501,9 @@ def get_output_folder(input_video_path):
     return output_folder, output_file_path, file_name, finish_folder
 
 #Áp dụng cho tất cả url
-def download_video_by_url(url, download_folder=output_folder):
+def download_video_by_url(url, download_folder=None):
+    if not url or not download_folder:
+        return
     try:
         ydl_opts = {
             'quiet': True,
@@ -537,32 +525,17 @@ def get_info_by_url(url):
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
-            'writesubtitles': True,  # Cho phép viết phụ đề
-            'allsubtitles': True,  # Tải tất cả các phụ đề có sẵn
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
-            'outtmpl': f'{download_folder}/%(title)s.%(ext)s',
             'addmetadata': False,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_video = ydl.extract_info(url, download=False)
-            # automatic_captions = info_dict.get('automatic_captions', [])
-            # if automatic_captions:
-            #     if lang in automatic_captions:
-            #         all = automatic_captions[lang]
-            #         for pd in all:
-            #             if pd['ext'] == 'srt':
-            #                 return {'srt':pd['url']}
-            #             if pd['ext'] == 'vtt':
-            #                 return {'vtt':pd['url']}
-            #             if pd['ext'] == 'ttml':
-            #                 return {'ttml':pd['url']}
-
             return info_video
     except:
         getlog()
 
 #chỉ tiktok
-def download_video_no_watermask_from_tiktok(video_url, download_folder=output_folder):
+def download_video_no_watermask_from_tiktok(video_url, download_folder=None):
         url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/index"
         headers = {
             "x-rapidapi-key": "e1456d8b1dmsh0410da9e2ed2388p1991fdjsnf2f2ca37b287",
@@ -700,65 +673,20 @@ def cut_video_by_timeline(input_video_path, segments, is_connect):
         getlog()
         warning_message("Có lỗi trong quá trình cắt video")
 
-
-
-# video_url = 'https://www.youtube.com/watch?v=quSPOIgsPno'
-# info_dict = download_video_by_url(video_url, is_download=False)
-# print("Video information:")
-# print(info_dict)
-
-# # Lấy danh sách các phụ đề
-# subtitles = info_dict.get('subtitles', {}).keys()
-# # In ra các ngôn ngữ phụ đề có sẵn
-# print("Available subtitles languages:")
-# for lang in subtitles:
-#     print(lang)
-# # Nếu muốn lấy phụ đề tiếng Anh (ví dụ)
-# if 'en' in subtitles:
-#     subtitle_info = info_dict['subtitles']['en']
-#     subtitle_url = subtitle_info['url']
-    
-#     # Tải nội dung phụ đề
-#     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-#         subtitle_content = ydl.urlopen(subtitle_url).read().decode('utf-8')
-#         # In nội dung phụ đề
-#         print("Subtitle content:")
-#         print(subtitle_content)
-
-def get_xpath(maintag, class_name, attribute=None, attribute_value=None):
+def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None):
     if attribute and attribute_value:
         xpath = f"//{maintag}[@class=\"{class_name}\" and @{attribute}=\"{attribute_value}\"]"
     else:
         xpath = f"//{maintag}[@class=\"{class_name}\"]"
     return xpath
 def get_xpath_by_multi_attribute(maintag, attributes):
-    attribute = " and @".join(attributes)
+    if len(attributes) > 1:
+        attribute = " and @".join(attributes)
+    else:
+        attribute = attributes[0]
     attribute = f"@{attribute}"
     xpath = f"//{maintag}[{attribute}]"
     return xpath
 
-def get_element_by_xpath(self, xpath, key=None):
-    kq = []
-    cnt=0
-    while(len(kq)==0):
-        cnt+=1
-        elements = self.driver.find_elements(By.XPATH, xpath)
-        if key:
-            key = key.lower()
-            for ele in elements:
-                if key in ele.accessible_name.lower() or key in ele.text.lower() or key in ele.tag_name.lower() or key in ele.aria_role.lower():
-                    kq.append(ele)
-                    break
-            if len(kq) > 0:
-                return kq[0]
-            else:
-                return None
-        else:
-            if len(elements) > 0:
-                ele = elements[0]
-                return ele
-        sleep(1)
-        if cnt > 10:
-            print(f"Không tìm thấy: {key}: {xpath}")
-            break
+
 

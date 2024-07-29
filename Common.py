@@ -18,7 +18,7 @@ def load_config():
             "to_language": "vi",
             "auto_start": False,
 
-            "current_gmail": "dxthienx2@gmail.com",
+            "current_youtube_account": "dxthienx2@gmail.com",
             "current_tiktok_account": "dxthienx2@gmail.com",
             "current_facebook_account": "dxthienx2@gmail.com",
             "current_channel": "",

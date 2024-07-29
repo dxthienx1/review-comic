@@ -3,3 +3,14 @@ test/
 oauth/
 downloads/
 finish/
+__pycache__/
+secret.json
+cookies.json
+local_storage.json
+*.pkl
+.spec
+app.py-*.json
+output.txt
+test.py
+config.json
+ff.html
