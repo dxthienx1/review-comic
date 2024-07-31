@@ -62,6 +62,7 @@ class YouTubeManager():
         self.is_stop_upload = False
 
     def get_youtube_config(self):
+        
         self.youtube_config = get_json_data(youtube_config_path)
     def save_youtube_config(self):
         save_to_json_file(self.youtube_config, youtube_config_path)
@@ -109,7 +110,7 @@ class YouTubeManager():
             if not self.youtube_config['download_folder']:
                 warning_message("hãy chọn thư mục lưu file tải về.")
                 return False
-            if not download_url or not download_channel_id:
+            if not download_url and not download_channel_id:
                 warning_message("hãy nhập url hoặc Id channel muốn tải video.")
                 return False
             self.youtube_config['download_folder'] = download_folder
@@ -606,7 +607,6 @@ class YouTubeManager():
                 video_file_path = f'{download_folder}\\{file_name}'
                 if not os.path.exists(video_file_path):
                     self.list_waiting_dowload_videos.append(video_url)
-                    # Tải video sử dụng pytube
                     self.download_video_youtube_by_url(video_url)
 
     def get_download_info(self):

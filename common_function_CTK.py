@@ -22,14 +22,14 @@ def choose_folder():
     folder_path = filedialog.askdirectory()
     return folder_path
 
-def message_box(title, message):
-    messagebox.askquestion(title=title, message=message)
+def message_aks(message):
+    messagebox.askquestion(title="Question", message=message)
 def notification(message):
-    messagebox.askquestion(title="Notification", message=message)
+    messagebox.showwarning(title="Notification", message=message)
 def warning_message(message):
-    messagebox.askquestion(title="WARNING", message=message)
+    messagebox.showwarning(title="WARNING", message=message)
 def error_message(message):
-    messagebox.askquestion(title="ERROR", message=message)
+    messagebox.showwarning(title="ERROR", message=message)
 
 def clear_widgets(root):
     for widget in root.winfo_children():

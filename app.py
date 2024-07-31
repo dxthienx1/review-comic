@@ -21,6 +21,9 @@ class MainApp:
             self.upload_thread = threading.Thread()
             self.edit_thread = threading.Thread()
             self.config = load_config()
+            self.youtube_config = load_youtube_config()
+            load_tiktok_config()
+            load_facebook_config()
             self.youtube = None
             self.is_youtube_window = False
             self.tiktok = None
@@ -40,6 +43,8 @@ class MainApp:
             print(f"thời gian reset quota là {time_remaining/3600} giờ")
             self.next_time_check_quocta = time() + time_remaining
 
+            self.thread_main = None
+            self.icon = None
             self.translator=None
             self.languages = self.config["supported_languages"]
             self.convert_multiple_record = False
@@ -50,17 +55,16 @@ class MainApp:
             self.is_edit_video_window = False
             self.is_edit_audio_window = False
             self.is_open_edit_video_menu = False
+            self.is_open_common_setting = False
+            self.is_169_to_916 = True
 
             self.is_editing_video = False
-            self.thread_main = None
-
-            self.icon = None
             self.is_auto_upload_youtube = False
             self.is_add_new_channel = False
             self.is_setting_auto_upload = False
             self.pre_time_check_auto_upload = 0
+            self.is_stop_edit = False
 
-            self.get_youtube_config()
             self.start_main_check_thread()
             self.setting_window_size()
             self.create_icon()
@@ -132,9 +136,9 @@ class MainApp:
                                         self.youtube_config['template'][channel_name]['last_auto_upload_date'] = current_date_str
                                         self.save_youtube_config()
                                     else:
-                                        warning_message(f"Có lỗi trong quá trình upload video cho channel {channel_name}")
+                                        warning_message(f"Có lỗi trong quá trình đăng video cho kênh {channel_name}")
                             else:
-                                print(f"Hôm nay đã check auto upload cho channel {channel_name}")
+                                print(f"Hôm nay đã đăng video tự dộng cho kênh {channel_name}")
                     # self.is_auto_upload_youtube = False
         except:
             getlog()
@@ -168,12 +172,6 @@ class MainApp:
         if 'registered_account' not in self.facebook_config:
             self.facebook_config['registered_account'] = []
 
-    def get_youtube_config(self):
-        self.youtube_config = get_json_data(youtube_config_path)
-        if not self.youtube_config:
-            self.youtube_config = {}
-        if 'template' not in self.youtube_config:
-            self.youtube_config['template'] = {}
     def save_youtube_config(self):
         save_to_json_file(self.youtube_config, youtube_config_path)
 
@@ -201,15 +199,17 @@ class MainApp:
         create_button(frame=self.root, text="Auto upload Youtube", command=self.auto_upload_youtube)
         create_button(frame=self.root, text="Auto upload Tiktok", command=self.auto_upload_tiktok)
         create_button(frame=self.root, text="Auto upload Facebook", command=self.auto_upload_facebook)
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
+
     def auto_upload_youtube(self):
         self.is_auto_upload_youtube = True
-        notification(f"Start checking youtube channels")
+        notification(f"Đã thiết lập tự động đăng video cho các kênh youtube")
     def auto_upload_tiktok(self):
         self.is_auto_upload_youtube = True
-        notification(f"Start checking tiktok channels")
+        notification(f"Đã thiết lập tự động đăng video cho các kênh tiktok")
     def auto_upload_facebook(self):
         self.is_auto_upload_youtube = True
-        notification(f"Start checking facebook pages")
+        notification(f"Đã thiết lập tự động đăng video cho các trang facebook")
 
     def open_youtube_window(self):
         self.reset()
@@ -226,6 +226,7 @@ class MainApp:
         self.input_current_channel_name.set(self.youtube_config['current_channel'])
         create_button(self.root, text="Start Youtube Management", command=self.start_youtube_management)
         create_button(self.root, text="Sign Up A Channel", command=self.add_new_channel)
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
     
     def choose_a_youtube_channel(self):
         current_youtube_account = self.input_gmail.get()
@@ -305,6 +306,7 @@ class MainApp:
         self.tiktok_account_var = self.create_settings_input(label_text="Choose Gmail", config_key="current_tiktok_account", values=self.tiktok_config['registered_account'])
         create_button(self.root, text="Start Tiktok Management", command=self.start_tiktok_management)
         create_button(self.root, text="Sign Up A Account", command=self.sign_up_tiktok_window)
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
 
     def sign_up_tiktok_window(self):
         self.reset()
@@ -360,6 +362,7 @@ class MainApp:
         self.facebook_page_name_var = self.create_settings_input(label_text="Choose Page Name", config_key="current_page", values=[key for key in self.facebook_config['template'].keys()])
         create_button(self.root, text="Start Facebook Management", command=self.start_facebook_management)
         create_button(self.root, text="Sign Up A Account", command=self.sign_up_facebook_window)
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
 
     def sign_up_facebook_window(self):
         self.reset()
@@ -426,8 +429,15 @@ class MainApp:
         self.video_get_audio_url = create_frame_label_and_input(self.root, label_text="Get Audio From Video URL", left=0.4, right=0.6)
         self.audio_edit_path = create_frame_button_and_input(self.root,text="Edit Audio From MP3 File", command= self.choose_audio_edit_file, left=0.4, right=0.6)
         self.video_get_audio_path = create_frame_button_and_input(self.root,text="Get Audio From Video", command= self.choose_video_get_audio_path, left=0.4, right=0.6)
+        self.choose_folder_download_var = create_frame_button_and_input(self.root,text="Choose Download Folder", command= self.choose_folder_download, left=0.4, right=0.6, width=self.width)
+        self.choose_folder_download_var.insert(0, self.config['download_folder'])
         create_button(frame=self.root, text="Start Edit Audio", command=self.create_thread_edit_audio, padx=8)
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
 
+    def choose_folder_download(self):
+        folder = choose_folder()
+        self.choose_folder_download_var.delete(0, ctk.END)
+        self.choose_folder_download_var.insert(0, folder)
     def choose_audio_edit_file(self):
         audio_edit_path = filedialog.askopenfilename()
         if audio_edit_path:
@@ -450,27 +460,31 @@ class MainApp:
         thread_edit_audio.start()
 
     def start_edit_audio(self):
+        download_folder = self.choose_folder_download_var.get()
+        if not os.path.exists(download_folder):
+            warning_message("hãy chọn thư mục lưu file tải về.")
+            return
         audio_edit_path = self.audio_edit_path.get()
         video_get_audio_path = self.video_get_audio_path.get()
         video_get_audio_url = self.video_get_audio_url.get()
         if not audio_edit_path and not video_get_audio_path and not video_get_audio_url:
-            warning_message("Please select only one source to edit audio")
+            warning_message("Hãy chọn 1 nguồn lấy audio")
             return
         if (audio_edit_path and video_get_audio_path) or (audio_edit_path and video_get_audio_url) or (video_get_audio_path and video_get_audio_url):
-            warning_message("Choose only one source to edit audio")
+            warning_message("Chỉ chọn 1 nguồn lấy audio.")
             return
         def save_edit_audio_setting():
-            self.config['first_cut_audio'] = self.first_cut_var.get()
-            self.config['end_cut_audio'] = self.end_cut_var.get()
-            self.config['audio_speed'] = self.speed_up_var.get()
-            self.config['reversed_audio'] = self.reversed_audio_var.get()
+            self.config['download_folder'] = download_folder
+            self.config['first_cut_audio'] = self.first_cut_audio_var.get()
+            self.config['end_cut_audio'] = self.end_cut_audio_var.get()
+            self.config['audio_speed'] = self.audio_speed_var.get()
+            self.config['reversed_audio'] = self.reversed_audio_var.get() == 'Yes'
             self.config['audio_edit_path'] = audio_edit_path
             self.config['video_get_audio_path'] = video_get_audio_path
             self.config['video_get_audio_url'] = video_get_audio_url
         save_edit_audio_setting()
-        
         self.save_config()
-        edit_audio(audio_path=self.config['audio_edit_path'], video_path=self.config['video_get_audio_path'], video_url=self.config['video_get_audio_url'], speed=self.config['speed'], first_cut_audio=self.config['first_cut_audio'], end_cut_audio=self.config['end_cut_audio'], reversed_audio=self.config['reversed_audio'])
+        edit_audio(audio_path=self.config['audio_edit_path'], video_path=self.config['video_get_audio_path'], video_url=self.config['video_get_audio_url'], speed=self.config['audio_speed'], first_cut_audio=self.config['first_cut_audio'], end_cut_audio=self.config['end_cut_audio'], reversed_audio=self.config['reversed_audio'], download_folder=self.config['download_folder'])
 
 #---------------------------------------------------------------------edit video
     def open_edit_video_menu(self):
@@ -482,18 +496,21 @@ class MainApp:
         create_button(frame=self.root, text="Edit Videos 9:16", command=self.open_edit_video_window)
         create_button(self.root, text="Convert Videos", command=self.convert_videos_window)
         create_button(self.root, text="Cut Video", command=self.cut_video_window)
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
     
     def cut_video_window(self):
         self.reset()
         self.is_cut_video_window =True
         self.show_window()
         self.setting_window_size()
-        self.segments_var = self.create_settings_input(label_text="Enter Cutting Times", values=["Yes", "No"], left=0.4, right=0.6)
+        self.cut_by_quantity_var = self.create_settings_input(label_text="Enter Cutting Quantity", config_key="quantity_split", values=["1","2","3","4"], left=0.4, right=0.6)
+        self.segments_var = self.create_settings_input(label_text="Enter Cutting Times", left=0.4, right=0.6)
         self.choose_is_connect_var = self.create_settings_input(label_text="Is Connect", values=["Yes", "No"], left=0.4, right=0.6)
         self.choose_is_connect_var.set(value="No")
         self.videos_folder_handle_path = create_frame_button_and_input(self.root, "Choose videos folder", width=self.width, command=self.choose_videos_edit_folder, left=0.4, right=0.6)
         self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
-        create_button(self.root, text="Start Cut Video", command=self.cut_videos_by_timeline)
+        create_button(self.root, text="Start Cut Video By Quantity", command=self.cut_videos_by_quantity)
+        create_button(self.root, text="Start Cut Video By Times", command=self.cut_videos_by_timeline)
         create_button(self.root, text="Back", command=self.open_edit_video_menu, width=self.width)
 
     def convert_videos_window(self):
@@ -527,11 +544,20 @@ class MainApp:
             self.edit_thread = threading.Thread(target=self.convert_videos)
             self.edit_thread.start()
 
-    def cut_videos_by_timeline(self, segments=None):
-        segments = self.segments_var.get()
-        if not segments:
-            warning_message("Hãy nhập các khoảng thời gian muốn cắt, ví dụ: 05:50,60:90,...")
-            return
+    def cut_videos_by_quantity(self):
+        try:
+            cut_quantity = self.cut_by_quantity_var.get()
+            cut_quantity = int(cut_quantity)
+            self.cut_videos_by_timeline(cut_quantity)
+        except:
+            getlog()
+
+    def cut_videos_by_timeline(self, cut_quantity=None):
+        if not cut_quantity:
+            segments = self.segments_var.get()
+            if not segments:
+                warning_message("Hãy nhập các khoảng thời gian muốn cắt, ví dụ: 05:50,60:90,...")
+                return
         videos_folder = self.videos_folder_handle_path.get()
         if not videos_folder:
             warning_message("Hãy chọn thư mục lưu video.")
@@ -551,12 +577,17 @@ class MainApp:
             if '.mp4' not in video_file:
                 continue
             video_path = f'{videos_folder}\\{video_file}'
-            is_edit_ok = cut_video_by_timeline(video_path, segments=segments, is_connect=is_connect)
+            if self.is_stop_edit:
+                return
+            if cut_quantity:
+                is_edit_ok = cut_video_by_quantity(video_path, cut_quantity)
+            else:
+                is_edit_ok = cut_video_by_timeline(video_path, segments=segments, is_connect=is_connect)
             if is_edit_ok:
                 list_edit_finished.append(video_file)
         cnt = len(list_edit_finished)
         if cnt > 0:
-            notification(f"Successfully edited {cnt} files: {list_edit_finished}")
+            notification(f"Xử lý thành công {cnt} video: {list_edit_finished}")
 
     def convert_videos(self):
         zoom_size = self.choose_zoom_size.get()
@@ -575,6 +606,8 @@ class MainApp:
             return
         list_edit_finished = []
         for i, video_file in enumerate(edit_videos):
+            if self.is_stop_edit:
+                return
             if '.mp4' not in video_file:
                 continue
             video_path = f'{videos_folder}\\{video_file}'
@@ -587,7 +620,7 @@ class MainApp:
                 list_edit_finished.append(video_file)
         cnt = len(list_edit_finished)
         if cnt > 0:
-            notification(f"Successfully edited {cnt} files: {list_edit_finished}")
+            notification(f"Xử lý thành công {cnt} video: {list_edit_finished}")
 
     def open_edit_video_window(self):
         self.reset()
@@ -619,7 +652,6 @@ class MainApp:
         self.water_path_var.insert(0, self.config['water_path'])
         self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
         create_button(frame=self.root, text="Start Edit Videos", command=self.create_thread_edit_video, width=self.width)
-        create_button(self.root, text="Back", command=self.open_edit_video_menu, width=self.width)
         create_button(self.root, text="Back", command=self.open_edit_video_menu, width=self.width)
 
     def create_thread_edit_video(self):
@@ -682,6 +714,8 @@ class MainApp:
             warning_message(f"Không tìm thấy video trong thư mục {videos_folder}")
             return
         for i, video_file in enumerate(edit_videos):
+            if self.is_stop_edit:
+                return
             if '.mp4' not in video_file:
                 continue
             index += 1
@@ -734,6 +768,8 @@ class MainApp:
             one_clip_duration = clip_duration / quantity_split
 
             for i in range(quantity_split):
+                if self.is_stop_edit:
+                    return
                 if i == 0:
                     start_time = 0
                 else:
@@ -746,7 +782,9 @@ class MainApp:
                         output_file = os.path.join(output_folder, f"{file_name}.mp4")
                     else:
                         output_file = os.path.join(output_folder, f"{file_name}_{i + 1}.mp4")
-
+                    if self.is_stop_edit:
+                        final_clip.close()
+                        return
                     final_clip.write_videofile(output_file, codec='libx264', fps=24)
                     self.list_edit_finished.append(input_video_path)
                     final_clip.close()
@@ -767,6 +805,11 @@ class MainApp:
 
 #---------------------------------------------------------------------Các Hàm gọi chung
     def open_common_settings(self):
+        self.reset()
+        self.is_open_common_setting = True
+        self.show_window()
+        self.setting_window_size()
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
         pass
 
     def choose_background_music(self):
@@ -840,6 +883,7 @@ class MainApp:
         self.is_sign_up_facebook = False
         self.is_sign_up_tiktok = False
         self.is_convert_video_window = False
+        self.is_open_common_setting = False
         self.is_cut_video_window = False
         self.clear_after_action()
         clear_widgets(self.root)
@@ -965,6 +1009,11 @@ class MainApp:
                 self.width = 500
                 self.height_window = 300
                 self.is_setting_auto_upload = False
+            elif self.is_open_common_setting:
+                self.root.title("Common Setting")
+                self.width = 500
+                self.height_window = 300
+                self.is_open_common_setting = False
             elif self.is_edit_video_window:
                 self.root.title("Edit Videos 9:16")
                 self.width = 700
@@ -973,7 +1022,7 @@ class MainApp:
             elif self.is_edit_audio_window:
                 self.root.title("Edit Audio")
                 self.width = 500
-                self.height_window = 460
+                self.height_window = 550
                 self.is_edit_audio_window = False
             elif self.is_open_edit_video_menu:
                 self.root.title("Edit Video Window")
@@ -1024,6 +1073,7 @@ class MainApp:
         create_button(frame=self.root, text="Choose file want to convert", command= self.choose_directory_get_txt_file)
         create_button(frame=self.root, text="Convert line by line to mp3", command= self.convert_line_by_line_to_mp3)
         create_button(frame=self.root, text="convert", command= self.text_to_mp3)
+        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
         self.show_window()
 
     def choose_directory_save_mp3_file(self):

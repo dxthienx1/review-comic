@@ -28,26 +28,6 @@ class FacebookManager:
         self.is_auto_upload = False
         self.is_stop_upload = False
         self.is_stop_download = False
-
-    def init_driver(self):
-        service = Service(ChromeDriverManager().install())
-        options = webdriver.ChromeOptions()
-        options.add_argument('--disable-gpu')
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
-        options.add_experimental_option('excludeSwitches', ['enable-automation'])
-        options.add_experimental_option('useAutomationExtension', False)
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.maximize_window()
-        stealth(driver,
-                languages=["en-US", "en"],
-                vendor="Google Inc.",
-                platform="Win32",
-                webgl_vendor="Intel Inc.",
-                renderer="Intel Iris OpenGL Engine",
-                fix_hairline=True,
-                )
-        self.driver = driver
     
     def get_start_facebook(self):
         self.is_start_facebook = True
@@ -62,13 +42,6 @@ class FacebookManager:
 
     def get_facebook_config(self):
         self.facebook_config = get_json_data(facebook_config_path)
-        if not self.facebook_config:
-            self.facebook_config = {}
-        if 'template' not in self.facebook_config:
-            self.facebook_config['template'] = {}
-        if self.page_name not in self.facebook_config['template']:
-            self.facebook_config['template'][self.page_name] = {}
-        self.save_facebook_config()
 
     def open_upload_video_window(self):
         self.reset()
@@ -201,7 +174,7 @@ class FacebookManager:
         save_to_json_file(self.local_storage_info, local_storage_path)
 
     def login(self):
-        self.init_driver()
+        self.driver = get_driver()
         self.load_session()
         sleep(1)
         self.driver.refresh()

@@ -37,6 +37,7 @@ current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(current_dir)
 icon_path = os.path.join(current_dir, 'icon.png')
 config_path = os.path.join(current_dir, 'config.json')
+chromedriver_path = os.path.join(current_dir, 'import/chromedriver.exe')
 secret_path = os.path.join(current_dir, 'secret.json')
 download_info_path = os.path.join(current_dir, 'download_info.json')
 youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
@@ -54,6 +55,36 @@ ffmpeg_dir = os.path.join(os.path.dirname(__file__), "ffmpeg", "bin")
 os.environ["PATH"] += os.pathsep + ffmpeg_dir
 # Đảm bảo rằng pydub có thể tìm thấy ffmpeg
 AudioSegment.converter = os.path.join(ffmpeg_dir, "ffmpeg.exe")
+
+def get_driver(show=True):
+    try:
+        print(chromedriver_path)
+        service = Service(chromedriver_path)
+        options = webdriver.ChromeOptions()
+        if not show:
+            options.add_argument('--headless')  # Chạy ở chế độ không giao diện
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
+        options.add_experimental_option('useAutomationExtension', False)
+        driver = webdriver.Chrome(service=service, options=options)
+        if show:
+            driver.maximize_window()
+        stealth(driver,
+                languages=["en-US", "en"],
+                vendor="Google Inc.",
+                platform="Win32",
+                webgl_vendor="Intel Inc.",
+                renderer="Intel Iris OpenGL Engine",
+                fix_hairline=True,
+                )
+        return driver
+    except:
+        getlog()
+        warning_message("Lỗi trong quá trình khởi tạo chromedriver.")
+        return None
+
 
 def convert_date_format_yyyymmdd_to_mmddyyyy(date_str):
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
@@ -423,24 +454,49 @@ def add_image_watermask_into_video(clip, top_overlay_height="10", bot_overlay_he
         getlog()
         return None
     
-def edit_audio(audio_path=None, video_path=None, video_url=None, reversed_audio=False, speed="1", first_cut_audio="0", end_cut_audio="0"):
+def check_vietnamese_characters(filename):
+    # Dải ký tự Unicode tiếng Việt bao gồm các ký tự có dấu
+    vietnamese_pattern = re.compile(
+        r'[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
+        r'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]'
+    )
+    return bool(vietnamese_pattern.search(filename))
+
+def rename_file_to_sanitized_version(file_path):
+    def sanitize_filename(filename):
+        # Chỉ giữ lại các ký tự tiếng Anh (chữ thường, chữ hoa, chữ số và dấu cách)
+        sanitized_name = re.sub(r'[^a-zA-Z0-9 ]', '', filename)
+        # Xóa dấu cách thừa ở đầu và cuối, và thay thế nhiều dấu cách bằng một dấu cách
+        sanitized_name = re.sub(r'\s+', ' ', sanitized_name).strip()
+        return sanitized_name
+    original_filename = os.path.basename(file_path)
+    file_extension = os.path.splitext(original_filename)[1]
+    filename_without_extension = os.path.splitext(original_filename)[0]
+    
+    sanitized_name = sanitize_filename(filename_without_extension)
+    new_filename = sanitized_name + file_extension
+    return new_filename
+
+def edit_audio(audio_path=None, video_path=None, video_url=None, reversed_audio=False, speed="1", first_cut_audio="0", end_cut_audio="0", download_folder=None):
     speed = float(speed)
     first_cut_audio = int(first_cut_audio)
     end_cut_audio = int(end_cut_audio)
+    
     if audio_path:
-        output_folder, output_audio_path, file_name = get_output_folder(audio_path)
-        audio_clip = AudioFileClip(audio_path)
+        target_path = audio_path
     elif video_path:
-        output_folder, output_audio_path, file_name = get_output_folder(video_path)
-        audio_clip = get_audio_clip_from_video(video_path)
+        target_path = video_path
     elif video_url:
-        output_folder, output_audio_path, file_name = get_output_folder(video_path)
-        video_path = download_video_by_url(video_url, output_folder)
-        audio_clip = get_audio_clip_from_video(video_path)
+        video_path = download_video_by_url(video_url, download_folder)
+        target_path = video_path
     else:
         warning_message("Vui lòng chọn nguồn để edit video")
         return
-    
+    if '.mp3' in target_path:
+        audio_clip = AudioFileClip(target_path)
+    else:
+        video_clip = VideoFileClip(video_path)
+        audio_clip = video_clip.audio
     try:
         if int(end_cut_audio) > 0 or int(first_cut_audio) > 0:
             audio_clip = audio_clip.subclip(first_cut_audio, audio_clip.duration - end_cut_audio)
@@ -448,31 +504,40 @@ def edit_audio(audio_path=None, video_path=None, video_url=None, reversed_audio=
         if reversed_audio:
             audio_clip = audio_clip.fx(vfx.time_mirror)
         # Thay đổi tốc độ âm thanh
-        if float(speed) != 1:
+        if speed != 1:
             audio_clip = audio_clip.fx(speedx, speed)
-
+        output_folder, output_file_path, file_name, finish_folder = get_output_folder(target_path)
+        if check_vietnamese_characters(file_name):
+            file_name = convert_sang_tieng_viet_khong_dau(file_name)
         audio_name = file_name.split('.')[0]
-        output_audio_path = f'{output_folder}\\{audio_name}.mp3'
-        audio_clip.write_audiofile(output_audio_path, codec='mp3')
+        output_audio_path = f'{output_folder}/{audio_name}.mp3'
+
+        try:
+            audio_clip.write_audiofile(output_audio_path, codec='mp3')
+        except:
+            output_audio_path = f'{output_folder}/audio.mp3'
+            audio_clip.write_audiofile(output_audio_path, codec='mp3')
         audio_clip.close()
+        if video_clip:
+            video_clip.close()
     except Exception as e:
         getlog()
 
 def get_audio_clip_from_video(video_path=None, is_get_video=False):
     try:
-        output_folder, output_video_path, file_name = get_output_folder(video_path)
         video_clip = VideoFileClip(video_path)
         audio_clip = video_clip.audio
         # Tạo video mới không có phần audio và lưu lại
         if is_get_video:
+            output_folder, output_video_path, file_name, finish_folder = get_output_folder(video_path)
             video_clip_without_audio = video_clip.without_audio()
             video_clip_without_audio.write_videofile(output_video_path, codec='libx264', audio_codec='aac')
             video_clip_without_audio.close()
-        audio_clip.close()
         video_clip.close()
         return audio_clip
     except:
         getlog()
+        return None
 
 def remove_audio_from_clip(clip):
     return clip.without_audio()
@@ -493,11 +558,11 @@ def set_audio_for_clip(clip, background_music, background_music_volume="10"):
 def get_output_folder(input_video_path):
     folder_input = os.path.dirname(input_video_path)
     file_name = os.path.basename(input_video_path)
-    output_folder = f'{folder_input}\\output_folder'
+    output_folder = f'{folder_input}/output_folder'
     os.makedirs(output_folder, exist_ok=True)
-    finish_folder = f'{folder_input}\\finish_folder'
+    finish_folder = f'{folder_input}/finish_folder'
     os.makedirs(finish_folder, exist_ok=True)
-    output_file_path = f'{output_folder}\\{file_name}'
+    output_file_path = f'{output_folder}/{file_name}'
     return output_folder, output_file_path, file_name, finish_folder
 
 #Áp dụng cho tất cả url
@@ -516,23 +581,49 @@ def download_video_by_url(url, download_folder=None):
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download(url)
-            sleep(1)
+        return True
     except:
         getlog()
-
-def get_info_by_url(url):
+        return False
+def get_info_by_url(url, download_folder=None, is_download=False):
+    if not url or not download_folder:
+        return
     try:
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
+            'writesubtitles': True,  # Cho phép viết phụ đề
+            'allsubtitles': True,  # Tải tất cả các phụ đề có sẵn
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+            'outtmpl': f'{download_folder}/%(title)s.%(ext)s',
             'addmetadata': False,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_video = ydl.extract_info(url, download=False)
-            return info_video
+            if is_download:
+                ydl.download(url)
+                video_path = f"{info_video['title']}.mp4"
+                video_path = os.path.join(download_folder, video_path)
+                return video_path
+            else:
+                return info_video
     except:
         getlog()
+        return None
+
+# def get_info_by_url(url):
+#     try:
+#         ydl_opts = {
+#             'quiet': True,
+#             'no_warnings': True,
+#             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+#             'addmetadata': False,
+#         }
+#         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+#             info_video = ydl.extract_info(url, download=False)
+#             return info_video
+#     except:
+#         getlog()
 
 #chỉ tiktok
 def download_video_no_watermask_from_tiktok(video_url, download_folder=None):
@@ -637,7 +728,32 @@ def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_move=F
     except:
         getlog()
         return False
-
+    
+def cut_video_by_quantity(input_video_path, cut_quantity):
+    try:
+        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
+        move_file_path = f"{finish_folder}\\{file_name}"
+        video = VideoFileClip(input_video_path)
+        video_duration = video.duration
+        cut_duration = video_duration / cut_quantity
+        for i in range(cut_quantity):
+            start_time = i * cut_duration
+            end_time = (i + 1) * cut_duration
+            if end_time > video_duration:
+                end_time = video_duration
+            output_path = os.path.join(output_folder, f"{file_name.split('.')[0]}_{i+1}.mp4")
+            video.subclip(start_time, end_time).write_videofile(output_path, codec="libx264")
+        video.close()
+        sleep(1)
+        try:
+            shutil.move(input_video_path, move_file_path)
+        except:
+            getlog()
+        return True
+    except:
+        getlog()
+        return False
+    
 def cut_video_by_timeline(input_video_path, segments, is_connect):
     try:
         output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
@@ -662,16 +778,16 @@ def cut_video_by_timeline(input_video_path, segments, is_connect):
                 file_path = f"{output_folder}\\{file_name.split('.')[0]}_{i}.mp4"
                 clip.write_videofile(file_path, codec='libx264')
                 clip.close()
-                sleep(2)
+                sleep(1)
                 video.close()
         try:
             shutil.move(input_video_path, move_file_path)
-        except Exception as e:
-            # getlog()
-            print(f"Lỗi khi di chuyển tệp: {e}")
+        except:
+            getlog()
+        return True
     except Exception as e:
         getlog()
-        warning_message("Có lỗi trong quá trình cắt video")
+        return False
 
 def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None):
     if attribute and attribute_value:

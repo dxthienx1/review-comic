@@ -5,7 +5,7 @@ import pickle
 class TikTokManager:
     def __init__(self, account, password, upload_thread=None):
         self.upload_thread = upload_thread
-        self.tiktok_config = get_json_data(tiktok_config_path)
+        self.get_tiktok_config()
         self.account = account
         self.password = password
         self.root = ctk.CTk()
@@ -22,32 +22,13 @@ class TikTokManager:
 
 
 #-----------------------------Thao tác trên tiktok--------------------------------------------------------------
-    def init_driver(self):
-        service = Service(ChromeDriverManager().install())
-        options = webdriver.ChromeOptions()
-        if self.is_stop_upload:
-            options.add_argument('--headless')  # Chạy ở chế độ không giao diện
-        options.add_argument('--disable-gpu')
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
-        options.add_experimental_option('excludeSwitches', ['enable-automation'])
-        options.add_experimental_option('useAutomationExtension', False)
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.maximize_window()
-        stealth(driver,
-                languages=["en-US", "en"],
-                vendor="Google Inc.",
-                platform="Win32",
-                webgl_vendor="Intel Inc.",
-                renderer="Intel Iris OpenGL Engine",
-                fix_hairline=True,
-                )
-        self.driver = driver
 
     def login(self):
         try:
             self.is_stop_upload = False
-            self.init_driver()
+            self.driver = get_driver()
+            if not self.driver:
+                return
             self.load_session()
             self.driver.refresh()
             sleep(3)
@@ -69,19 +50,22 @@ class TikTokManager:
                     upload_link = self.get_element_by_xpath(xpath, "Upload a video")
             if upload_link:
                 upload_link.click()
-                sleep(2)
-                # self.check_captcha_img()
-                return True
+                sleep(3)
+                if self.check_capcha_image():
+                    self.save_session()
+                    return True
+                else:
+                    return False
             else:
                 return False
         except Exception as e:
             getlog()
-            print(f"Exception occurred: {e}")
+            warning_message("Lỗi đường truyền mạng không ổn định!")
             return False
 
     def load_session(self, url="https://www.tiktok.com/login/phone-or-email/email"):
         self.driver.get(url)
-        sleep(4)  # Ensure the page is fully loaded before adding cookies
+        sleep(2)  # Ensure the page is fully loaded before adding cookies
         try:
             with open(cookies_tiktok_path, "rb") as file:
                 cookies = pickle.load(file)
@@ -200,7 +184,7 @@ class TikTokManager:
             try:
                 if self.is_stop_upload:
                     break
-                xpath = get_xpath('img', "jsx-3271322529 check-icon")
+                xpath = "//img[contains(@class, 'check-icon')]"
                 ele = self.get_element_by_xpath(xpath)
                 if ele:
                     src = ele.get_attribute('src')
@@ -236,7 +220,18 @@ class TikTokManager:
             sleep(2)
         else:
             print("không thấy upload more video button")
-        
+    
+    def check_capcha_image(self):
+        xpath = "//img[id='captcha-verify-image']"
+        ele = self.get_element_by_xpath(xpath)
+        if ele:
+            sleep(15)
+            ele = self.get_element_by_xpath(xpath)
+            if ele:
+                warning_message("Phải xác minh capcha thủ công.")
+                return False
+        return True
+
     def get_element_by_xpath(self, xpath, key=None):
         kq = []
         cnt=0
@@ -319,7 +314,7 @@ class TikTokManager:
     def save_upload_setting(self):
         videos_folder = self.upload_folder_var.get()
         if not videos_folder:
-            warning_message("Please choose the upload videos folder!")
+            warning_message("Hãy chọn thư mục chứa video!")
             return False
         try:
             self.get_tiktok_config()
@@ -408,25 +403,29 @@ class TikTokManager:
                             self.click_schedule_post()
                         else:
                             self.click_schedule_post()
-                        finishes_upload_videos.append(video_file)
                         upload_count += 1
                         try:
                             shutil.move(old_video_path, new_video_path)
                         except:
                             getlog()
+                        finishes_upload_videos.append(video_file)
                         if upload_count < len(publish_times):
                             continue
                         else:
                             break
                     else:
                         self.click_copyright_check()
+                        if self.is_stop_upload:
+                            break
                         self.check_status_copyright_check()
+                        if self.is_stop_upload:
+                            break
                         self.click_post_button()
-                        finishes_upload_videos.append(video_file)
                         try:
                             shutil.move(old_video_path, new_video_path)
                         except:
                             getlog()
+                        finishes_upload_videos.append(video_file)
                         break
                 else:
                     break
@@ -434,6 +433,7 @@ class TikTokManager:
             if cnt > 0:
                 print(f"Uploaded finish {cnt} video: {finishes_upload_videos}")
         except:
+            warning_message("Lỗi đường truyền mạng không ổn định!")
             getlog()
         finally:
             self.close()
@@ -443,13 +443,7 @@ class TikTokManager:
 
     def get_tiktok_config(self):
         self.tiktok_config = get_json_data(tiktok_config_path)
-        if not self.tiktok_config:
-            self.tiktok_config = {}
-        if 'template' not in self.tiktok_config:
-            self.tiktok_config['template'] = {}
-        if self.account not in self.tiktok_config['template']:
-            self.tiktok_config['template'][self.account] = {}
-        self.save_tiktok_config()
+
 #---------------------------------Giao diện download------------------------------------------
     def open_download_video_window(self):
             self.reset()
@@ -538,7 +532,9 @@ class TikTokManager:
                 except:
                     getlog()
                     return False
-            self.init_driver()
+            self.driver = get_driver(show=False)
+            if not self.driver:
+                return
             
             self.driver.get(channel_url) # Mở trang TikTok
             sleep(20)  # Đợi trang tải
