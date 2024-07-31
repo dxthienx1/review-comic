@@ -1,14 +1,12 @@
-import threading
-import tkinter.font as tkfont
-from PIL import Image, ImageDraw
-import pystray
-from pystray import MenuItem as item
-from tiktok_management import TikTokManager
-from facebook import FacebookManager
-from youtube import YouTubeManager
 from common_function import *
 from common_function_CTK import *
 from Common import *
+from PIL import Image, ImageDraw
+import pystray
+from pystray import MenuItem as item
+from tiktok import TikTokManager
+from facebook import FacebookManager
+from youtube import YouTubeManager
 
 class MainApp:
     def __init__(self):
@@ -26,6 +24,7 @@ class MainApp:
             load_facebook_config()
             self.youtube = None
             self.is_youtube_window = False
+            self.is_sign_up_youtube = False
             self.tiktok = None
             self.is_tiktok_window = False
             self.is_sign_up_tiktok = False
@@ -245,6 +244,7 @@ class MainApp:
         self.input_gmail = create_frame_label_and_input(self.root, label_text="Gmail")
         self.input_current_channel_name = create_frame_label_and_input(self.root, label_text="Channel Name")
         create_button(frame=self.root, text="Submit And Verify Now", command=self.sign_up_youtube_channel)
+        create_button(self.root, text="Back", command=self.open_youtube_window, width=self.width)
     
     def sign_up_youtube_channel(self):
         self.is_add_new_channel = True
@@ -337,6 +337,7 @@ class MainApp:
         self.tiktok_account_var = create_frame_label_and_input(self.root, label_text="Input A tiktok Account")
         self.tiktok_password_var = create_frame_label_and_input(self.root, label_text="Input Password")
         create_button(self.root, text="Sign Up Now", command=sign_up_tiktok)
+        create_button(self.root, text="Back", command=self.open_tiktok_window, width=self.width)
 
     def start_tiktok_management(self):
         self.tiktok_account = self.tiktok_account_var.get()
@@ -993,7 +994,7 @@ class MainApp:
     def setting_window_size(self):
         if self.is_start_app:
             self.width = 500
-            self.height_window = 630
+            self.height_window = 435
         else:
             if self.is_setting:
                 self.root.title("Setting")
@@ -1003,11 +1004,11 @@ class MainApp:
             elif self.is_add_new_channel:
                 self.root.title("Add New Youtube Channel")
                 self.width = 500
-                self.height_window = 400
+                self.height_window = 270
             elif self.is_setting_auto_upload:
                 self.root.title("Setting Auto Upload")
                 self.width = 500
-                self.height_window = 300
+                self.height_window = 265
                 self.is_setting_auto_upload = False
             elif self.is_open_common_setting:
                 self.root.title("Common Setting")
@@ -1027,7 +1028,7 @@ class MainApp:
             elif self.is_open_edit_video_menu:
                 self.root.title("Edit Video Window")
                 self.width = 500
-                self.height_window = 460
+                self.height_window = 300
                 self.is_open_edit_video_menu = False
             elif self.is_convert_video_window:
                 self.root.title("Convert Videos Window")
@@ -1035,14 +1036,19 @@ class MainApp:
                 self.height_window = 460
                 self.is_convert_video_window = False
             elif self.is_cut_video_window:
-                self.root.title("Facebook Window")
+                self.root.title("Cut Video Window")
                 self.width = 500
                 self.height_window = 300
                 self.is_cut_video_window = False
+            elif self.is_youtube_window:
+                self.root.title("Youtube Window")
+                self.width = 500
+                self.height_window = 320
+                self.is_youtube_window = False
             elif self.is_facebook_window:
                 self.root.title("Facebook Window")
                 self.width = 500
-                self.height_window = 300
+                self.height_window = 310
                 self.is_facebook_window = False
             elif self.is_sign_up_facebook:
                 self.root.title("Sign Up")
@@ -1052,13 +1058,18 @@ class MainApp:
             elif self.is_tiktok_window:
                 self.root.title("Tiktok Window")
                 self.width = 500
-                self.height_window = 300
+                self.height_window = 265
                 self.is_tiktok_window = False
             elif self.is_sign_up_tiktok:
                 self.root.title("Sign Up")
                 self.width = 500
-                self.height_window = 300
+                self.height_window = 265
                 self.is_sign_up_tiktok = False
+            elif self.is_sign_up_youtube:
+                self.root.title("Sign Up")
+                self.width = 500
+                self.height_window = 265
+                self.is_sign_up_youtube = False
             else:
                 self.width = 500
                 self.height_window = 500

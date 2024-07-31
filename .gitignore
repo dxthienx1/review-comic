@@ -4,6 +4,9 @@ oauth/
 downloads/
 finish/
 import/
+dist/
+build/
+hook/
 __pycache__/
 secret.json
 cookies.json

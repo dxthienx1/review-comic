@@ -10,8 +10,6 @@ class FacebookManager:
         self.page_name = page_name
         self.root = ctk.CTk()
         self.title = self.root.title(account)
-        self.font_label = ctk.CTkFont(family="Arial", size=font_size)
-        self.font_button = ctk.CTkFont( family="Arial", size=font_size, weight="bold" )
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.width = 500
 
@@ -28,8 +26,14 @@ class FacebookManager:
         self.is_auto_upload = False
         self.is_stop_upload = False
         self.is_stop_download = False
+        self.is_first_start = True
     
     def get_start_facebook(self):
+        if not self.is_first_start:
+            self.reset()
+        else:
+            self.is_first_start = False
+        
         self.is_start_facebook = True
         self.show_window()
         self.setting_window_size()
@@ -72,15 +76,16 @@ class FacebookManager:
             if folder:
                 self.upload_folder_var.delete(0, ctk.END)
                 self.upload_folder_var.insert(0, folder)
-        self.title_var = self.create_settings_input("Title", "title", left=0.4, right=0.6)
-        self.is_title_plus_video_name_var = self.create_settings_input("Title + Video Name", "is_title_plus_video_name", values=["Yes", "No"], left=0.4, right=0.6)
-        self.description_var = self.create_settings_input("Description(For Schedule)", "description", is_textbox=True, left=0.4, right=0.6)
-        self.upload_date_var = self.create_settings_input("Upload Date(For Schedule)", "upload_date", left=0.4, right=0.6)
-        self.publish_times_var = self.create_settings_input("Publish Times(For Schedule)", "publish_times", left=0.4, right=0.6)
-        self.upload_folder_var = create_frame_button_and_input(self.root,text="Select Videos Folder", command=choose_folder_upload, width=self.width, left=0.4, right=0.6)
+        self.title_var = self.create_settings_input("Title", "title", left=0.3, right=0.7)
+        self.is_title_plus_video_name_var = self.create_settings_input("Title + Video Name", "is_title_plus_video_name", values=["Yes", "No"], left=0.3, right=0.7)
+        self.description_var = self.create_settings_input("Description(For Schedule)", "description", is_textbox=True, left=0.3, right=0.7)
+        self.upload_date_var = self.create_settings_input("Upload Date(For Schedule)", "upload_date", left=0.3, right=0.7)
+        self.publish_times_var = self.create_settings_input("Publish Times(For Schedule)", "publish_times", left=0.3, right=0.7)
+        self.upload_folder_var = create_frame_button_and_input(self.root,text="Select Videos Folder", command=choose_folder_upload, width=self.width, left=0.3, right=0.7)
         self.upload_folder_var.insert(0, self.facebook_config['template'][self.page_name]['upload_folder'])
-        self.load_template_var = create_frame_button_and_combobox(self.root, "Load Template", command=load_template, values=[key for key in self.facebook_config['template'].keys()], width=self.width, left=0.4, right=0.6)
+        self.load_template_var = create_frame_button_and_combobox(self.root, "Load Template", command=load_template, values=[key for key in self.facebook_config['template'].keys()], width=self.width, left=0.3, right=0.7)
         create_frame_button_and_button(self.root, text1="Upload now", text2="Schedule Upload", command1=self.upload_video_now, command2=self.schedule_upload, width=self.width, left=0.5, right=0.5)
+        create_button(self.root, text="Back", command=self.get_start_facebook, width=self.width)
 
     def schedule_upload(self):
         if not self.save_upload_setting():
@@ -174,32 +179,43 @@ class FacebookManager:
         save_to_json_file(self.local_storage_info, local_storage_path)
 
     def login(self):
-        self.driver = get_driver()
-        self.load_session()
-        sleep(1)
-        self.driver.refresh()
-        sleep(1)
+        try:
+            self.driver = get_driver()
+            self.load_session()
+            sleep(1)
+            self.driver.refresh()
+            sleep(2)
+            self.get_profile_element()
+            if not self.profile_element:
+                if "Facebook" in self.driver.title:
+                    email_input = self.driver.find_element(By.ID, 'email')
+                    email_input.send_keys(self.account)
+                    sleep(1)
+                    password_input = self.driver.find_element(By.ID, 'pass')
+                    password_input.send_keys(self.password)
+                    sleep(1)
+                    password_input.send_keys(Keys.RETURN)
+                    sleep(20) 
+                    self.save_session()
+                    self.get_profile_element()
+            if self.page_name:
+                self.profile_element.click()
+                sleep(1)
+                self.change_page(self.page_name)
+        except:
+            getlog()
+            self.get_profile_element()
+            if self.profile_element:
+                self.profile_element.click()
+            else:
+                warning_message("Lỗi đường truyền mạng không ổn định!")
+                return False
+
+#-----------------------------------Thao tác trên facebook--------------------------------------------  
+    def get_profile_element(self):
         profile_xpath = get_xpath("div", "x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x1q0g3np x87ps6o x1lku1pv x1a2a7pz xzsf02u x1rg5ohu")
         self.profile_element = self.get_element_by_xpath(profile_xpath, "Your profile")
-        if not self.profile_element:
-            if "Facebook" in self.driver.title:
-                email_input = self.driver.find_element(By.ID, 'email')
-                email_input.send_keys(self.account)
-                sleep(1)
-                password_input = self.driver.find_element(By.ID, 'pass')
-                password_input.send_keys(self.password)
-                sleep(1)
-                password_input.send_keys(Keys.RETURN)
-                warning_message("Please authenticate your login in 40 seconds!")
-                sleep(40) 
-                self.save_session()
-                self.profile_element = self.get_element_by_xpath(profile_xpath, "Your profile")
-        if self.page_name:
-            self.profile_element.click()
-            sleep(1)
-            self.change_page(self.page_name)
 
-#-----------------------------------Thao tác trên facebook--------------------------------------------      
     def click_element_by_js(self, element):
         self.driver.execute_script("arguments[0].click();", element)
     def scroll_into_view(self, element):
@@ -586,12 +602,12 @@ class FacebookManager:
         if self.is_start_facebook:
             self.root.title(f"{self.account}")
             self.width = 500
-            self.height_window = 250
+            self.height_window = 170
             self.is_start_facebook = False
         elif self.is_upload_video_window:
             self.root.title(f"{self.account}")
             self.width = 700
-            self.height_window = 550
+            self.height_window = 590
             self.is_upload_video_window = False
        
         self.setting_screen_position()

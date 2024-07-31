@@ -26,18 +26,31 @@ import portalocker
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
-from selenium_stealth import stealth
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from common_function_CTK import warning_message
+from selenium_stealth import stealth
 
-current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+def get_current_dir():
+    """Lấy thư mục đang chạy tệp thực thi"""
+    if getattr(sys, 'frozen', False):
+        # Đang chạy từ tệp thực thi đóng gói
+        print("Đang chạy trong môi trường thực")
+        current_dir = os.path.dirname(sys.executable)
+    else:
+        # Đang chạy trong môi trường phát triển
+        print("Đang chạy trong môi trường phát triển")
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+    return current_dir
+current_dir = get_current_dir()
+# current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(current_dir)
 icon_path = os.path.join(current_dir, 'icon.png')
 config_path = os.path.join(current_dir, 'config.json')
-chromedriver_path = os.path.join(current_dir, 'import/chromedriver.exe')
+print(config_path)
+chromedriver_path = os.path.join(current_dir, 'import\\chromedriver.exe')
 secret_path = os.path.join(current_dir, 'secret.json')
 download_info_path = os.path.join(current_dir, 'download_info.json')
 youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
@@ -50,11 +63,22 @@ youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
 tiktok_config_path = os.path.join(current_dir, 'tiktok_config.json')
 facebook_config_path = os.path.join(current_dir, 'facebook_config.json')
 
-ffmpeg_dir = os.path.join(os.path.dirname(__file__), "ffmpeg", "bin")
+def get_ffmpeg_dir():
+    # Tìm đường dẫn thư mục hiện tại chứa tệp thực thi
+    if getattr(sys, 'frozen', False):
+        # Đang chạy từ tệp thực thi đã build
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        # Đang chạy từ mã nguồn Python
+        base_dir = os.path.dirname(__file__)
+    # Đường dẫn đến thư mục chứa ffmpeg
+    ffmpeg_dir = os.path.join(base_dir, "ffmpeg", "bin")
+    return ffmpeg_dir
 # Cập nhật đường dẫn PATH trong mã Python
+ffmpeg_dir = get_ffmpeg_dir()
 os.environ["PATH"] += os.pathsep + ffmpeg_dir
-# Đảm bảo rằng pydub có thể tìm thấy ffmpeg
 AudioSegment.converter = os.path.join(ffmpeg_dir, "ffmpeg.exe")
+
 
 def get_driver(show=True):
     try:
@@ -77,7 +101,7 @@ def get_driver(show=True):
                 platform="Win32",
                 webgl_vendor="Intel Inc.",
                 renderer="Intel Iris OpenGL Engine",
-                fix_hairline=True,
+                fix_hairline=True
                 )
         return driver
     except:

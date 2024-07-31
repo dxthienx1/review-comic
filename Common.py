@@ -14,17 +14,17 @@ def load_config():
             "to_language": "vi",
             "auto_start": False,
 
-            "current_youtube_account": "dxthienx2@gmail.com",
-            "current_tiktok_account": "dxthienx2@gmail.com",
-            "current_facebook_account": "dxthienx2@gmail.com",
+            "current_youtube_account": "",
+            "current_tiktok_account": "",
+            "current_facebook_account": "",
             "current_channel": "",
             "current_channel_id": "",
 
             "download_by_video_url": "",
             "download_by_channel_id": "",
             "download_by_channel_url": "",
-            "filter_by_like": 100000,
-            "filter_by_views": 5000000,
+            "filter_by_like": 10000,
+            "filter_by_views": 500000,
 
             "file_name": "",
             "start_index": "",

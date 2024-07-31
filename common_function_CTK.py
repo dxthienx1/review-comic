@@ -4,7 +4,6 @@ import ctypes
 
 padx = 5
 pady = 2
-font_size = 14
 height_element = 40
 width_window = 500
 user32 = ctypes.windll.user32
@@ -15,8 +14,6 @@ right = 3/4
 LEFT = 'left'
 RIGHT = 'right'
 CENTER = 'center'
-font_label = None
-font_button = None
 
 def choose_folder():
     folder_path = filedialog.askdirectory()
@@ -44,7 +41,7 @@ def create_button_icon(frame = None, command=None, image=None, side=None, width=
     return button
 
 def create_button(frame = None, text="", command=None, width=width_window, compound="left", anchor="center", image=None, side=None, pady=pady, padx=padx):
-    button = ctk.CTkButton(master=frame, text=text, command=command, image=image, font=font_button, width=width, height= height_element, compound=compound, anchor=anchor, )
+    button = ctk.CTkButton(master=frame, text=text, command=command, image=image, width=width, height= height_element, compound=compound, anchor=anchor, )
     if side:
         button.pack(side=side, pady=pady, padx=padx)
     else:    
@@ -55,7 +52,7 @@ def create_label(frame=None, text="", compound="center", anchor="w", width=width
     if not width:
         width = width
     wraplength = width - 20
-    label = ctk.CTkLabel(master=frame, text=text, font=font_label, width=width, height= height_element, wraplength=wraplength, anchor=anchor, compound=compound)
+    label = ctk.CTkLabel(master=frame, text=text, width=width, height= height_element, wraplength=wraplength, anchor=anchor, compound=compound)
     if side:
         label.pack(side=side, pady=pady, padx=padx)
     else:

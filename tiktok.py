@@ -16,6 +16,7 @@ class TikTokManager:
         self.local_storage_info = {}
         self.driver = None
         self.is_start_tiktok = True
+        self.is_first_start = True
         self.is_upload_video_window = False
         self.is_stop_upload = True
         self.is_stop_download = False
@@ -30,27 +31,32 @@ class TikTokManager:
             if not self.driver:
                 return
             self.load_session()
+            sleep(1)
             self.driver.refresh()
-            sleep(3)
-            # self.check_captcha_img()
+            sleep(6)
             xpath = get_xpath_by_multi_attribute('a', ["aria-label='Upload a video'"])
             upload_link = self.get_element_by_xpath(xpath, "Upload a video")
             if not upload_link:
                 if "TikTok" in self.driver.title:
-                    email_input = self.driver.find_element(By.NAME, 'username')
-                    email_input.send_keys(self.account)
-                    sleep(1)
+                    print("check email...................")
+                    email_xpath = '//input[@name="username"]'
+                    email_input = self.get_element_by_xpath(email_xpath)
+                    if email_input:
+                        email_input.send_keys(self.account)
+                        sleep(1)
                     pass_xpath = get_xpath_by_multi_attribute("input", ["type='password'", "placeholder='Password'"])
                     password_input = self.get_element_by_xpath(pass_xpath, "password")
-                    password_input.send_keys(self.password)
-                    sleep(1)
-                    password_input.send_keys(Keys.RETURN)
-                    sleep(30)  # Adjust this time according to your needs
-                    self.save_session()
+                    if password_input:
+                        password_input.send_keys(self.password)
+                        sleep(1)
+                        password_input.send_keys(Keys.RETURN)
+                        sleep(1)
+                        sleep(20)  # Adjust this time according to your needs
+                        self.save_session()
                     upload_link = self.get_element_by_xpath(xpath, "Upload a video")
             if upload_link:
                 upload_link.click()
-                sleep(3)
+                sleep(1)
                 if self.check_capcha_image():
                     self.save_session()
                     return True
@@ -261,7 +267,13 @@ class TikTokManager:
         ele = self.driver.find_element(By.NAME, name)
         return ele
 #--------------------------------Giao diện upload--------------------------------------
+
     def get_start_tiktok(self):
+        if not self.is_first_start:
+            self.reset()
+        else:
+            self.is_first_start = False
+        self.is_start_tiktok = True
         self.show_window()
         self.setting_window_size()
         create_button(frame = self.root,text="Upload Videos", command= self.open_upload_video_window)
@@ -292,13 +304,14 @@ class TikTokManager:
             if folder:
                 self.upload_folder_var.delete(0, ctk.END)
                 self.upload_folder_var.insert(0, folder)
-        self.description_var = self.create_settings_input("Description", "description", config=self.tiktok_config['template'][self.account], is_textbox=True, left=0.4, right=0.6)
-        self.upload_date_var = self.create_settings_input("Upload Date(For Schedule)", "upload_date", config=self.tiktok_config['template'][self.account], left=0.4, right=0.6)
-        self.publish_times_var = self.create_settings_input("Publish Times(For Schedule)", "publish_times", config=self.tiktok_config['template'][self.account], left=0.4, right=0.6)
-        self.upload_folder_var = create_frame_button_and_input(self.root,text="Select Videos Folder", command=choose_folder_upload, width=self.width, left=0.4, right=0.6)
+        self.description_var = self.create_settings_input("Description", "description", config=self.tiktok_config['template'][self.account], is_textbox=True, left=0.3, right=0.7)
+        self.upload_date_var = self.create_settings_input("Upload Date(For Schedule)", "upload_date", config=self.tiktok_config['template'][self.account], left=0.3, right=0.7)
+        self.publish_times_var = self.create_settings_input("Publish Times(For Schedule)", "publish_times", config=self.tiktok_config['template'][self.account], left=0.3, right=0.7)
+        self.upload_folder_var = create_frame_button_and_input(self.root,text="Select Videos Folder", command=choose_folder_upload, width=self.width, left=0.3, right=0.7)
         self.upload_folder_var.insert(0, self.tiktok_config['template'][self.account]['upload_folder'])
-        self.load_template_var = create_frame_button_and_combobox(self.root, "Load Template", command=load_template, values=[key for key in self.tiktok_config['template'].keys()], width=self.width, left=0.4, right=0.6)
+        self.load_template_var = create_frame_button_and_combobox(self.root, "Load Template", command=load_template, values=[key for key in self.tiktok_config['template'].keys()], width=self.width, left=0.3, right=0.7)
         create_frame_button_and_button(self.root, text1="Upload now", text2="Schedule Upload", command1=self.upload_video_now, command2=self.schedule_upload, width=self.width, left=0.5, right=0.5)
+        create_button(self.root, text="Back", command=self.get_start_tiktok, width=self.width)
     
     def schedule_upload(self):
         if not self.save_upload_setting():
@@ -394,6 +407,8 @@ class TikTokManager:
                             return
                         self.click_schedule_button()
                         self.select_time(public_time)
+                        if self.is_stop_upload:
+                            break
                         self.select_date(upload_date)
                         self.click_copyright_check()
                         status = self.check_status_copyright_check()
@@ -472,6 +487,7 @@ class TikTokManager:
             self.download_by_channel_url = create_frame_button_and_input(self.root,text="Download By Channel URL", command=start_download_by_channel_url)
             self.filter_by_like_var = self.create_settings_input("Filter By Number Of Likes", "filter_by_like", config=self.tiktok_config, values=["10000", "20000", "30000", "50000", "100000"])
             self.filter_by_views_var = self.create_settings_input("Filter By Number Of Views", "filter_by_views", config=self.tiktok_config, values=["100000", "200000", "300000", "500000", "1000000"])
+            create_button(self.root, text="Back", command=self.get_start_tiktok, width=self.width)
 
     def choose_folder_to_save(self):
         self.output_folder = filedialog.askdirectory()
@@ -623,17 +639,17 @@ class TikTokManager:
         if self.is_start_tiktok:
             self.root.title(f"{self.account}")
             self.width = 400
-            self.height_window = 250
+            self.height_window = 170
             self.is_start_tiktok = False
         elif self.is_upload_video_window:
             self.root.title(f"Upload video: {self.account}")
             self.width = 800
-            self.height_window = 910
+            self.height_window = 490
             self.is_upload_video_window = False
         elif self.is_download_window:
             self.root.title("Download videos")
             self.width = 600
-            self.height_window = 340
+            self.height_window = 320
             self.is_download_window = False
         self.setting_screen_position()
 

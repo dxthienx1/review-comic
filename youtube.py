@@ -49,7 +49,6 @@ class YouTubeManager():
         self.list_videos_download_from_channel = []
         self.list_videos_detail = []
         self.list_video_ids_delete = []
-        self.validate_message = ""
         self.is_quotaExceeded = False
         self.is_upload_video_window = False
         if is_auto_upload:
@@ -60,9 +59,10 @@ class YouTubeManager():
 
         self.is_stop_download = False
         self.is_stop_upload = False
+        self.is_first_start = True
 
     def get_youtube_config(self):
-        
+
         self.youtube_config = get_json_data(youtube_config_path)
     def save_youtube_config(self):
         save_to_json_file(self.youtube_config, youtube_config_path)
@@ -88,6 +88,11 @@ class YouTubeManager():
             self.api_key = None
 
     def get_start_youtube(self):
+        if not self.is_first_start:
+            self.reset()
+        else:
+            self.is_first_start = False
+        self.is_start_youtube = True
         self.show_window()
         self.setting_window_size()
         create_button(frame = self.root,text="Upload Videos", command= self.open_upload_video_window)
@@ -139,12 +144,13 @@ class YouTubeManager():
                 else:
                     return
 
-        self.output_folder_var = create_frame_button_and_input(self.root,text="Choose folder to save", command=self.choose_folder_to_save)
+        self.output_folder_var = create_frame_button_and_input(self.root,text="Choose folder to save", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
         self.output_folder_var.insert(0, self.youtube_config['download_folder'])
-        self.download_by_video_url = create_frame_button_and_input(self.root,text="Download By Video URL", command=start_download_by_video_url)
-        self.download_by_channel_id = create_frame_button_and_input(self.root,text="Download By Channel Id", command=start_download_by_channel_id)
-        self.filter_by_like_var = self.create_settings_input("Filter By Number Of Likes", "filter_by_like", is_data_in_template= False, values=["10000", "20000", "30000", "50000", "100000"])
-        self.filter_by_views_var = self.create_settings_input("Filter By Number Of Views", "filter_by_views", is_data_in_template=False, values=["100000", "200000", "300000", "500000", "1000000"])
+        self.download_by_video_url = create_frame_button_and_input(self.root,text="Download By Video URL", command=start_download_by_video_url, width=self.width, left=0.4, right=0.6)
+        self.download_by_channel_id = create_frame_button_and_input(self.root,text="Download By Channel Id", command=start_download_by_channel_id, width=self.width, left=0.4, right=0.6)
+        self.filter_by_like_var = self.create_settings_input("Filter By Number Of Likes", "filter_by_like", is_data_in_template= False, values=["10000", "20000", "30000", "50000", "100000"], left=0.4, right=0.6)
+        self.filter_by_views_var = self.create_settings_input("Filter By Number Of Views", "filter_by_views", is_data_in_template=False, values=["100000", "200000", "300000", "500000", "1000000"], left=0.4, right=0.6)
+        create_button(self.root, text="Back", command=self.get_start_youtube, width=self.width)
 
     def choose_folder_to_save(self):
         output_folder = filedialog.askdirectory()
@@ -208,7 +214,8 @@ class YouTubeManager():
         self.upload_folder_var.insert(0, self.youtube_config['template'][self.channel_name]['upload_folder'])
         self.load_template_combobox = create_frame_button_and_combobox(self.root,text="Load Template", width=self.width, command=load_template, values=list(self.youtube_config['template'].keys()))
         self.load_template_combobox.set(self.youtube_config['current_channel'])
-        create_frame_button_and_button(self.root,text1="Start upload video now", width=self.width, command1=self.start_upload_videos_now, text2="Start upload video with schedule", command2=self.start_upload_videos_with_schedule)
+        create_frame_button_and_button(self.root,text1="Start upload video now", width=self.width, command1=self.start_upload_videos_now, text2="Start upload video with schedule", command2=self.start_upload_videos_with_schedule, left=0.5, right=0.5)
+        create_button(self.root, text="Back", command=self.get_start_youtube, width=self.width)
         self.show_window()
 
     def save_upload_setting(self):
@@ -227,16 +234,17 @@ class YouTubeManager():
             self.youtube_config['template'][self.channel_name]["upload_folder"] = self.upload_folder_var.get()
             self.youtube_config['template'][self.channel_name]['gmail'] = self.gmail
             self.save_youtube_config()
+            validate_message = ""
             if len(self.youtube_config['template'][self.channel_name]["title"]) > 100:
-                self.validate_message += "The maximum length of Title is 100 characters.\n"
+                validate_message += "The maximum length of Title is 100 characters.\n"
             if len(self.youtube_config['template'][self.channel_name]["description"]) > 5000:
-                self.validate_message += "The maximum length of Description is 5000 characters.\n"
+                validate_message += "The maximum length of Description is 5000 characters.\n"
             if len(self.youtube_config['template'][self.channel_name]["tags"]) > 500:
-                self.validate_message += "The maximum length of tags is 500 characters.\n"
+                validate_message += "The maximum length of tags is 500 characters.\n"
             if not self.youtube_config['template'][self.channel_name]["upload_folder"]:
-                self.validate_message += "The folder containing the videos has not been selected.\n"
-            if self.validate_message:
-                warning_message(self.validate_message)
+                validate_message += "The folder containing the videos has not been selected.\n"
+            if validate_message:
+                warning_message(validate_message)
                 return False
             
             self.is_upload_video_window = False
@@ -643,18 +651,18 @@ class YouTubeManager():
     def setting_window_size(self):
         if self.is_start_youtube:
             self.root.title(f"{self.gmail}: {self.channel_name}")
-            self.width = 400
-            self.height_window = 250
+            self.width = 500
+            self.height_window = 170
             self.is_start_youtube = False
         elif self.is_upload_video_window:
             self.root.title(f"Upload video: {self.channel_name}")
             self.width = 800
-            self.height_window = 910
+            self.height_window = 830
             self.is_upload_video_window = False
         elif self.is_download_window:
             self.root.title("Download videos")
             self.width = 600
-            self.height_window = 340
+            self.height_window = 370
             self.is_download_window = False
         self.setting_screen_position()
 
