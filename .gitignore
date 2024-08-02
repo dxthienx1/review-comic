@@ -1,7 +1,7 @@
 ffmpeg/
 test/
 oauth/
-downloads/
+download_folder/
 finish/
 import/
 dist/

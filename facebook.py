@@ -107,14 +107,14 @@ class FacebookManager:
     def save_upload_setting(self):
         videos_folder = self.upload_folder_var.get()
         if not videos_folder:
-            warning_message("Please choose the upload videos folder!")
+            notification(self.root, "Please choose the upload videos folder!")
             return False
         try:
             self.get_facebook_config()
             upload_date = self.upload_date_var.get()
             is_valid_date, message = is_format_date_yyyymmdd(upload_date, daydelta=29)
             if not is_valid_date:
-                warning_message(message)
+                notification(self.root, message)
                 return False
             self.facebook_config['template'][self.page_name]["title"] = self.title_var.get()
             self.facebook_config['template'][self.page_name]["description"] = self.description_var.get("1.0", ctk.END).strip()
@@ -208,7 +208,7 @@ class FacebookManager:
             if self.profile_element:
                 self.profile_element.click()
             else:
-                warning_message("Lỗi đường truyền mạng không ổn định!")
+                notification(self.root, "Lỗi đường truyền mạng không ổn định!")
                 return False
 
 #-----------------------------------Thao tác trên facebook--------------------------------------------  
@@ -417,7 +417,7 @@ class FacebookManager:
         try:
             videos_folder = self.facebook_config['template'][self.page_name]['upload_folder']
             if not videos_folder:
-                warning_message("Please choose the upload video folder")
+                notification(self.root, "Please choose the upload video folder")
                 return
             videos = os.listdir(videos_folder)
             if len(videos) == 0:
@@ -460,7 +460,7 @@ class FacebookManager:
                 if self.is_schedule:
                     public_time = publish_times[upload_count].strip().split(':')
                     if len(public_time) != 3:
-                        warning_message("Time format must be hh:mm:AM or hh:mm:PM")
+                        notification(self.root, "Time format must be hh:mm:AM or hh:mm:PM")
                         return
                     hour, minute, am_pm = public_time[0], public_time[1], public_time[2]
 
@@ -492,7 +492,10 @@ class FacebookManager:
                     finishes_upload_videos.append(video_file)
                     upload_count += 1
                     try:
-                        shutil.move(old_video_path, new_video_path)
+                        if self.facebook_config['is_delete_video']:
+                            os.remove(old_video_path)
+                        else:
+                            shutil.move(old_video_path, new_video_path)
                     except:
                         getlog()
                     self.close()
@@ -516,14 +519,17 @@ class FacebookManager:
                     finishes_upload_videos.append(video_file)
                     upload_count += 1
                     try:
-                        shutil.move(old_video_path, new_video_path)
+                            if self.facebook_config['is_delete_video']:
+                                os.remove(old_video_path)
+                            else:
+                                shutil.move(old_video_path, new_video_path)
                     except:
                         getlog()
                     if upload_count >= 1:
                         break
             cnt = len(finishes_upload_videos)
             if cnt > 0:
-                notification(f"Uploaded finish {cnt} video: {finishes_upload_videos}")
+                notification(self.root, f"Uploaded finish {cnt} video: {finishes_upload_videos}")
         except:
             getlog()
         finally:

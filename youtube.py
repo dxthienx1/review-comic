@@ -113,10 +113,10 @@ class YouTubeManager():
             download_url = self.download_by_video_url.get()
             download_channel_id = self.download_by_channel_id.get()
             if not self.youtube_config['download_folder']:
-                warning_message("hãy chọn thư mục lưu file tải về.")
+                notification(self.root, "hãy chọn thư mục lưu file tải về.")
                 return False
             if not download_url and not download_channel_id:
-                warning_message("hãy nhập url hoặc Id channel muốn tải video.")
+                notification(self.root, "hãy nhập url hoặc Id channel muốn tải video.")
                 return False
             self.youtube_config['download_folder'] = download_folder
             self.youtube_config['download_by_video_url'] = download_url
@@ -209,7 +209,6 @@ class YouTubeManager():
         self.license_var = self.create_settings_input("License", "license", values=["youtube", "creativeCommon"], left=left, right=right)
         self.start_date_var = self.create_settings_input("Start Date", "start_date", left=left, right=right)
         self.publish_times_var = self.create_settings_input("Publish Times", "publish_times", left=left, right=right)
-        self.is_delete_video_var = self.create_settings_input("Delete video after upload", "is_delete_video", values=["Yes", "No"], left=left, right=right )
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Select Videos Folder", command=set_upload_folder, width=self.width)
         self.upload_folder_var.insert(0, self.youtube_config['template'][self.channel_name]['upload_folder'])
         self.load_template_combobox = create_frame_button_and_combobox(self.root,text="Load Template", width=self.width, command=load_template, values=list(self.youtube_config['template'].keys()))
@@ -228,7 +227,6 @@ class YouTubeManager():
             self.youtube_config['template'][self.channel_name]["category_id"] = self.category_id_var.get()
             self.youtube_config['template'][self.channel_name]["privacy_status"] = self.privacy_status_var.get()
             self.youtube_config['template'][self.channel_name]["license"] = self.license_var.get()
-            self.youtube_config['template'][self.channel_name]["is_delete_video"] = self.is_delete_video_var.get() == "Yes"
             self.youtube_config['template'][self.channel_name]["start_date"] = self.start_date_var.get()
             self.youtube_config['template'][self.channel_name]["publish_times"] = self.publish_times_var.get()
             self.youtube_config['template'][self.channel_name]["upload_folder"] = self.upload_folder_var.get()
@@ -244,7 +242,7 @@ class YouTubeManager():
             if not self.youtube_config['template'][self.channel_name]["upload_folder"]:
                 validate_message += "The folder containing the videos has not been selected.\n"
             if validate_message:
-                warning_message(validate_message)
+                notification(self.root, validate_message)
                 return False
             
             self.is_upload_video_window = False
@@ -277,7 +275,7 @@ class YouTubeManager():
         try:
             self.load_secret_info()
             if not self.oauth_path:
-                warning_message("Tài khoản gmail này chưa đăng ký hoặc đã hết hạn.")
+                notification(self.root, "Tài khoản gmail này chưa đăng ký hoặc đã hết hạn.")
                 return
             try:
                 flow = flow_from_clientsecrets(self.oauth_path, scope=SCOPES, message="ERR get_authenticated_service")
@@ -298,7 +296,7 @@ class YouTubeManager():
         cnt_request_upload = self.youtube_config[self.gmail]['cnt_request_upload']
         if cnt_request_upload >= 6:
             if not self.is_auto_upload:
-                warning_message(f"Gmail {self.gmail} can only post a maximum of 6 videos per day")
+                notification(self.root, f"Gmail {self.gmail} can only post a maximum of 6 videos per day")
             else:
                 print(f"Gmail {self.gmail} can only post a maximum of 6 videos per day")
             return
@@ -360,7 +358,7 @@ class YouTubeManager():
                     if 'quota' in error_details:
                         print("Quota exceeded. Please wait before making more requests.")
                         time_reset = get_time_remaining_until_quota_reset()
-                        warning_message(f"Today's video posting limit has expired. Please wait another {time_reset/3600} hours")
+                        notification(self.root, f"Today's video posting limit has expired. Please wait another {time_reset/3600} hours")
                         self.is_quotaExceeded = True
                     else:
                         print(f"HTTP error occurred: {error_details}")
@@ -381,7 +379,7 @@ class YouTubeManager():
                 publish_times = self.youtube_config['template'][self.channel_name]['publish_times'].split(',')
                 start_date = convert_date_string_to_datetime(start_date_str)
                 if not start_date:
-                    warning_message("format of date is yyyy-mm-dd")
+                    notification(self.root, "format of date is yyyy-mm-dd")
                     return False
             videos = os.listdir(self.youtube_config['template'][self.channel_name]['upload_folder'])
             if len(videos) == 0:
@@ -404,7 +402,7 @@ class YouTubeManager():
                     self.full_title = title
                 if len(self.full_title) > 100:
                     if not self.is_auto_upload:
-                        warning_message(f"The maximum length of Title is 100 characters:\n{self.full_title}: {len(self.full_title)} characters")
+                        notification(self.root, f"The maximum length of Title is 100 characters:\n{self.full_title}: {len(self.full_title)} characters")
                     return False
                 video_path = os.path.join(self.youtube_config['template'][self.channel_name]['upload_folder'], video_file)
                 if self.is_schedule:
@@ -415,7 +413,7 @@ class YouTubeManager():
                     except:
                         getlog()
                         if not self.is_auto_upload:
-                            warning_message("time data %r does not match format %r" % (publish_time_str, '%H:%M:%S'))
+                            notification(self.root, "time data %r does not match format %r" % (publish_time_str, '%H:%M:%S'))
                     publish_datetime = datetime.combine(start_date, publish_time)
                     publish_at = convert_time_to_UTC(publish_datetime.year, publish_datetime.month, publish_datetime.day, publish_datetime.hour, publish_datetime.minute, publish_datetime.second)
                 else:
@@ -426,14 +424,13 @@ class YouTubeManager():
                         self.finished_upload_videos.append(f"{video_name}")
                         old_video_path = os.path.join(self.youtube_config['template'][self.channel_name]['upload_folder'], video_file)
                         
-                        if self.youtube_config['template'][self.channel_name]['is_delete_video']:
+                        if self.youtube_config['is_delete_video']:
                             os.remove(old_video_path)
                         else:
                             finish_folder = os.path.join(self.youtube_config['template'][self.channel_name]['upload_folder'], 'upload_finished')
                             new_video_path = os.path.join(finish_folder, video_file)
                             # Di chuyển video vào thư mục finish
                             os.makedirs(finish_folder, exist_ok=True)
-                            
                             try:
                                 shutil.move(old_video_path, new_video_path)
                             except:
@@ -454,11 +451,11 @@ class YouTubeManager():
                         return False
                 else:
                     if not self.is_auto_upload:
-                        warning_message("Today's limit for using the \"Super Social Media\" application has expired. Please wait until the next day")
+                        notification(self.root, "Today's limit for using the \"Super Social Media\" application has expired. Please wait until the next day")
                     return False
             if len(self.finished_upload_videos) > 0:
                 if not self.is_auto_upload:
-                    notification(f"Videos uploaded successfully: {self.finished_upload_videos}\nTotal: {len(self.finished_upload_videos)}")
+                    notification(self.root, f"Videos uploaded successfully: {self.finished_upload_videos}\nTotal: {len(self.finished_upload_videos)}")
                 return True
             else:
                 return False
@@ -584,8 +581,6 @@ class YouTubeManager():
             self.get_download_info()
             if not self.download_info:
                 self.download_info = {}
-            if 'waiting_download_urls' not in self.download_info:
-                self.download_info['waiting_download_urls'] = []
             if 'downloaded_urls' not in self.download_info:
                 self.download_info['downloaded_urls'] = []
 
@@ -593,9 +588,9 @@ class YouTubeManager():
                 self.check_videos_and_dowload(videos_detail)
             cnt = len(self.list_videos_download_from_channel)
             if cnt == 0:
-                notification("There are no videos that meet the criteria for number of likes and views!")
+                notification(self.root, "There are no videos that meet the criteria for number of likes and views!")
             else:
-                notification(f"Videos Downloaded Successfully {cnt} video")
+                notification(self.root, f"Videos Downloaded Successfully {cnt} video")
 
     def check_videos_and_dowload(self, video_details):
         for video in video_details['items']:
@@ -605,7 +600,7 @@ class YouTubeManager():
             if like_count > int(self.youtube_config['filter_by_like']) and view_count > int(self.youtube_config['filter_by_views']):
                 video_id = video['id']
                 video_url = f'https://www.youtube.com/watch?v={video_id}'
-                if video_url in self.download_info['downloaded_urls'] or video_url in self.download_info['waiting_download_urls']:
+                if video_url in self.download_info['downloaded_urls']:
                     print("url này đã tải hoặc có trong danh sách đợi download")
                     continue
                 print(f"bắt đầu tải video: {video_url} với {like_count} lượt thích và {view_count} lượt xem")
@@ -621,8 +616,6 @@ class YouTubeManager():
         self.download_info = get_json_data(download_info_path)
         if not self.download_info:
             self.download_info = {}
-        if 'waiting_download_urls' not in self.download_info:
-            self.download_info['waiting_download_urls'] = []
         if 'downloaded_urls' not in self.download_info:
             self.download_info['downloaded_urls'] = []
     def download_video_youtube_by_url(self, video_url):
@@ -630,9 +623,8 @@ class YouTubeManager():
             self.get_download_info()
             download_video_by_url(video_url, self.youtube_config['download_folder'])
             self.list_videos_download_from_channel.append(video_url)
-            if video_url in self.download_info['waiting_download_urls']:
-                self.download_info['waiting_download_urls'].remove(video_url)
-            self.download_info['downloaded_urls'].append(video_url)
+            if video_url not in self.download_info['downloaded_urls']:
+                self.download_info['downloaded_urls'].append(video_url)
             save_to_json_file(self.download_info, download_info_path)
         except:
             getlog()

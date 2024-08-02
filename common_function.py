@@ -32,17 +32,19 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from common_function_CTK import warning_message
 from selenium_stealth import stealth
-
+is_dev_enviroment = True
 def get_current_dir():
     """Lấy thư mục đang chạy tệp thực thi"""
     if getattr(sys, 'frozen', False):
         # Đang chạy từ tệp thực thi đóng gói
         print("Đang chạy trong môi trường thực")
         current_dir = os.path.dirname(sys.executable)
+        is_dev_enviroment = False
     else:
         # Đang chạy trong môi trường phát triển
         print("Đang chạy trong môi trường phát triển")
         current_dir = os.path.dirname(os.path.abspath(__file__))
+        is_dev_enviroment = True
     return current_dir
 current_dir = get_current_dir()
 # current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
@@ -54,6 +56,8 @@ chromedriver_path = os.path.join(current_dir, 'import\\chromedriver.exe')
 secret_path = os.path.join(current_dir, 'secret.json')
 download_info_path = os.path.join(current_dir, 'download_info.json')
 youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
+download_folder = f'{current_dir}\\download_folder'
+os.makedirs(download_folder, exist_ok=True)
 test_folder = f'{current_dir}\\test'
 local_storage_path = os.path.join(current_dir, 'local_storage.json')
 cookies_path = os.path.join(current_dir, 'cookies.json')
@@ -62,7 +66,7 @@ cookies_tiktok_path = os.path.join(current_dir, 'cookies_tiktok.pkl')
 youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
 tiktok_config_path = os.path.join(current_dir, 'tiktok_config.json')
 facebook_config_path = os.path.join(current_dir, 'facebook_config.json')
-
+pre_time_download = 0
 def get_ffmpeg_dir():
     # Tìm đường dẫn thư mục hiện tại chứa tệp thực thi
     if getattr(sys, 'frozen', False):
@@ -590,28 +594,67 @@ def get_output_folder(input_video_path):
     return output_folder, output_file_path, file_name, finish_folder
 
 #Áp dụng cho tất cả url
-def download_video_by_url(url, download_folder=None):
-    if not url or not download_folder:
-        return
+def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=1):
+    if not url:
+        return False
     try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            # 'writesubtitles': True,  # Cho phép viết phụ đề
-            # 'allsubtitles': True,  # Tải tất cả các phụ đề có sẵn
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
-            'outtmpl': f'{download_folder}/%(title)s.%(ext)s',
-            'addmetadata': False,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download(url)
+        if file_path:
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+                'outtmpl': file_path,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download(url)
+        else:
+            if not download_folder:
+                return False
+            def get_file_path(file_name):
+                chars = ["/", "\\", ":", "|", "?", "*", "<", ">", "\""]
+                for char in chars:
+                    if char in file_name:
+                        file_name = file_name.replace(char, "")
+                    if len(filename) > 100:
+                        filename = filename[:100]
+                file_path = os.path.join(download_folder, f"{file_name}.mp4")
+                return file_path
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+                'outtmpl': f'{download_folder}/%(title)s.%(ext)s'
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=False)
+                title = info_dict.get('title', 'video')
+                if title == 'video':
+                    cnt = 1
+                    while True:
+                        file_path = os.path.join(download_folder, f"{title}_{cnt}.mp4")
+                        if os.path.exists(file_path):
+                            cnt += 1
+                        else:
+                            break
+                else:
+                    file_path = get_file_path(title)
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+                'outtmpl': file_path,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download(url)
+        sleep(sleep_time)
         return True
     except:
         getlog()
-        return False
+    return False
+    
 def get_info_by_url(url, download_folder=None, is_download=False):
-    if not url or not download_folder:
-        return
+    if not url:
+        return None
     try:
         ydl_opts = {
             'quiet': True,
@@ -621,6 +664,7 @@ def get_info_by_url(url, download_folder=None, is_download=False):
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
             'outtmpl': f'{download_folder}/%(title)s.%(ext)s',
             'addmetadata': False,
+            'nocheckcertificate': True,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_video = ydl.extract_info(url, download=False)
@@ -628,26 +672,13 @@ def get_info_by_url(url, download_folder=None, is_download=False):
                 ydl.download(url)
                 video_path = f"{info_video['title']}.mp4"
                 video_path = os.path.join(download_folder, video_path)
+                sleep(1)
                 return video_path
             else:
                 return info_video
     except:
         getlog()
         return None
-
-# def get_info_by_url(url):
-#     try:
-#         ydl_opts = {
-#             'quiet': True,
-#             'no_warnings': True,
-#             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
-#             'addmetadata': False,
-#         }
-#         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-#             info_video = ydl.extract_info(url, download=False)
-#             return info_video
-#     except:
-#         getlog()
 
 #chỉ tiktok
 def download_video_no_watermask_from_tiktok(video_url, download_folder=None):
@@ -671,11 +702,13 @@ def download_video_no_watermask_from_tiktok(video_url, download_folder=None):
                 r = requests.get(new_video_url)
                 with open(video_path, 'wb') as f:
                     f.write(r.content)
+            return True
         except:
             getlog()
+            return False
 
     
-def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1280", is_move=False):
+def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1280", is_delete=False):
     try:
         output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
         move_file_path = f"{finish_folder}\\{file_name}"
@@ -709,7 +742,9 @@ def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1
             final_video.close()
             zoomed_video.close()
             video.close()
-            if is_move:
+            if is_delete:
+                os.remove(input_video_path)
+            else:
                 shutil.move(input_video_path, move_file_path)
         except:
             getlog()
@@ -718,7 +753,7 @@ def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1
         getlog()
         return False
 
-def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_move=False):
+def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_delete=False):
     try:
         if not resolution:
             resolution = '1920x1080'
@@ -744,7 +779,10 @@ def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_move=F
         try:
             resized_video.close()
             video.close()
-            if is_move:
+            sleep(1)
+            if is_delete:
+                os.remove(input_video_path)
+            else:
                 shutil.move(input_video_path, move_file_path)
         except:
             getlog()
@@ -753,7 +791,7 @@ def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_move=F
         getlog()
         return False
     
-def cut_video_by_quantity(input_video_path, cut_quantity):
+def cut_video_by_quantity(input_video_path, cut_quantity, is_delete=False):
     try:
         output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
         move_file_path = f"{finish_folder}\\{file_name}"
@@ -770,7 +808,10 @@ def cut_video_by_quantity(input_video_path, cut_quantity):
         video.close()
         sleep(1)
         try:
-            shutil.move(input_video_path, move_file_path)
+            if is_delete:
+                os.remove(input_video_path)
+            else:
+                shutil.move(input_video_path, move_file_path)
         except:
             getlog()
         return True
@@ -778,24 +819,26 @@ def cut_video_by_quantity(input_video_path, cut_quantity):
         getlog()
         return False
     
-def cut_video_by_timeline(input_video_path, segments, is_connect):
+def cut_video_by_timeline(input_video_path, segments, is_connect, is_delete=False):
     try:
         output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
         move_file_path = f"{finish_folder}\\{file_name}"
         
         # Tạo danh sách các đoạn video cắt ra
         segments = segments.split(',')
+        len_segment = len(segments)
         clips = []
         i = 0
         for segment in segments:
             video = VideoFileClip(input_video_path)
+            duration = video.duration
             segment = segment.strip()
             start, end = map(int, segment.split(':'))
+            if end > duration:
+                end = duration
             clip= video.subclip(start, end)
             if is_connect:
                 clips.append(clip)
-                clip.close()
-                video.close()
                 sleep(1)
             else:
                 i += 1
@@ -804,8 +847,21 @@ def cut_video_by_timeline(input_video_path, segments, is_connect):
                 clip.close()
                 sleep(1)
                 video.close()
+
+        if is_connect and len(clips) > 0:
+            final_clip = concatenate_videoclips(clips, method="compose")
+            file_path = f"{output_folder}\\{file_name.split('.')[0]}_1.mp4"
+            final_clip.write_videofile(file_path, codec='libx264')
+            final_clip.close()
+            for clip in clips:
+                clip.close()
+        if video:
+            video.close()
         try:
-            shutil.move(input_video_path, move_file_path)
+            if is_delete:
+                os.remove(input_video_path)
+            else:
+                shutil.move(input_video_path, move_file_path)
         except:
             getlog()
         return True

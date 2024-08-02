@@ -1,4 +1,4 @@
-from common_function import os, datetime, save_to_json_file, get_json_data, get_json_data_from_url, sys, dtime, config_path, youtube_config_path, facebook_config_path, tiktok_config_path
+from common_function import os, datetime, save_to_json_file, get_json_data, get_json_data_from_url, sys, dtime, config_path, youtube_config_path, facebook_config_path, tiktok_config_path, download_info_path
 
 def load_config():
     if os.path.exists(config_path):
@@ -13,6 +13,8 @@ def load_config():
             "from_language": "en-us",
             "to_language": "vi",
             "auto_start": False,
+            "is_delete_video": False,
+            "pre_time_download": 0,
 
             "current_youtube_account": "",
             "current_tiktok_account": "",
@@ -262,11 +264,13 @@ youtube_config = {
    },
    "dxthienx2@gmail.com": {
       "cnt_request_upload": 0
-   }
+   },
+   "is_delete_video": False
 }
 
 tiktok_config = {
    "output_folder": "",
+   "show_browser": False,
    "download_by_channel_url": "",
    "filter_by_like": 20000,
    "filter_by_views": 500000,
@@ -282,7 +286,8 @@ tiktok_config = {
    },
    "registered_account": [
       "dxthienx1@gmail.com"
-   ]
+   ],
+   "is_delete_video": False
 }
 
 facebook_config = {
@@ -301,8 +306,10 @@ facebook_config = {
          "is_title_plus_video_name": True,
          "upload_date": "2024-07-31"
       }
-   }
+   },
+   "is_delete_video": False
 }
+
 
 def load_youtube_config():
     if os.path.exists(youtube_config_path):
