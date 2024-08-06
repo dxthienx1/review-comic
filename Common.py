@@ -14,7 +14,6 @@ def load_config():
             "to_language": "vi",
             "auto_start": False,
             "is_delete_video": False,
-            "pre_time_download": 0,
 
             "current_youtube_account": "",
             "current_tiktok_account": "",

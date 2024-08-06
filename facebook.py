@@ -575,7 +575,7 @@ class FacebookManager:
         if element:
             element.click()
             print(f"post button text: {element.text}")
-            sleep(1)
+            sleep(5)
         else:
             print("không tìm thấy post_button")
     

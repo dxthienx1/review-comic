@@ -1,7 +1,6 @@
 from tkinter import messagebox, filedialog
 import customtkinter as ctk
 import ctypes
-import threading
 
 padx = 5
 pady = 2
@@ -27,14 +26,11 @@ def message_aks(message):
     messagebox.askquestion(title="Question", message=message)
 def warning_message(message):
     messagebox.showinfo(title="WARNING", message=message)
-def notification(parent, message):
-    parent.after(0, lambda: messagebox.showinfo(title="Notification", message=message))
-    # def show_warning():
-    #     root = ctk.CTk()
-    #     messagebox.showinfo(title="Notification", message=message)
-    #     root.withdraw()
-    #     root.destroy()
-    # threading.Thread(target=show_warning).start()
+def notification(parent=None, message=""):
+    if parent:
+        parent.after(0, lambda: messagebox.showinfo(title="Notification", message=message))
+    else:
+        messagebox.showinfo(title="Notification", message=message)
 
 def error_message(message):
     messagebox.showinfo(title="ERROR", message=message)

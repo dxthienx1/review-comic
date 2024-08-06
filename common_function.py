@@ -32,6 +32,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from common_function_CTK import warning_message
 from selenium_stealth import stealth
+import subprocess
 is_dev_enviroment = True
 def get_current_dir():
     """Lấy thư mục đang chạy tệp thực thi"""
@@ -67,21 +68,7 @@ youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
 tiktok_config_path = os.path.join(current_dir, 'tiktok_config.json')
 facebook_config_path = os.path.join(current_dir, 'facebook_config.json')
 pre_time_download = 0
-def get_ffmpeg_dir():
-    # Tìm đường dẫn thư mục hiện tại chứa tệp thực thi
-    if getattr(sys, 'frozen', False):
-        # Đang chạy từ tệp thực thi đã build
-        base_dir = os.path.dirname(sys.executable)
-    else:
-        # Đang chạy từ mã nguồn Python
-        base_dir = os.path.dirname(__file__)
-    # Đường dẫn đến thư mục chứa ffmpeg
-    ffmpeg_dir = os.path.join(base_dir, "ffmpeg", "bin")
-    return ffmpeg_dir
-# Cập nhật đường dẫn PATH trong mã Python
-ffmpeg_dir = get_ffmpeg_dir()
-os.environ["PATH"] += os.pathsep + ffmpeg_dir
-AudioSegment.converter = os.path.join(ffmpeg_dir, "ffmpeg.exe")
+
 
 
 def get_driver(show=True):
@@ -265,17 +252,13 @@ def save_to_json_file(data, filename):
         print(f"ERROR: can not save data to {filename}: {e}")
         getlog()
     
-def get_txt_data(file_path, utf8 = False):
-    if os.path.isfile(file_path):
-        if utf8:
-            with open(file_path, "r", encoding="utf-8") as file:
-                content = file.read()
-        else:
-            with open(file_path, "r") as file:
-                content = file.read()
-        return content
-    else:
+def get_txt_data(file_path, utf8=False):
+    if not os.path.isfile(file_path):
         return None
+    encoding = "utf-8" if utf8 else None
+    with open(file_path, "r", encoding=encoding) as file:
+        content = file.read()
+    return content
 
 def get_json_data_from_url(url):
     response = requests.get(url)
@@ -302,254 +285,6 @@ def getlog(lock=None):
                 traceback.print_exc(file=logf)
     except:
         pass
-
-
-def get_video_duration(video_path):
-    try:
-        clip = VideoFileClip(video_path)
-        duration = clip.duration  # Lấy độ dài video (đơn vị giây)
-        clip.close()
-        return duration
-    except Exception as e:
-        print(f"Error getting video duration: {e}")
-        return None
-
-def get_file_name_from_path(video_path, suffix=True):
-    try:
-        file_name = os.path.basename(video_path)
-        if not suffix:
-            file_name = file_name.split('.')[0]
-        return file_name
-    except:
-        getlog()
-        return None
-
-def strip_first_and_end_video(clip, first_cut, end_cut):
-    first_cut = int(first_cut)
-    end_cut = int(end_cut)
-    if first_cut < 0:
-        first_cut = 0
-    if end_cut < 0 or end_cut >= clip.duration:
-        warning_message("Thời gian cắt video không hợp lệ.")
-        return None
-    return clip.subclip(first_cut, clip.duration - end_cut)
-
-def zoom_and_crop(clip, zoom_factor, vertical_position='center', horizontal_position='center'):
-    resized_clip = clip.resize(zoom_factor)
-    new_width, new_height = resized_clip.size
-    y1, y2 = 0, new_height
-    x1, x2 = 0, new_width
-    # Tính toán vị trí cắt theo chiều dọc
-    if vertical_position == 'center':
-        y1 = (new_height - clip.h) // 2
-        y2 = y1 + clip.h
-    elif vertical_position == 'top':
-        y1 = 0
-        y2 = clip.h
-    elif vertical_position == 'bot':
-        y1 = new_height - clip.h
-        y2 = new_height
-    # Tính toán vị trí cắt theo chiều ngang
-    if horizontal_position == 'center':
-        x1 = (new_width - clip.w) // 2
-        x2 = x1 + clip.w
-    elif horizontal_position == 'left':
-        x1 = 0
-        x2 = clip.w
-    elif horizontal_position == 'right':
-        x1 = new_width - clip.w
-        x2 = new_width
-    cropped_clip = resized_clip.crop(x1=x1, y1=y1, x2=x2, y2=y2)
-    return cropped_clip
-
-def apply_zoom(clip, zoom_factor, vertical_position, horizontal_position):
-    if not zoom_factor:
-        return clip
-    zoom_factor = float(zoom_factor)
-    if zoom_factor < 0 or zoom_factor > 3:
-        warning_message('Tỷ lệ zoom không hợp lệ.')
-        return None
-    return zoom_and_crop(clip, zoom_factor, vertical_position, horizontal_position)
-
-def zoom_video_random_intervals(clip, max_zoom_size, min_time_to_change_zoom=3, max_time_to_change_zoom=5, vertical_position='center', horizontal_position='center'):
-    if not min_time_to_change_zoom or min_time_to_change_zoom < 3:
-        min_time_to_change_zoom = 3
-    if not max_time_to_change_zoom or max_time_to_change_zoom < 5:
-        max_time_to_change_zoom = 5
-
-    max_zoom_size = float(max_zoom_size)
-    min_time_to_change_zoom = int(min_time_to_change_zoom)
-    max_time_to_change_zoom = int(max_time_to_change_zoom)
-    if max_time_to_change_zoom > clip.duration:
-        max_time_to_change_zoom = clip.duration
-    
-    start_times = []
-    current_time = 0
-
-    while current_time < clip.duration:
-        start_times.append(current_time)
-        current_time += random.uniform(min_time_to_change_zoom, max_time_to_change_zoom)
-
-    if start_times[-1] < clip.duration:
-        start_times.append(clip.duration)
-
-    zoom_factors = [round(random.uniform(1.1, max_zoom_size), 2) for _ in range(len(start_times) - 1)]
-    
-    zoomed_clips = []
-    try:
-        for i, start_time in enumerate(start_times[:-1]):
-            end_time = start_times[i + 1]
-            sub_clip = clip.subclip(start_time, end_time)
-            zoomed_clip = apply_zoom(sub_clip, zoom_factors[i], vertical_position, horizontal_position)
-            zoomed_clips.append(zoomed_clip)
-    
-        final_zoom_clip = concatenate_videoclips(zoomed_clips, method="compose")
-        return final_zoom_clip
-    except:
-        getlog()
-
-def speed_up_clip(clip, speed):
-    speed = float(speed)
-    if speed < 0 or speed > 3:
-        warning_message('invalid speed up')
-        return None
-    sped_up_clip = clip.fx(speedx, factor=speed)
-    return sped_up_clip
-
-def detect_video_ratio(clip, tolerance=0.02):
-    clip_width, clip_height = clip.size
-    ratio = clip_width / clip_height
-    if abs(ratio - (16/9)) < tolerance:  # Kiểm tra xem tỷ lệ gần bằng 16:9
-        return (16,9)
-    elif abs(ratio - (9/16)) < tolerance:  # Kiểm tra xem tỷ lệ gần bằng 9:16
-        return (9,16)
-    else:
-        return False
-    
-def resize_clip(clip):
-    target_ratio = detect_video_ratio(clip)
-    target_width, target_height = target_ratio
-    clip_width, clip_height = clip.size
-    if clip_width / clip_height != target_width / target_height:
-        target_clip_width = clip_height * target_width / target_height
-        resized_clip = resize(clip, newsize=(target_clip_width, clip_height))
-        return resized_clip
-    return clip
-
-def flip_clip(clip):
-    # Áp dụng hiệu ứng đối xứng (flip) theo chiều ngang
-    flipped_clip = mirror_x(clip)
-    return flipped_clip
-
-def add_image_watermask_into_video(clip, top_overlay_height="10", bot_overlay_height="10", watermask = None, vertical_watermask_position=50, horizontal_watermask_position=50):
-    if not top_overlay_height or int (top_overlay_height) < 0:
-        top_overlay_height = 2
-    else:
-        top_overlay_height = int(top_overlay_height)
-    if not bot_overlay_height or int (bot_overlay_height) < 0:
-        bot_overlay_height = 2
-    else:
-        bot_overlay_height = int(bot_overlay_height)
-    
-    try:
-        width, height = clip.size
-        top_image = ColorClip(size=(width, top_overlay_height), color=(0, 0, 0)).set_position(('center', 0)).set_duration(clip.duration)
-        bottom_image = ColorClip(size=(width, bot_overlay_height), color=(0, 0, 0)).set_position(('center', height - bot_overlay_height)).set_duration(clip.duration)
-    
-        if watermask:
-            if horizontal_watermask_position:
-                try:
-                    horizontal_watermask_position = int(horizontal_watermask_position) * width/100
-                except:
-                    getlog()
-                    horizontal_watermask_position = 'center'
-            else:
-                horizontal_watermask_position = 'center'
-            if vertical_watermask_position:
-                try:
-                    vertical_watermask_position = int(vertical_watermask_position) * height/100
-                except:
-                    getlog()
-                    vertical_watermask_position = 'center'
-            else:
-                vertical_watermask_position = 'center'
-            watermask_image = (ImageClip(watermask).set_position((horizontal_watermask_position, vertical_watermask_position)).set_duration(clip.duration))
-            final_clip = CompositeVideoClip([clip, top_image, bottom_image, watermask_image])
-        else:
-            final_clip = CompositeVideoClip([clip, top_image, bottom_image])
-        return final_clip
-    except:
-        getlog()
-        return None
-    
-def check_vietnamese_characters(filename):
-    # Dải ký tự Unicode tiếng Việt bao gồm các ký tự có dấu
-    vietnamese_pattern = re.compile(
-        r'[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
-        r'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]'
-    )
-    return bool(vietnamese_pattern.search(filename))
-
-def rename_file_to_sanitized_version(file_path):
-    def sanitize_filename(filename):
-        # Chỉ giữ lại các ký tự tiếng Anh (chữ thường, chữ hoa, chữ số và dấu cách)
-        sanitized_name = re.sub(r'[^a-zA-Z0-9 ]', '', filename)
-        # Xóa dấu cách thừa ở đầu và cuối, và thay thế nhiều dấu cách bằng một dấu cách
-        sanitized_name = re.sub(r'\s+', ' ', sanitized_name).strip()
-        return sanitized_name
-    original_filename = os.path.basename(file_path)
-    file_extension = os.path.splitext(original_filename)[1]
-    filename_without_extension = os.path.splitext(original_filename)[0]
-    
-    sanitized_name = sanitize_filename(filename_without_extension)
-    new_filename = sanitized_name + file_extension
-    return new_filename
-
-def edit_audio(audio_path=None, video_path=None, video_url=None, reversed_audio=False, speed="1", first_cut_audio="0", end_cut_audio="0", download_folder=None):
-    speed = float(speed)
-    first_cut_audio = int(first_cut_audio)
-    end_cut_audio = int(end_cut_audio)
-    
-    if audio_path:
-        target_path = audio_path
-    elif video_path:
-        target_path = video_path
-    elif video_url:
-        video_path = download_video_by_url(video_url, download_folder)
-        target_path = video_path
-    else:
-        warning_message("Vui lòng chọn nguồn để edit video")
-        return
-    if '.mp3' in target_path:
-        audio_clip = AudioFileClip(target_path)
-    else:
-        video_clip = VideoFileClip(video_path)
-        audio_clip = video_clip.audio
-    try:
-        if int(end_cut_audio) > 0 or int(first_cut_audio) > 0:
-            audio_clip = audio_clip.subclip(first_cut_audio, audio_clip.duration - end_cut_audio)
-        # Đảo ngược âm thanh
-        if reversed_audio:
-            audio_clip = audio_clip.fx(vfx.time_mirror)
-        # Thay đổi tốc độ âm thanh
-        if speed != 1:
-            audio_clip = audio_clip.fx(speedx, speed)
-        output_folder, output_file_path, file_name, finish_folder = get_output_folder(target_path)
-        if check_vietnamese_characters(file_name):
-            file_name = convert_sang_tieng_viet_khong_dau(file_name)
-        audio_name = file_name.split('.')[0]
-        output_audio_path = f'{output_folder}/{audio_name}.mp3'
-
-        try:
-            audio_clip.write_audiofile(output_audio_path, codec='mp3')
-        except:
-            output_audio_path = f'{output_folder}/audio.mp3'
-            audio_clip.write_audiofile(output_audio_path, codec='mp3')
-        audio_clip.close()
-        if video_clip:
-            video_clip.close()
-    except Exception as e:
-        getlog()
 
 def get_audio_clip_from_video(video_path=None, is_get_video=False):
     try:
@@ -615,8 +350,8 @@ def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=
                 for char in chars:
                     if char in file_name:
                         file_name = file_name.replace(char, "")
-                    if len(filename) > 100:
-                        filename = filename[:100]
+                    if len(file_name) > 100:
+                        file_name = file_name[:100]
                 file_path = os.path.join(download_folder, f"{file_name}.mp4")
                 return file_path
             ydl_opts = {
@@ -707,7 +442,6 @@ def download_video_no_watermask_from_tiktok(video_url, download_folder=None):
             getlog()
             return False
 
-    
 def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1280", is_delete=False):
     try:
         output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
@@ -818,56 +552,13 @@ def cut_video_by_quantity(input_video_path, cut_quantity, is_delete=False):
     except:
         getlog()
         return False
-    
-def cut_video_by_timeline(input_video_path, segments, is_connect, is_delete=False):
-    try:
-        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
-        move_file_path = f"{finish_folder}\\{file_name}"
-        
-        # Tạo danh sách các đoạn video cắt ra
-        segments = segments.split(',')
-        len_segment = len(segments)
-        clips = []
-        i = 0
-        for segment in segments:
-            video = VideoFileClip(input_video_path)
-            duration = video.duration
-            segment = segment.strip()
-            start, end = map(int, segment.split(':'))
-            if end > duration:
-                end = duration
-            clip= video.subclip(start, end)
-            if is_connect:
-                clips.append(clip)
-                sleep(1)
-            else:
-                i += 1
-                file_path = f"{output_folder}\\{file_name.split('.')[0]}_{i}.mp4"
-                clip.write_videofile(file_path, codec='libx264')
-                clip.close()
-                sleep(1)
-                video.close()
 
-        if is_connect and len(clips) > 0:
-            final_clip = concatenate_videoclips(clips, method="compose")
-            file_path = f"{output_folder}\\{file_name.split('.')[0]}_1.mp4"
-            final_clip.write_videofile(file_path, codec='libx264')
-            final_clip.close()
-            for clip in clips:
-                clip.close()
-        if video:
-            video.close()
-        try:
-            if is_delete:
-                os.remove(input_video_path)
-            else:
-                shutil.move(input_video_path, move_file_path)
-        except:
-            getlog()
-        return True
-    except Exception as e:
-        getlog()
-        return False
+def get_and_adjust_resolution(clip, scale_factor=0.997):
+    width = int(clip.size[0] * scale_factor)
+    height = int(clip.size[1] * scale_factor)
+    resized_video = clip.resize((width, height))
+    return resized_video
+    
 
 def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None):
     if attribute and attribute_value:

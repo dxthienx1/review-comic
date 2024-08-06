@@ -1,5 +1,4 @@
-from common_function import *
-from common_function_CTK import *
+from common_function_edit_video import *
 from Common import *
 from PIL import Image, ImageDraw
 import pystray
@@ -76,15 +75,6 @@ class MainApp:
         except:
             getlog()
 
-    def load_download_info(self):
-        self.download_info = get_json_data(download_info_path)
-        if not self.download_info:
-            self.download_info = {}
-        if 'downloaded_urls' not in self.download_info:
-            self.download_info['downloaded_urls'] = []
-        save_to_json_file(self.download_info, download_info_path)
-    def get_youtube_config(self):
-        self.youtube_config = get_json_data(youtube_config_path)
 #------------------------------------------------main thread----------------------------------------------------
     def start_main_check_thread(self):
             self.thread_main = threading.Thread(target=self.main_check_thread)
@@ -148,7 +138,7 @@ class MainApp:
                                         self.youtube_config['template'][channel_name]['last_auto_upload_date'] = current_date_str
                                         self.save_youtube_config()
                                     else:
-                                        notification(self.root, f"Có lỗi trong quá trình đăng video cho kênh {channel_name}")
+                                        self.noti(f"Có lỗi trong quá trình đăng video cho kênh {channel_name}")
                             else:
                                 print(f"Hôm nay đã đăng video tự dộng cho kênh {channel_name}")
                     # self.is_auto_upload_youtube = False
@@ -165,31 +155,7 @@ class MainApp:
                         self.youtube.is_quotaExceeded = False
                         self.config[gmail]['cnt_request_upload'] = 0
             self.save_config()
-#------------------------------------------------
-    def get_tiktok_config(self):
-        self.tiktok_config = get_json_data(tiktok_config_path)
-        if not self.tiktok_config:
-            self.tiktok_config = {}
-        if 'template' not in self.tiktok_config:
-            self.tiktok_config['template'] = {}
-        if 'registered_account' not in self.tiktok_config:
-            self.tiktok_config['registered_account'] = []
-
-    def get_facebook_config(self):
-        self.facebook_config = get_json_data(facebook_config_path)
-        if not self.facebook_config:
-            self.facebook_config = {}
-        if 'template' not in self.facebook_config:
-            self.facebook_config['template'] = {}
-        if 'registered_account' not in self.facebook_config:
-            self.facebook_config['registered_account'] = []
-
-    def save_youtube_config(self):
-        save_to_json_file(self.youtube_config, youtube_config_path)
-    def save_tiktok_config(self):
-        save_to_json_file(self.tiktok_config, tiktok_config_path)
-    def save_facebook_config(self):
-        save_to_json_file(self.facebook_config, facebook_config_path)
+#-------------------------------------------Điều hướng window--------------------------------------------
 
     def get_start_window(self):
         if not self.is_start_app:
@@ -219,13 +185,13 @@ class MainApp:
 
     def auto_upload_youtube(self):
         self.is_auto_upload_youtube = True
-        notification(self.root, f"Đã thiết lập tự động đăng video cho các kênh youtube")
+        self.noti(f"Đã thiết lập tự động đăng video cho các kênh youtube")
     def auto_upload_tiktok(self):
         self.is_auto_upload_youtube = True
-        notification(self.root, f"Đã thiết lập tự động đăng video cho các kênh tiktok")
+        self.noti(f"Đã thiết lập tự động đăng video cho các kênh tiktok")
     def auto_upload_facebook(self):
         self.is_auto_upload_youtube = True
-        notification(self.root, f"Đã thiết lập tự động đăng video cho các trang facebook")
+        self.noti(f"Đã thiết lập tự động đăng video cho các trang facebook")
 
     def open_youtube_window(self):
         self.reset()
@@ -248,7 +214,7 @@ class MainApp:
         current_youtube_account = self.input_gmail.get()
         channels_of_gmail = [k for k,v in self.youtube_config['template'].items() if v.get('gmail') == current_youtube_account]
         if len(channels_of_gmail) == 0:
-            notification(self.root, "Gmail này chưa đăng ký hoặc hết hạn.")
+            self.noti("Gmail này chưa đăng ký hoặc hết hạn.")
             return
         self.input_current_channel_name.configure(values=channels_of_gmail)
         self.input_current_channel_name.set(channels_of_gmail[0])
@@ -268,10 +234,10 @@ class MainApp:
         gmail = self.input_gmail.get().strip()
         channel_name = self.input_current_channel_name.get()
         if not gmail or not channel_name:
-            notification(self.root, "Please enter complete information!")
+            self.noti("Please enter complete information!")
             return
         if '@gmail.com' not in gmail:
-            notification(self.root, "Không đúng định dạng gmail.")
+            self.noti("Không đúng định dạng gmail.")
             return
         if channel_name not in self.youtube_config['template']:
             self.youtube_config['template'][channel_name] = {}
@@ -298,12 +264,12 @@ class MainApp:
             gmail = self.input_gmail.get().strip()
             channel_name = self.input_current_channel_name.get().strip()
             if not gmail or not channel_name:
-                notification(self.root, "Hãy nhập đủ thông tin!")
+                self.noti("Hãy nhập đủ thông tin!")
             if channel_name not in self.youtube_config['template'].keys():
-                notification(self.root, "Channel này chưa đăng ký!")
+                self.noti("Channel này chưa đăng ký!")
                 return
             if gmail not in self.config['registered_gmails']:
-                notification(self.root, "Gmail này chưa đăng ký!")
+                self.noti("Gmail này chưa đăng ký!")
                 return
 
         self.youtube_config['current_youtube_account'] = gmail
@@ -334,7 +300,7 @@ class MainApp:
             self.tiktok_account = self.tiktok_account_var.get()
             self.tiktok_password = self.tiktok_password_var.get()
             if not self.tiktok_account or not self.tiktok_password:
-                notification(self.root, "Hãy nhập đầy đủ thông tin!")
+                self.noti("Hãy nhập đầy đủ thông tin!")
                 return
             if self.tiktok_account not in self.tiktok_config['template']:
                 self.tiktok_config['template'][self.tiktok_account] = {}
@@ -359,7 +325,7 @@ class MainApp:
         self.tiktok_account = self.tiktok_account_var.get()
         if not self.is_sign_up_tiktok:
             if self.tiktok_account not in self.tiktok_config['registered_account'] or self.tiktok_account not in self.tiktok_config['template']:
-                notification(self.root, "Account này chưa đăng ký")
+                self.noti("Account này chưa đăng ký")
                 return
         self.config['current_tiktok_account'] = self.tiktok_account
         self.tiktok_password = self.tiktok_config['template'][self.tiktok_account]['password']
@@ -392,7 +358,7 @@ class MainApp:
             self.facebook_password = self.facebook_password_var.get()
             self.facebook_page_name = self.facebook_page_name_var.get()
             if not self.facebook_account or not self.facebook_password or not self.facebook_page_name:
-                notification(self.root, "Please input full infomation!")
+                self.noti("Please input full infomation!")
                 return
             if self.facebook_page_name not in self.facebook_config['template']:
                 self.facebook_config['template'][self.facebook_page_name] = {}
@@ -418,13 +384,13 @@ class MainApp:
         self.facebook_account = self.facebook_account_var.get()
         if not self.is_sign_up_facebook:
             if not self.facebook_page_name or not self.facebook_account:
-                notification(self.root, "Please input full infomation!")
+                self.noti("Please input full infomation!")
                 return
             if self.facebook_page_name not in self.facebook_config['template']:
-                notification(self.root, "This page not registered!")
+                self.noti("This page not registered!")
                 return
             if self.facebook_account != self.facebook_config['template'][self.facebook_page_name]['account']:
-                notification(self.root, "Account not registered!")
+                self.noti("Account not registered!")
                 return
         self.config['current_facebook_account'] = self.facebook_account
         self.config['current_page'] = self.facebook_page_name
@@ -433,7 +399,7 @@ class MainApp:
         self.facebook_password = self.facebook_config['template'][self.facebook_page_name]['password']
         self.facebook = FacebookManager(self.facebook_account, self.facebook_password, self.facebook_page_name, self.download_thread, self.upload_thread)
         self.facebook.get_start_facebook()
-#---------------------------------------------------------------------edit audio
+#---------------------------------------------edit audio-------------------------------------------
     def open_edit_audio_window(self):
         self.reset()
         self.is_edit_audio_window = True
@@ -461,7 +427,7 @@ class MainApp:
             self.audio_edit_path.delete(0, ctk.END)
             self.audio_edit_path.insert(0, audio_edit_path)
         else:
-            notification(self.root, "Please choose the mp3 file")
+            self.noti("Please choose the mp3 file")
 
     def choose_video_get_audio_path(self):
         video_get_audio_path = filedialog.askopenfilename()
@@ -469,7 +435,7 @@ class MainApp:
             self.video_get_audio_path.delete(0, ctk.END)
             self.video_get_audio_path.insert(0, video_get_audio_path)
         else:
-            notification(self.root, "Please choose the mp3 file")
+            self.noti("Please choose the mp3 file")
 
     def create_thread_edit_audio(self):
         thread_edit_audio = threading.Thread(target=self.start_edit_audio)
@@ -479,16 +445,16 @@ class MainApp:
     def start_edit_audio(self):
         download_folder = self.choose_folder_download_var.get()
         if not os.path.exists(download_folder):
-            notification(self.root, "hãy chọn thư mục lưu file tải về.")
+            self.noti("hãy chọn thư mục lưu file tải về.")
             return
         audio_edit_path = self.audio_edit_path.get()
         video_get_audio_path = self.video_get_audio_path.get()
         video_get_audio_url = self.video_get_audio_url.get()
         if not audio_edit_path and not video_get_audio_path and not video_get_audio_url:
-            notification(self.root, "Hãy chọn 1 nguồn lấy audio")
+            self.noti("Hãy chọn 1 nguồn lấy audio")
             return
         if (audio_edit_path and video_get_audio_path) or (audio_edit_path and video_get_audio_url) or (video_get_audio_path and video_get_audio_url):
-            notification(self.root, "Chỉ chọn 1 nguồn lấy audio.")
+            self.noti("Chỉ chọn 1 nguồn lấy audio.")
             return
         def save_edit_audio_setting():
             self.config['download_folder'] = download_folder
@@ -503,7 +469,7 @@ class MainApp:
         self.save_config()
         edit_audio(audio_path=self.config['audio_edit_path'], video_path=self.config['video_get_audio_path'], video_url=self.config['video_get_audio_url'], speed=self.config['audio_speed'], first_cut_audio=self.config['first_cut_audio'], end_cut_audio=self.config['end_cut_audio'], reversed_audio=self.config['reversed_audio'], download_folder=self.config['download_folder'])
 
-#---------------------------------------------------------------------edit video
+#-------------------------------------------edit video-----------------------------------------------------
     def open_edit_video_menu(self):
         self.reset()
         self.is_open_edit_video_menu = True
@@ -512,10 +478,11 @@ class MainApp:
         create_button(frame=self.root, text="Edit Videos 16:9", command=self.open_edit_video_window)
         create_button(frame=self.root, text="Edit Videos 9:16", command=self.open_edit_video_window)
         create_button(self.root, text="Convert Videos", command=self.convert_videos_window)
-        create_button(self.root, text="Cut Video", command=self.cut_video_window)
+        create_button(self.root, text="Cut Video", command=self.open_cut_video_window)
+        create_button(self.root, text="Combine Videos", command=self.open_combine_video_window)
         create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
     
-    def cut_video_window(self):
+    def open_cut_video_window(self):
         self.reset()
         self.is_cut_video_window =True
         self.show_window()
@@ -525,8 +492,18 @@ class MainApp:
         self.choose_is_connect_var = self.create_settings_input(label_text="Is Connect", values=["Yes", "No"], left=0.4, right=0.6)
         self.choose_is_connect_var.set(value="No")
         self.videos_edit_path_var = create_frame_button_and_input(self.root, "Choose videos File", width=self.width, command=self.choose_videos_edit_file, left=0.4, right=0.6)
-        self.videos_edit_path_var.insert(0, self.config['videos_edit_folder'])
         create_button(self.root, text="Start Cut Video", command=self.cut_videos_by_timeline)
+        create_button(self.root, text="Back", command=self.open_edit_video_menu, width=self.width)
+
+    def open_combine_video_window(self):
+        self.reset()
+        self.is_combine_video_window =True
+        self.show_window()
+        self.setting_window_size()
+        self.file_name_var = create_frame_label_and_input(self.root, "Output File Name", width=self.width, left=0.4, right=0.6)
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root, "Choose videos folder", command=self.choose_videos_edit_folder, width=self.width, left=0.4, right=0.6)
+        self.videos_edit_folder_var.insert(0, self.config['videos_edit_folder'])
+        create_button(self.root, text="Start Combine Videos", command=self.create_thread_combine_video)
         create_button(self.root, text="Back", command=self.open_edit_video_menu, width=self.width)
 
     def convert_videos_window(self):
@@ -537,8 +514,8 @@ class MainApp:
         self.choose_convert_type = self.create_settings_input(label_text="Choose Convert Type", config_key="convert_type", values=["16:9 to 9:16", "9:16 to 16:9"])
         self.choose_convert_type.set("16:9 to 9:16")
         self.choose_zoom_size = self.create_settings_input(label_text="Zoom Size (16:9 to 9:16)")
-        self.videos_folder_handle_path = create_frame_button_and_input(self.root, "Choose videos folder", width=self.width, command=self.choose_videos_edit_folder, left=0.4, right=0.6)
-        self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root, "Choose videos folder", width=self.width, command=self.choose_videos_edit_folder, left=0.4, right=0.6)
+        self.videos_edit_folder_var.insert(0, self.config['videos_edit_folder'])
         create_button(self.root, text="Start Convert Videos", width=self.width, command=self.start_convert_video)
         create_button(self.root, text="Back", command=self.open_edit_video_menu, width=self.width)
     
@@ -550,7 +527,7 @@ class MainApp:
         elif convert_type == "9:16 to 16:9":
             self.is_169_to_916 = False
         else:
-            notification(self.root, "Convert type không đúng định dạng")
+            self.noti("Convert type không đúng định dạng")
             return
         self.start_thread_edit_video()
 
@@ -561,40 +538,125 @@ class MainApp:
             self.edit_thread.start()
 
     def cut_videos_by_timeline(self):
-        cut_quantity = self.cut_by_quantity_var.get()
-        if cut_quantity != "1":
-            try:
-                cut_quantity = int(cut_quantity)
-                if cut_quantity < 0:
-                    notification("Số lượng phải lớn hơn 0")
-                    return
-            except:
-                notification("Số lượng nhập không đúng định dạng số.")
-                return
-        else:
-            cut_quantity = None
-            segments = self.segments_var.get()
-            if not segments:
-                notification(self.root, "Hãy nhập các khoảng thời gian muốn cắt, ví dụ: 05:50,60:90,...")
-                return
-        
+        segments = self.segments_var.get()
+        is_connect = self.choose_is_connect_var.get() == "Yes"
+        if not segments:
+            self.noti("Hãy nhập các khoảng thời gian muốn cắt, ví dụ: 05:50,60:90,...")
+            return
+    
         video_path = self.videos_edit_path_var.get()
         if not os.path.exists(video_path):
-            notification(self.root, "Hãy chọn video muốn cắt.")
+            self.noti("Hãy chọn video muốn cắt.")
             return
-        if cut_quantity:
-            is_edit_ok = cut_video_by_quantity(video_path, cut_quantity, is_delete=self.config['is_delete_video'])
-        else:
-            is_connect = self.choose_is_connect_var.get() == "Yes"
-            is_edit_ok = cut_video_by_timeline(video_path, segments=segments, is_connect=is_connect, is_delete=self.config['is_delete_video'])
+        is_edit_ok, message = cut_video_by_timeline_use_ffmpeg(video_path, segments=segments, is_connect=is_connect, is_delete=self.config['is_delete_video'])
         if is_edit_ok:
-            notification(self.root, f"Xử lý thành công video: {video_path}")
+            self.noti(f"Xử lý thành công video: {video_path}")
+        else:
+            self.noti(message)
+
+    def combine_video_by_ffmpeg(self):
+        videos_folder = self.videos_edit_folder_var.get()
+        file_name = self.file_name_var.get()
+        if not videos_folder:
+            self.noti("Hãy chọn thư mục chứa video")
+            return
+        if not os.path.exists(videos_folder):
+            self.noti("Thư mục chứa video không tồn tại")
+            return
+        try:
+            is_ok, message = merge_videos_use_ffmpeg(videos_folder, file_name, is_delete=self.config['is_delete_video'])
+            self.noti(message)
+        except Exception as e:
+            getlog()
+            self.noti(f"Có lỗi trong quá trình gộp video")
+
+    def combine_video_by_moviepy(self):
+        first_cut = self.first_cut_each_video_var.get()
+        if first_cut:
+            try:
+                first_cut = int(first_cut)
+            except:
+                notification("First cut each video phải là số nguyên")
+                return
+        else:
+            first_cut = 0
+        end_cut = self.end_cut_each_video_var.get()
+        if end_cut:
+            try:
+                end_cut = int(end_cut)
+            except:
+                notification("First cut each video phải là số nguyên")
+                return
+        else:
+            end_cut = 0
+        videos_folder = self.videos_edit_folder_var.get()
+        if not videos_folder:
+            self.noti("Hãy chọn videos folder")
+            return
+        if not os.path.exists(videos_folder):
+            self.noti("videos folder không tồn tại")
+            return
+        try:
+            output_folder = f'{videos_folder}\\output_folder'
+            os.makedirs(output_folder, exist_ok=True)
+            edit_videos = os.listdir(videos_folder)
+            edit_videos = [k for k in edit_videos if '.mp4' in k]
+            if len(edit_videos) <= 1:
+                warning_message("Phải có ít nhất 2 video trong videos folder")
+                return
+            edit_videos = natsorted(edit_videos)
+            clips = []
+            cut_clips = []
+            remove_videos = []
+            for i, video_file in enumerate(edit_videos):
+                if self.is_stop_edit:
+                    return
+                video_path = f'{videos_folder}\\{video_file}'
+                remove_videos.append(video_path)
+                clip = VideoFileClip(video_path)
+                if first_cut > 0 or end_cut > 0:
+                    if first_cut > clip.duration:
+                        self.noti(f"first cut của video {video_file} không được lớn hơn {clip.duration}")
+                        return
+                    if end_cut > clip.duration-first_cut:
+                        self.noti(f"end cut của video {video_file} không được lớn hơn {clip.duration-first_cut}")
+                        return
+                    cut_clip = clip.subclip(first_cut, clip.duration - end_cut)
+                    cut_clips.append(cut_clip)
+                else:
+                    cut_clips.append(clip)
+
+            if len(cut_clips) > 0:
+                final_clip = concatenate_videoclips(cut_clips, method="compose")
+                file_path = f"{output_folder}\\combine_video.mp4"
+                final_clip.write_videofile(file_path, codec='libx264')
+                final_clip.close()
+                for clip in cut_clips:
+                    clip.close()
+                for clip in clips:
+                    clip.close()
+            try:
+                if self.config['is_delete_video']:
+                    for video_path in remove_videos:
+                        os.remove(video_path)
+                else:
+                    move_file_path = f'{videos_folder}\\finish_folder'
+                    os.makedirs(move_file_path, exist_ok=True)
+                    for video_path in remove_videos:
+                        shutil.move(video_path, move_file_path)
+            except:
+                getlog()
+            self.noti(f"Gộp thành công {len(edit_videos)} vào file: {file_path}")
+        except Exception as e:
+            getlog()
+            self.noti(f"Có lỗi trong quá trình gộp video")
+
 
     def convert_videos(self):
         zoom_size = self.choose_zoom_size.get()
-        videos_folder = self.videos_folder_handle_path.get()
+        videos_folder = self.videos_edit_folder_var.get()
         if not videos_folder:
-            notification(self.root, "Hãy chọn thư mục lưu video.")
+            self.noti("Hãy chọn thư mục lưu video.")
             return
         self.config['videos_edit_folder'] = videos_folder
         self.save_config()
@@ -603,7 +665,7 @@ class MainApp:
             if '.mp4' not in k:
                 edit_videos.remove(k)
         if len(edit_videos) == 0:
-            notification(self.root, f"Không tìm thấy video trong thư mục {videos_folder}")
+            self.noti(f"Không tìm thấy video trong thư mục {videos_folder}")
             return
         list_edit_finished = []
         for i, video_file in enumerate(edit_videos):
@@ -621,7 +683,7 @@ class MainApp:
                 list_edit_finished.append(video_file)
         cnt = len(list_edit_finished)
         if cnt > 0:
-            notification(self.root, f"Xử lý thành công {cnt} video: {list_edit_finished}")
+            self.noti(f"Xử lý thành công {cnt} video: {list_edit_finished}")
 
     def open_edit_video_window(self):
         self.reset()
@@ -638,7 +700,7 @@ class MainApp:
         self.is_random_zoom_var = self.create_settings_input("Is Random Zoom", "is_random_zoom", values=["Yes", "No"])
         self.min_time_to_change_zoom_var = self.create_settings_input("Min Time To Change Zoom", "min_time_to_change_zoom", values=["3", "4", "5"])
         self.max_time_to_change_zoom_var = self.create_settings_input("Max Time To Change Zoom", "max_time_to_change_zoom", values=["5", "10", "15"])
-        self.vertical_position_var = self.create_settings_input("Vertical Display", "vertical_position", values=["top", "center", "bottum"])
+        self.vertical_position_var = self.create_settings_input("Vertical Display", "vertical_position", values=["top", "center", "bottom"])
         self.horizontal_position_var = self.create_settings_input("Horizontal Display", "horizontal_position", values=["left", "center", "right"])
         self.top_height_var = self.create_settings_input("Top Overlay Height", "top_height", values=["100", "150", "200"])
         self.bot_height_var = self.create_settings_input("Bot Overlay Height", "bot_height", values=["100", "150", "200"])
@@ -647,11 +709,11 @@ class MainApp:
         self.water_path_var = create_frame_button_and_input(self.root,text="Choose WaterMask Image", width=self.width, command= self.choose_water_mask_image, left=0.4, right=0.6)
         self.vertical_watermask_position_var = self.create_settings_input("Vertical Watermask Position", "vertical_watermask_position", values=["top", "center", "bottum"])
         self.horizontal_watermask_position_var = self.create_settings_input("Horizontal Watermask Position", "horizontal_watermask_position", values=["left", "center", "right"])
-        self.videos_folder_handle_path = create_frame_button_and_input(self.root,text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         self.background_music_path.insert(0, self.config['background_music_path'])
         self.background_music_volume_var.insert(0, self.config['background_music_volume'])
         self.water_path_var.insert(0, self.config['water_path'])
-        self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
+        self.videos_edit_folder_var.insert(0, self.config['videos_edit_folder'])
         create_button(frame=self.root, text="Start Edit Videos", command=self.create_thread_edit_video, width=self.width)
         create_button(self.root, text="Back", command=self.open_edit_video_menu, width=self.width)
 
@@ -661,9 +723,14 @@ class MainApp:
             self.edit_thread = threading.Thread(target=self.start_edit_video)
             self.edit_thread.start()
 
+    def create_thread_combine_video(self):
+        if not self.edit_thread or not self.edit_thread.is_alive():
+            self.edit_thread = threading.Thread(target=self.combine_video_by_ffmpeg)
+            self.edit_thread.start()
+
     def start_edit_video(self):
         def save_edit_setting():
-            self.config['videos_edit_folder'] = self.videos_folder_handle_path.get()
+            self.config['videos_edit_folder'] = self.videos_edit_folder_var.get()
             self.config['is_delete_original_audio'] = self.is_delete_original_audio_var.get() == "Yes"
             self.config['background_music_path'] = self.background_music_path.get()
             self.config['background_music_volume'] = self.background_music_volume_var.get()
@@ -685,18 +752,18 @@ class MainApp:
         save_edit_setting()
         videos_folder = self.config['videos_edit_folder']
         if not videos_folder:
-            notification(self.root, "Hãy chọn thư mục lưu video.")
+            self.noti("Hãy chọn thư mục lưu video.")
             return
         if float(self.config['max_zoom_size']) < 1.05:
             self.config['max_zoom_size'] = "1.05"
         if float(self.config['max_zoom_size']) > 1.5:
-            notification(self.root, "The maximum value of max_zoom_size is 1.5")
+            self.noti("The maximum value of max_zoom_size is 1.5")
             return
 
         self.save_config()
         self.index_file_name = self.file_name_var.get()
         if self.index_file_name and "<index>" not in self.index_file_name:
-            notification(self.root, "Please enter a file name containing the string \"<index>\"")
+            self.noti("Please enter a file name containing the string \"<index>\"")
             return
         if self.start_index_var.get():
             try:
@@ -712,7 +779,7 @@ class MainApp:
             if '.mp4' not in k:
                 edit_videos.remove(k)
         if len(edit_videos) == 0:
-            notification(self.root, f"Không tìm thấy video trong thư mục {videos_folder}")
+            self.noti(f"Không tìm thấy video trong thư mục {videos_folder}")
             return
         for i, video_file in enumerate(edit_videos):
             if self.is_stop_edit:
@@ -726,7 +793,7 @@ class MainApp:
                 print(f"Edited finish video {video_file}")
         cnt = len(self.list_edit_finished)
         if cnt > 0:
-            notification(self.root, f"Successfully edited {cnt} files: {self.list_edit_finished}")
+            self.noti(f"Successfully edited {cnt} files: {self.list_edit_finished}")
 
     def edit_video(self, input_video_path, index):
         self.hide_window()
@@ -738,7 +805,7 @@ class MainApp:
 
             output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
             if not self.index_file_name:
-                file_name = get_file_name_from_path(input_video_path, suffix=False)
+                file_name = file_name.split('.')[0]
                 file_name = convert_sang_tieng_viet_khong_dau(file_name)
             else:
                 file_name = self.index_file_name.replace("<index>", str(index))
@@ -770,6 +837,7 @@ class MainApp:
 
             for i in range(quantity_split):
                 if self.is_stop_edit:
+                    input_clip.close()
                     return
                 if i == 0:
                     start_time = 0
@@ -785,6 +853,7 @@ class MainApp:
                         output_file = os.path.join(output_folder, f"{file_name}_{i + 1}.mp4")
                     if self.is_stop_edit:
                         final_clip.close()
+                        input_clip.close()
                         return
                     final_clip.write_videofile(output_file, codec='libx264', fps=24)
                     self.list_edit_finished.append(input_video_path)
@@ -805,9 +874,43 @@ class MainApp:
             getlog()
             return False
 
+#---------------------------Các Hàm gọi chung co class----------------------------------
+    def load_download_info(self):
+        self.download_info = get_json_data(download_info_path)
+        if not self.download_info:
+            self.download_info = {}
+        if 'downloaded_urls' not in self.download_info:
+            self.download_info['downloaded_urls'] = []
+        save_to_json_file(self.download_info, download_info_path)
 
+    def get_youtube_config(self):
+        self.youtube_config = get_json_data(youtube_config_path)
 
-#---------------------------------------------------------------------Các Hàm gọi chung
+    def get_tiktok_config(self):
+        self.tiktok_config = get_json_data(tiktok_config_path)
+        if not self.tiktok_config:
+            self.tiktok_config = {}
+        if 'template' not in self.tiktok_config:
+            self.tiktok_config['template'] = {}
+        if 'registered_account' not in self.tiktok_config:
+            self.tiktok_config['registered_account'] = []
+
+    def get_facebook_config(self):
+        self.facebook_config = get_json_data(facebook_config_path)
+        if not self.facebook_config:
+            self.facebook_config = {}
+        if 'template' not in self.facebook_config:
+            self.facebook_config['template'] = {}
+        if 'registered_account' not in self.facebook_config:
+            self.facebook_config['registered_account'] = []
+
+    def save_youtube_config(self):
+        save_to_json_file(self.youtube_config, youtube_config_path)
+    def save_tiktok_config(self):
+        save_to_json_file(self.tiktok_config, tiktok_config_path)
+    def save_facebook_config(self):
+        save_to_json_file(self.facebook_config, facebook_config_path)
+
     def open_common_settings(self):
         def save_common_config():
             self.config["auto_start"] = self.auto_start_var.get() == "Yes"
@@ -824,12 +927,11 @@ class MainApp:
         self.is_open_common_setting = True
         self.show_window()
         self.setting_window_size()
-        self.auto_start_var = self.create_settings_input("Delete video after upload", "auto_start", values=["Yes", "No"], left=0.4, right=0.6)
+        self.auto_start_var = self.create_settings_input("Start With Window", "auto_start", values=["Yes", "No"], left=0.4, right=0.6)
         self.is_delete_video_var = self.create_settings_input("Delete video after upload", "is_delete_video", values=["Yes", "No"], left=0.4, right=0.6)
         create_button(self.root, text="Save Setting", command=save_common_config, width=self.width)
         create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
         pass
-
 
     def choose_background_music(self):
         background_music_path = filedialog.askopenfilename()
@@ -838,8 +940,9 @@ class MainApp:
 
     def choose_videos_edit_folder(self):
         videos_edit_folder = filedialog.askdirectory()
-        self.videos_folder_handle_path.delete(0, ctk.END)
-        self.videos_folder_handle_path.insert(0, videos_edit_folder)
+        self.videos_edit_folder_var.delete(0, ctk.END)
+        self.videos_edit_folder_var.insert(0, videos_edit_folder)
+
     def choose_videos_edit_file(self):
         videos_edit_path = choose_file()
         self.videos_edit_path_var.delete(0, ctk.END)
@@ -850,6 +953,7 @@ class MainApp:
         self.water_path_var.delete(0, ctk.END)
         self.water_path_var.insert(0, water_mask_image)
 
+#------------------------------------------------------Common-----------------------------------------------------
     def create_settings_input(self, label_text, config_key=None, values=None, is_textbox = False, left=0.4, right=0.6, add_button=False, text=None, command=None):
         frame = create_frame(self.root)
         if add_button:
@@ -892,9 +996,7 @@ class MainApp:
             setattr(self, f"{config_key}_var", var)
             result = entry
         return result
-        
-
-#------------------------------------------------------Common--------------------------------------------------------------------------------
+    
     def reset(self):
         self.is_setting = False
         self.is_youtube_window = False
@@ -908,11 +1010,15 @@ class MainApp:
         self.is_convert_video_window = False
         self.is_open_common_setting = False
         self.is_cut_video_window = False
+        self.is_combine_video_window = False
         self.clear_after_action()
         clear_widgets(self.root)
 
     def clear_after_action(self):
         self.root.withdraw()
+    
+    def noti(self, message):
+        notification(parent=self.root, message=message)
     
     def load_translate(self):
         from_language = self.config["from_language"]
@@ -1002,12 +1108,12 @@ class MainApp:
 
     def hide_window(self):
         self.root.iconify()
-        self.root.withdraw()  # ẩn cửa sổ
+        self.root.withdraw()
 
     def on_close(self):
         self.save_config()
         self.hide_window()
-
+#----------------------------------Setting Window--------------------------------------------------------
     def setting_screen_position(self):
         try:
             self.root.update_idletasks()
@@ -1054,7 +1160,7 @@ class MainApp:
             elif self.is_open_edit_video_menu:
                 self.root.title("Edit Video Window")
                 self.width = 500
-                self.height_window = 300
+                self.height_window = 345
                 self.is_open_edit_video_menu = False
             elif self.is_convert_video_window:
                 self.root.title("Convert Videos Window")
@@ -1066,6 +1172,11 @@ class MainApp:
                 self.width = 500
                 self.height_window = 400
                 self.is_cut_video_window = False
+            elif self.is_combine_video_window:
+                self.root.title("Combine Video Window")
+                self.width = 500
+                self.height_window = 400
+                self.is_combine_video_window = False
             elif self.is_youtube_window:
                 self.root.title("Youtube Window")
                 self.width = 500
@@ -1113,9 +1224,10 @@ class MainApp:
         create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
         self.show_window()
 
+#-------------------------------Convert MP3------------------------------------------------
     def choose_directory_save_mp3_file(self):
         save_path = filedialog.askdirectory()
-        self.file_path_save = f'{save_path}'
+        self.file_path_save = save_path
 
     def choose_directory_get_txt_file(self):
         self.file_path_get = filedialog.askopenfilename( title="Select a txt file", filetypes=(("Text files", "*.txt"),)) #(("Text files", "*.txt"),)
@@ -1123,13 +1235,12 @@ class MainApp:
     def convert_line_by_line_to_mp3(self):
         self.convert_multiple_record = True
 
-    
-    def text_to_mp3(self, voice=None, convert_multiple_record= False):
+    def text_to_mp3(self, voice=None):
         if not self.file_path_save:
-            messagebox.showinfo( "ERROR", f"Hãy chọn thư mục để lưu file mp3", )
+            self.noti(f"Hãy chọn thư mục để lưu file mp3")
             return
         if not self.file_path_get:
-            messagebox.showinfo( "ERROR", f"Hãy chọn file để lấy dữ liệu muốn convert", )
+            self.noti(f"Hãy chọn file \".txt\" để lấy dữ liệu muốn convert")
             return
         try:
             if not self.engine:
@@ -1158,8 +1269,6 @@ class MainApp:
                         sound = AudioSegment.from_wav(temp_file)
                         sound.export(f'{self.file_path_save}\\output{i}_{j}.mp3', format="mp3")
                         os.remove(temp_file)
-
-                    
             else:
                 # Lưu giọng nói vào file WAV tạm thời
                 temp_wav_file = f"{current_dir}\\temp_output.wav"
@@ -1173,7 +1282,6 @@ class MainApp:
                 # Xóa file WAV tạm thời
                 os.remove(temp_wav_file)
                 print(f"File mp3 đã được lưu thành công: {self.file_path_save}")
-
         except:
             getlog()
             self.engine.stop()
@@ -1249,9 +1357,9 @@ except:
     #     self.max_time_to_change_zoom_var = self.create_settings_input("Max Time To Change Zoom", "max_time_to_change_zoom", values=["5", "10", "15"])
     #     self.background_music_path = create_frame_button_and_input(self.root,text="Choose background music", command= self.choose_background_music, left=0.4, right=0.6)
     #     self.background_music_volume_var = self.create_settings_input("Background music volume", "background_music_volume", values=["5", "10", "15"])
-    #     self.videos_folder_handle_path = create_frame_button_and_input(self.root,text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6)
+    #     self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Choose videos Edit folder", command= self.choose_videos_edit_folder, left=0.4, right=0.6)
     #     self.background_music_path.insert(0, self.config['background_music_path'])
-    #     self.videos_folder_handle_path.insert(0, self.config['videos_edit_folder'])
+    #     self.videos_edit_folder_var.insert(0, self.config['videos_edit_folder'])
     #     create_button(frame=self.root, text="Start Edit Videos", command=self.create_thread_edit_video)
 
     # def create_thread_edit_video(self):
@@ -1262,7 +1370,7 @@ except:
 
     # def start_edit_video(self):
     #     def save_edit_setting():
-    #         self.config['videos_edit_folder'] = self.videos_folder_handle_path.get()
+    #         self.config['videos_edit_folder'] = self.videos_edit_folder_var.get()
     #         self.config['background_music_path'] = self.background_music_path.get()
     #         self.config['background_music_volume'] = self.background_music_volume_var.get()
     #         self.config['quantity_split'] = self.quantity_split_var.get()
@@ -1279,12 +1387,12 @@ except:
     #     save_edit_setting()
     #     video_folder = self.config['videos_edit_folder']
     #     if not video_folder:
-    #         notification(self.root, "Please choose the videos edit folder")
+    #         self.noti("Please choose the videos edit folder")
     #         return
     #     if float(self.config['max_zoom_size']) < 1.1:
     #         self.config['max_zoom_size'] = "1.1"
     #     if float(self.config['max_zoom_size']) > 1.5:
-    #         notification(self.root, "The maximum value of max_zoom_size is 1.5")
+    #         self.noti("The maximum value of max_zoom_size is 1.5")
     #         return
         
     #     if int(self.config['min_time_to_change_zoom']) < 3:
@@ -1303,7 +1411,7 @@ except:
     #             print(f"Edited finish video {video_file}")
     #     cnt = len(self.list_edit_finished)
     #     if cnt > 0:
-    #         notification(self.root, f"Successfully edited {cnt} files: {self.list_edit_finished}")
+    #         self.noti(f"Successfully edited {cnt} files: {self.list_edit_finished}")
 
     # def edit_video_169(self, input_video_path):
     #     self.hide_window()
