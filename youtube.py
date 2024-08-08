@@ -384,16 +384,12 @@ class YouTubeManager():
             videos = os.listdir(self.youtube_config['template'][self.channel_name]['upload_folder'])
             if len(videos) == 0:
                 return
-            for k in videos:
-                if '.mp4' not in k:
-                    videos.remove(k)        
+            videos = [k for k in videos if '.mp4' in k]      
             videos = natsorted(videos)
             upload_count = 0
             for i, video_file in enumerate(videos):
                 if self.is_stop_upload:
                     break
-                if '.mp4' not in video_file:
-                    continue
                 video_name = os.path.splitext(video_file)[0] #lấy tên
                 title = self.youtube_config['template'][self.channel_name]['title']
                 if self.youtube_config['template'][self.channel_name]['is_title_plus_video_name']:

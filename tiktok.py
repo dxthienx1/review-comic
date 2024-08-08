@@ -38,7 +38,7 @@ class TikTokManager:
     def login(self):
         try:
             self.is_stop_upload = False
-            self.driver = get_driver()
+            self.driver = get_driver(show=self.tiktok_config['show_browser'])
             if not self.driver:
                 return
             self.load_session()
@@ -153,10 +153,11 @@ class TikTokManager:
                         kq.append(ele)
                         break
                 if len(kq) == 0:
-                    ele.click()
+                    print(f"Không tìm thấy ngày {date_string}")
                 else:
                     ele = kq[0]
                     ele.click()
+                    print(f"đã chọn ngày {ele.text}")
                     break
         sleep(1)
             
@@ -321,6 +322,7 @@ class TikTokManager:
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Select Videos Folder", command=choose_folder_upload, width=self.width, left=0.3, right=0.7)
         self.upload_folder_var.insert(0, self.tiktok_config['template'][self.account]['upload_folder'])
         self.load_template_var = create_frame_button_and_combobox(self.root, "Load Template", command=load_template, values=[key for key in self.tiktok_config['template'].keys()], width=self.width, left=0.3, right=0.7)
+        self.show_browser_var = self.create_settings_input(label_text="Show Browser When Searching", config_key="show_browser", config=self.tiktok_config, values=['Yes', 'No'])
         create_frame_button_and_button(self.root, text1="Upload now", text2="Schedule Upload", command1=self.upload_video_now, command2=self.schedule_upload, width=self.width, left=0.5, right=0.5)
         create_button(self.root, text="Back", command=self.get_start_tiktok, width=self.width)
     
@@ -351,6 +353,7 @@ class TikTokManager:
             self.tiktok_config['template'][self.account]["upload_date"] = upload_date
             self.tiktok_config['template'][self.account]["publish_times"] = self.publish_times_var.get()
             self.tiktok_config['template'][self.account]["upload_folder"] = self.upload_folder_var.get()
+            self.tiktok_config["show_browser"] = self.show_browser_var.get()
             self.save_tiktok_config()
             return True
         except:
@@ -372,9 +375,7 @@ class TikTokManager:
             videos = os.listdir(videos_folder)
             if len(videos) == 0:
                 return
-            for k in videos:
-                if '.mp4' not in k:
-                    videos.remove(k)        
+            videos = [k for k in videos if '.mp4' in k]      
             videos = natsorted(videos)
             finish_folder = os.path.join(self.tiktok_config['template'][self.account]['upload_folder'], 'upload_finished')
             os.makedirs(finish_folder, exist_ok=True)
@@ -389,8 +390,6 @@ class TikTokManager:
             for i, video_file in enumerate(videos):
                 if self.is_stop_upload:
                     break
-                if '.mp4' not in video_file:
-                    continue
                 old_video_path = os.path.join(self.tiktok_config['template'][self.account]['upload_folder'], video_file)
                 new_video_path = os.path.join(finish_folder, video_file)
                 if upload_count == 0:

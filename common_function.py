@@ -38,12 +38,10 @@ def get_current_dir():
     """Lấy thư mục đang chạy tệp thực thi"""
     if getattr(sys, 'frozen', False):
         # Đang chạy từ tệp thực thi đóng gói
-        print("Đang chạy trong môi trường thực")
         current_dir = os.path.dirname(sys.executable)
         is_dev_enviroment = False
     else:
         # Đang chạy trong môi trường phát triển
-        print("Đang chạy trong môi trường phát triển")
         current_dir = os.path.dirname(os.path.abspath(__file__))
         is_dev_enviroment = True
     return current_dir
@@ -52,7 +50,6 @@ current_dir = get_current_dir()
 sys.path.append(current_dir)
 icon_path = os.path.join(current_dir, 'icon.png')
 config_path = os.path.join(current_dir, 'config.json')
-print(config_path)
 chromedriver_path = os.path.join(current_dir, 'import\\chromedriver.exe')
 secret_path = os.path.join(current_dir, 'secret.json')
 download_info_path = os.path.join(current_dir, 'download_info.json')
@@ -302,22 +299,6 @@ def get_audio_clip_from_video(video_path=None, is_get_video=False):
         getlog()
         return None
 
-def remove_audio_from_clip(clip):
-    return clip.without_audio()
-def set_audio_for_clip(clip, background_music, background_music_volume="10"):
-    volume = float(background_music_volume)/100
-    background_music = AudioFileClip(background_music)
-    background_music = background_music.volumex(volume)
-    background_music = afx.audio_loop(background_music, duration=clip.duration)
-    current_audio = clip.audio
-    if current_audio is None:
-        clip = clip.set_audio(background_music)
-    else:
-        # Kết hợp giọng thuyết minh và nhạc nền
-        combined_audio = CompositeAudioClip([current_audio, background_music])
-        clip = clip.set_audio(combined_audio)
-    return clip
-
 def get_output_folder(input_video_path):
     folder_input = os.path.dirname(input_video_path)
     file_name = os.path.basename(input_video_path)
@@ -442,123 +423,69 @@ def download_video_no_watermask_from_tiktok(video_url, download_folder=None):
             getlog()
             return False
 
-def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1280", is_delete=False):
-    try:
-        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
-        move_file_path = f"{finish_folder}\\{file_name}"
-        video = VideoFileClip(input_video_path)
-        width, height = video.size
-        if zoom_size:
-            zoom_size = float(zoom_size)
-            zoomed_video = video.resize(zoom_size)
-        else:
-            # Tính toán tỷ lệ zoom để đảm bảo không hụt chiều cao
-            new_height = height
-            new_width = height * 9 / 16
-            if new_width > width:
-                new_width = width
-                new_height = width * 16 / 9
-
-            zoom_factor = new_height / height
-            zoomed_video = video.resize(zoom_factor)
-        # Thêm lớp màu đen vào video để đạt được tỷ lệ 9:16 mà không kéo giãn video
-        resolution = list(map(int, resolution.split('x')))
-        background = ColorClip(size=resolution, color=(0, 0, 0), duration=video.duration)
+def download_videos_form_playhh3dhay_by_txt_file(id_file_txt, download_folder=download_folder):
+    def download_video_by_url(url, output_path):
+        try:
+            headers = {
+                'Referer': 'https://playhh3dhay.xyz',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(url, headers=headers, stream=True)
+            
+            if response.status_code == 200:
+                with open(output_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=1024):
+                        if chunk:
+                            f.write(chunk)
+                print(f"Video downloaded successfully to {output_path}")
+                return True
+            else:
+                print(f"Failed to download video. Status code: {response.status_code}")
+                return False
+        except:
+            return False
         
-        zoomed_width, zoomed_height = zoomed_video.size
-        x_pos = (resolution[0] - zoomed_width) / 2
-        y_pos = (resolution[1] - zoomed_height) / 2
-
-        final_video = CompositeVideoClip([background, zoomed_video.set_position((x_pos, y_pos))], size=resolution)
-        final_video.write_videofile(output_file_path, codec='libx264', audio_codec='aac')
-        
-        try:
-            final_video.close()
-            zoomed_video.close()
-            video.close()
-            if is_delete:
-                os.remove(input_video_path)
-            else:
-                shutil.move(input_video_path, move_file_path)
-        except:
-            getlog()
-        return True
-    except:
-        getlog()
-        return False
-
-def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_delete=False):
-    try:
-        if not resolution:
-            resolution = '1920x1080'
-        resolution = resolution.split('x')
-        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
-        move_file_path = f"{finish_folder}\\{file_name}"
-        video = VideoFileClip(input_video_path)
-        input_width, input_height = video.size
-        new_height = input_width * 9 / 16
-        if new_height <= input_height:
-            # Crop video từ giữa theo chiều cao
-            y1 = (input_height - new_height) / 2
-            y2 = y1 + new_height
-            cropped_video = video.crop(x1=0, x2=input_width, y1=y1, y2=y2)
+    file_data = get_txt_data(id_file_txt)
+    if file_data is None:
+        print(f"File {id_file_txt} không tồn tại.")
+        return
+    lines = file_data.splitlines()
+    index = 1938
+    temp_list_file = f"{download_folder}\\temp_list.txt"
+    remove_file(temp_list_file)
+    for line in lines:
+        no_video_downloaded = False
+        line = line.split(',')
+        if len(line) == 1:
+            server, video_id, end_url = 's1', line[0], '1080p/1080p_003.html'
+        elif len(line) == 2:
+            server, video_id, end_url = line[0], line[1], '1080p/1080p_003.html'
         else:
-            # Thêm viền đen để giữ nguyên cảnh quay
-            new_width = input_height * 16 / 9
-            black_bar = ColorClip(size=(int(new_width), input_height), color=(0, 0, 0))
-            video = video.set_position(("center", "center"))
-            cropped_video = CompositeVideoClip([black_bar, video]).set_duration(video.duration)
-        resized_video = cropped_video.resize(newsize=(resolution[0], resolution[1]))
-        resized_video.write_videofile(output_file_path, codec='libx264', audio_codec='aac')
-        try:
-            resized_video.close()
-            video.close()
-            sleep(1)
-            if is_delete:
-                os.remove(input_video_path)
+            server, video_id, end_url = line[0], line[1], line[2] #dạng s1,81ff33517ddda537c8858780626cfc12,1080p/1080p_003.html
+        resolution = end_url.split('_')[0]
+        exp = end_url.split('_')[1].split('.')[-1]
+        print("-----------------------------------------")
+        print(f"Bắt đầu tải tập phim với id {video_id} - Độ phân giải {resolution}")
+        output_folder = os.path.join(download_folder, video_id)
+        os.makedirs(output_folder, exist_ok=True)
+        for j in range(1, 2000):
+            if no_video_downloaded:
+                break
+            if j < 1000:
+                j_str = f"{j:03}"
             else:
-                shutil.move(input_video_path, move_file_path)
-        except:
-            getlog()
-        return True
-    except:
-        getlog()
-        return False
-    
-def cut_video_by_quantity(input_video_path, cut_quantity, is_delete=False):
-    try:
-        output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
-        move_file_path = f"{finish_folder}\\{file_name}"
-        video = VideoFileClip(input_video_path)
-        video_duration = video.duration
-        cut_duration = video_duration / cut_quantity
-        for i in range(cut_quantity):
-            start_time = i * cut_duration
-            end_time = (i + 1) * cut_duration
-            if end_time > video_duration:
-                end_time = video_duration
-            output_path = os.path.join(output_folder, f"{file_name.split('.')[0]}_{i+1}.mp4")
-            video.subclip(start_time, end_time).write_videofile(output_path, codec="libx264")
-        video.close()
-        sleep(1)
-        try:
-            if is_delete:
-                os.remove(input_video_path)
+                j_str = f"{j:04}"
+            for i in range(1, 6):
+                video_url = f"https://{server}.playhh3dhay{i}.com/cdn/down/{video_id}/Video/{resolution}_{j_str}.{exp}"
+                segment_path = os.path.join(output_folder, f"video_{index}.mp4")
+                
+                if download_video_by_url(video_url, segment_path):
+                    no_video_downloaded = False  # Đặt lại cờ vì đã tải được video
+                    index += 1
+                    break
             else:
-                shutil.move(input_video_path, move_file_path)
-        except:
-            getlog()
-        return True
-    except:
-        getlog()
-        return False
-
-def get_and_adjust_resolution(clip, scale_factor=0.997):
-    width = int(clip.size[0] * scale_factor)
-    height = int(clip.size[1] * scale_factor)
-    resized_video = clip.resize((width, height))
-    return resized_video
-    
+                no_video_downloaded = True
 
 def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None):
     if attribute and attribute_value:
@@ -575,5 +502,22 @@ def get_xpath_by_multi_attribute(maintag, attributes):
     xpath = f"//{maintag}[{attribute}]"
     return xpath
 
-
+def rename_files_by_index(folder_path, base_name, extension=None, start_index=1):
+    if not extension:
+        extension = '.mp4'
+    try:
+        start_index = int(start_index)
+    except:
+        start_index = 1
+    files = [file for file in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, file)) and file.endswith(extension)]
+    files = natsorted(files)
+    for index, file_name in enumerate(files, start=start_index):
+        old_file_path = os.path.join(folder_path, file_name)
+        new_file_name = f"{base_name}{index}{extension}"
+        new_file_path = os.path.join(folder_path, new_file_name)
+        try:
+            os.rename(old_file_path, new_file_path)
+            print(f"Đã đổi tên {old_file_path} thành {new_file_path}")
+        except:
+            print(f"Đổi tên file {old_file_path} không thành công")
 

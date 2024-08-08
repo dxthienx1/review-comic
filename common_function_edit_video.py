@@ -17,7 +17,6 @@ def convert_time_to_seconds(time_str):
 
 def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect, is_delete=False):
     def get_video_duration():
-        """Trả về độ dài của video bằng giây."""
         command = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', input_video_path]
         result = subprocess.run(command, check=True, text=True, capture_output=True)
         return float(result.stdout.strip())
@@ -25,7 +24,7 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect, is_
     try:
         output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
         move_file_path = os.path.join(finish_folder, file_name)
-        temp_list_file = "temp_list.txt"
+        temp_list_file = os.path.join(output_folder, "temp_list.txt")
         
         # Xóa tệp danh sách tạm thời nếu tồn tại
         if os.path.exists(temp_list_file):
@@ -33,46 +32,57 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect, is_
 
         # Tách các đoạn video
         segments = segments.split(',')
-        clips = []
+        combine_videos = []
         duration = get_video_duration()
-
+        end = "0"
         # Tạo lệnh ffmpeg để cắt video
         for i, segment in enumerate(segments):
             segment = segment.strip()
-            start, end = segment.split('-')
-
+            if i==0 and '-' not in segment:
+                start, end = "0", segment
+            elif '-' not in segment:
+                start = str(end)
+                end = segment
+            else:
+                start, end = segment.split('-')
             # Chuyển đổi thời gian bắt đầu và kết thúc
             start = convert_time_to_seconds(start)
             end = convert_time_to_seconds(end)
             
             if end > duration:
                 end = duration
-            
-            segment_file_path = os.path.join(output_folder, f"{file_name.split('.')[0]}_{i + 1}.mp4")
+            if (len(segments)) > 1:
+                segment_file_path = os.path.join(output_folder, f"{file_name.split('.')[0]}_{i + 1}.mp4")
+            else:
+                segment_file_path = os.path.join(output_folder, file_name)
             command = [
-                'ffmpeg', '-i', input_video_path, '-ss', str(start), '-to', str(end),
-                '-c', 'copy', segment_file_path
+                'ffmpeg', '-i', input_video_path, '-ss', str(start), '-to', str(end), '-r', '30', '-c', 'copy', segment_file_path
             ]
-            
-            subprocess.run(command, check=True)
-            clips.append(segment_file_path)
 
-        if is_connect and clips:
-            # Tạo danh sách video để ghép
-            with open(temp_list_file, 'w') as f:
-                for clip in clips:
-                    f.write(f"file '{clip}'\n")
-            
-            final_clip_path = os.path.join(output_folder, f"{file_name.split('.')[0]}_final.mp4")
-            command = [
-                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_list_file, '-c', 'copy', final_clip_path
-            ]
-            subprocess.run(command, check=True)
+            try:
+                subprocess.run(command, check=True)
+            except:
+                cut_video_by_moviepy(input_video_path, segment_file_path, start, end)
+
+            if is_connect:
+                combine_videos.append(segment_file_path)
+
+        if is_connect and combine_videos:
+            try:
+                with open(temp_list_file, 'w') as f:
+                    for video in combine_videos:
+                        f.write(f"file '{video}'\n")
+                
+                # output_file_path = os.path.join(output_folder, f"{file_name.split('.')[0]}_connected.mp4")
+                command = [
+                    'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_list_file, '-r', '30', '-c', 'copy', output_file_path
+                ]
+                subprocess.run(command, check=True)
+            except:
+                print("Nối video thất bại, vui lòng đợi dùng cách khác để nối...")
+                merge_videos_use_moviepy(videos_list=combine_videos, file_path=output_file_path, is_delete=is_delete)
             
         try:
-            # Xóa các đoạn video đã cắt
-            for clip in clips:
-                os.remove(clip)
             if is_delete:
                 os.remove(input_video_path)
             else:
@@ -82,14 +92,22 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect, is_
             if os.path.exists(temp_list_file):
                 os.remove(temp_list_file)
         except:
-            getlog()
             pass
         
         return True, None
     except:
-        print("Có lỗi khi dùng ffmpeg để cắt video, đang thử dùng moviepy để cắt video...")
+        print("Cắt video thất bại, vui lòng đợi dùng cách khác để cắt video...")
         cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is_delete=is_delete)
         
+def cut_video_by_moviepy(input_video_path, output_file_path, start, end):
+    try:
+        clip = VideoFileClip(input_video_path)
+        sub_clip = clip.subclip(start, end)
+        sub_clip.write_videofile(output_file_path, codec='libx264')
+        sub_clip.close()
+        clip.close()
+    except:
+        print(f"Cắt video {input_video_path} thất bại")
 
 def cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is_delete=False):
     try:
@@ -97,7 +115,11 @@ def cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is
         move_file_path = f"{finish_folder}\\{file_name}"
         
         # Tạo danh sách các đoạn video cắt ra
-        segments = segments.split(',')
+        try:
+            segments = segments.split(',')
+        except:
+            print("Định dạng thời gian cắt là start-end với start,end là hh:mm:ss hoặc mm:ss hoặc ss")
+            return
         clips = []
         i = 0
         video = VideoFileClip(input_video_path)
@@ -174,7 +196,7 @@ def cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is
         getlog()
         return False, "Có lỗi trong quá trình cắt video."
 
-def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False):
+def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, videos_path=None):
     def check_all_videos_h264(videos_path):
         command_check_codec = [
             'ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=nw=1:nk=1'
@@ -191,24 +213,23 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False):
         return True
     
     temp_file_path = os.path.join(videos_folder, "temp.txt")
-    videos = natsorted(os.listdir(videos_folder))
-    videos = [k for k in videos if '.mp4' in k]
-    if len(videos) <= 1:
-         return False, "Phải có ít nhất 2 video trong videos folder"
-    videos_path = []
-
-    def add_file_list():
-        try:
-            with open(temp_file_path, 'w') as f:
-                for video in videos:
-                    if video.endswith('.mp4'):
-                        video_path = os.path.join(videos_folder, video)
-                        f.write(f"file '{video_path}'\n")
-                        videos_path.append(video_path)
-            return temp_file_path
-        except:
-            getlog()
-            return None
+    if not videos_path:
+        videos = natsorted(os.listdir(videos_folder))
+        videos = [k for k in videos if '.mp4' in k]
+        if len(videos) <= 1:
+            return False, "Phải có ít nhất 2 video trong videos folder"
+        videos_path = []
+        with open(temp_file_path, 'w') as f:
+            for video in videos:
+                if video.endswith('.mp4'):
+                    video_path = os.path.join(videos_folder, video)
+                    f.write(f"file '{video_path}'\n")
+                    videos_path.append(video_path)
+    else:
+        with open(temp_file_path, 'w') as f:
+            for video_path in videos_path:
+                if video_path.endswith('.mp4'):
+                    f.write(f"file '{video_path}'\n")
         
     output_folder = f"{videos_folder}\\output_folder"
     os.makedirs(output_folder, exist_ok=True)
@@ -216,17 +237,15 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False):
         file_path = f"{output_folder}\\{file_name}.mp4"
     else:
         file_path = f"{output_folder}\\merge_video.mp4"
-    temp_file_path = add_file_list()
     all_videos_h264 = check_all_videos_h264(videos_path)
     command = [
-        'ffmpeg', '-fflags', '+genpts', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c', 'copy'
+        'ffmpeg', '-fflags', '+genpts', '-f', 'concat', '-safe', '0', '-i', temp_file_path,'-r', '30', '-c', 'copy'
     ]
     if all_videos_h264:
         command.extend(['-bsf:v', 'h264_mp4toannexb'])
     command.append(file_path)
     try:
         result = subprocess.run(command, check=True, text=True, capture_output=True)
-        print(f"----> {result.stdout}")
         remove_file(temp_file_path)
         if is_delete:
             for video_path in videos_path:
@@ -236,81 +255,19 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False):
         print(f"Có lỗi khi dùng ffmpeg để ghép video. Đang thử dùng moviepy để ghép...")
         merge_videos_use_moviepy(videos_folder, file_path, is_delete)
 
-
-
-def download_videos_form_playhh3dhay_by_txt_file(id_file_txt, download_folder=download_folder):
-    def download_video_by_url(url, output_path):
-        try:
-            headers = {
-                'Referer': 'https://playhh3dhay.xyz',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            
-            response = requests.get(url, headers=headers, stream=True)
-            
-            if response.status_code == 200:
-                with open(output_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=1024):
-                        if chunk:
-                            f.write(chunk)
-                print(f"Video downloaded successfully to {output_path}")
-                return True
-            else:
-                print(f"Failed to download video. Status code: {response.status_code}")
-                return False
-        except:
-            return False
-        
-    file_data = get_txt_data(id_file_txt)
-    if file_data is None:
-        print(f"File {id_file_txt} không tồn tại.")
-        return
-    lines = file_data.splitlines()
-    index = 1938
-    temp_list_file = f"{download_folder}\\temp_list.txt"
-    remove_file(temp_list_file)
-    for line in lines:
-        no_video_downloaded = False
-        line = line.split(',')
-        if len(line) == 1:
-            server, video_id, end_url = 's1', line[0], '1080p/1080p_003.html'
-        elif len(line) == 2:
-            server, video_id, end_url = line[0], line[1], '1080p/1080p_003.html'
-        else:
-            server, video_id, end_url = line[0], line[1], line[2] #dạng s1,81ff33517ddda537c8858780626cfc12,1080p/1080p_003.html
-        resolution = end_url.split('_')[0]
-        exp = end_url.split('_')[1].split('.')[-1]
-        print("-----------------------------------------")
-        print(f"Bắt đầu tải tập phim với id {video_id} - Độ phân giải {resolution}")
-        output_folder = os.path.join(download_folder, video_id)
-        os.makedirs(output_folder, exist_ok=True)
-        for j in range(1, 2000):
-            if no_video_downloaded:
-                break
-            if j < 1000:
-                j_str = f"{j:03}"
-            else:
-                j_str = f"{j:04}"
-            for i in range(1, 6):
-                video_url = f"https://{server}.playhh3dhay{i}.com/cdn/down/{video_id}/Video/{resolution}_{j_str}.{exp}"
-                segment_path = os.path.join(output_folder, f"video_{index}.mp4")
-                
-                if download_video_by_url(video_url, segment_path):
-                    no_video_downloaded = False  # Đặt lại cờ vì đã tải được video
-                    index += 1
-                    break
-            else:
-                no_video_downloaded = True
-
-def merge_videos_use_moviepy(videos_folder, file_path=None, is_delete=False):
+def merge_videos_use_moviepy(videos_folder, file_path=None, is_delete=False, videos_list=None):
     output_folder = f'{videos_folder}\\output_folder'
     os.makedirs(output_folder, exist_ok=True)
-    edit_videos = os.listdir(videos_folder)
-    edit_videos = [k for k in edit_videos if '.mp4' in k]
-    if len(edit_videos) <= 1:
-        warning_message("Phải có ít nhất 2 video trong videos folder")
-        return
-    edit_videos = natsorted(edit_videos)
+    if videos_list:
+        edit_videos = videos_list
+    else:
+        edit_videos = os.listdir(videos_folder)
+        edit_videos = [k for k in edit_videos if '.mp4' in k]
+        if len(edit_videos) <= 1:
+            warning_message("Phải có ít nhất 2 video trong videos folder")
+            return
+        edit_videos = natsorted(edit_videos)
+
     clips = []
     remove_videos = []
     for i, video_file in enumerate(edit_videos):
@@ -341,8 +298,15 @@ def merge_videos_use_moviepy(videos_folder, file_path=None, is_delete=False):
         getlog()
 
 def strip_first_and_end_video(clip, first_cut, end_cut):
-    first_cut = int(first_cut)
-    end_cut = int(end_cut)
+    try:
+        first_cut = int(first_cut)
+    except:
+        first_cut = 0
+    try:
+        end_cut = int(end_cut)
+    except:
+        end_cut = 0
+        
     if first_cut < 0:
         first_cut = 0
     if end_cut < 0 or end_cut >= clip.duration:
@@ -409,7 +373,7 @@ def zoom_video_random_intervals(clip, max_zoom_size, min_time_to_change_zoom=3, 
     if start_times[-1] < clip.duration:
         start_times.append(clip.duration)
 
-    zoom_factors = [round(random.uniform(1.1, max_zoom_size), 2) for _ in range(len(start_times) - 1)]
+    zoom_factors = [round(random.uniform(1.01, max_zoom_size), 2) for _ in range(len(start_times) - 1)]
     
     zoomed_clips = []
     try:
@@ -440,22 +404,55 @@ def get_clip_ratio(clip, tolerance=0.02):  #Kiểm tra video thuộc tỷ lệ 1
     elif abs(ratio - (9/16)) < tolerance:  # Kiểm tra xem tỷ lệ gần bằng 9:16
         return (9,16)
     else:
-        return False
+        return None
     
-def resize_clip(clip):
-    target_ratio = get_clip_ratio(clip)
-    target_width, target_height = target_ratio
-    clip_width, clip_height = clip.size
-    if clip_width / clip_height != target_width / target_height:
-        target_clip_width = clip_height * target_width / target_height
-        resized_clip = resize(clip, newsize=(target_clip_width, clip_height))
-        return resized_clip
-    return clip
+def resize_clip(clip, re_size=0.999):
+    try:
+        target_ratio = get_clip_ratio(clip)
+        clip_width, clip_height = clip.size
+        if target_ratio:
+            target_width, target_height = target_ratio
+            if clip_width / clip_height != target_width / target_height:
+                clip_width = clip_height * target_width / target_height
+            
+            width = int(clip_width * re_size)
+            height = int(clip_height * re_size)
+            try:
+                clip = resize(clip, newsize=(width, height))
+            except:
+                ratio = clip_width/clip_height
+                new_height = 720/ratio
+                clip = resize(clip, newsize=(720, new_height))
+        else:
+            ratio = clip_width/clip_height
+            new_height = 720/ratio
+            clip = resize(clip, newsize=(720, new_height))
+        return clip
+    except:
+        getlog()
+        return None
 
 def flip_clip(clip):
     # Áp dụng hiệu ứng đối xứng (flip) theo chiều ngang
     flipped_clip = mirror_x(clip)
     return flipped_clip
+
+def increase_video_quality(input_path, output_path): #Tăng chất lượng video
+    try:
+        ffmpeg_command = [
+            'ffmpeg',
+            '-i', input_path,
+            '-vf', 'unsharp=luma_msize_x=7:luma_msize_y=7:luma_amount=1.5,'
+                    'eq=contrast=1.2:saturation=1.2',  # Tăng cường độ sắc nét và điều chỉnh độ tương phản
+            '-c:a', 'copy',  # Sao chép âm thanh gốc
+            output_path 
+        ]
+        subprocess.run(ffmpeg_command, check=True)
+        print(f"Xử lý tăng độ phân giải thành công: \n{output_path}")
+        return True
+    except:
+        print(f"Có lỗi trong quá trình tăng chất lượng video: \n{input_path}")
+        return False
 
 def add_image_watermask_into_video(clip, top_overlay_height="10", bot_overlay_height="10", watermask = None, vertical_watermask_position=50, horizontal_watermask_position=50):
     if not top_overlay_height or int (top_overlay_height) < 0:
@@ -508,51 +505,57 @@ def add_image_watermask_into_video(clip, top_overlay_height="10", bot_overlay_he
         getlog()
         return None
 
-def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="720x1280", is_delete=False):
+def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="1080x1920", is_delete=False):
     try:
+        # Lấy thông tin đầu ra
         output_folder, output_file_path, file_name, finish_folder = get_output_folder(input_video_path)
         move_file_path = f"{finish_folder}\\{file_name}"
+        # Đọc video
         video = VideoFileClip(input_video_path)
         width, height = video.size
-        if zoom_size:
-            zoom_size = float(zoom_size)
-            zoomed_video = video.resize(zoom_size)
+        if not zoom_size:
+            zoom_size = 0.9
         else:
-            # Tính toán tỷ lệ zoom để đảm bảo không hụt chiều cao
-            new_height = height
-            new_width = height * 9 / 16
-            if new_width > width:
-                new_width = width
-                new_height = width * 16 / 9
+            zoom_size = float(zoom_size)
+        # Kích thước khung hình mục tiêu
+        target_width, target_height = list(map(int, resolution.split('x')))
 
-            zoom_factor = new_height / height
-            zoomed_video = video.resize(zoom_factor)
-        # Thêm lớp màu đen vào video để đạt được tỷ lệ 9:16 mà không kéo giãn video
-        resolution = list(map(int, resolution.split('x')))
-        background = ColorClip(size=resolution, color=(0, 0, 0), duration=video.duration)
-        
+        # Tính toán kích thước của video sau khi zoom để chiều cao chiếm 80% của khung hình mục tiêu
+        video_display_height = target_height * zoom_size
+        zoom = video_display_height / height
+        zoomed_video = video.resize(newsize=(int(width * zoom), int(height * zoom)))
         zoomed_width, zoomed_height = zoomed_video.size
-        x_pos = (resolution[0] - zoomed_width) / 2
-        y_pos = (resolution[1] - zoomed_height) / 2
 
-        final_video = CompositeVideoClip([background, zoomed_video.set_position((x_pos, y_pos))], size=resolution)
-        final_video.write_videofile(output_file_path, codec='libx264', audio_codec='aac')
+        # Tạo lớp nền đen với kích thước mục tiêu
+        background = ColorClip(size=(target_width, target_height), color=(0, 0, 0), duration=video.duration)
+
+        # Tính toán vị trí để căn giữa video zoomed
+        x_pos = (target_width - zoomed_width) / 2
+        y_pos = (target_height - zoomed_height) / 2
+
+        # Kết hợp video zoomed với nền đen
+        final_video = CompositeVideoClip([background, zoomed_video.set_position((x_pos, y_pos))], size=(target_width, target_height))
+
+        # Ghi video kết quả vào file
+        final_video.write_videofile(output_file_path, codec='libx264', audio_codec='aac', fps=30)
+
+        # Đóng các đối tượng video
+        final_video.close()
+        zoomed_video.close()
+        video.close()
+
+        # Xóa video gốc nếu cần
+        if is_delete:
+            os.remove(input_video_path)
+        else:
+            shutil.move(input_video_path, move_file_path)
         
-        try:
-            final_video.close()
-            zoomed_video.close()
-            video.close()
-            if is_delete:
-                os.remove(input_video_path)
-            else:
-                shutil.move(input_video_path, move_file_path)
-        except:
-            getlog()
         return True
-    except:
+
+    except Exception as e:
         getlog()
         return False
-
+    
 def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_delete=False):
     try:
         if not resolution:
@@ -668,3 +671,9 @@ def set_audio_for_clip(clip, background_music, background_music_volume="10"):
         combined_audio = CompositeAudioClip([current_audio, background_music])
         clip = clip.set_audio(combined_audio)
     return clip
+
+
+# video_path = "E:\\Python\\developping\\Super-Social-Media\\test\\11.mp4"
+# output_folder, output_file_path, file_name, finish_folder =get_output_folder(video_path)
+# increase_video_quality(video_path, output_file_path)
+# print("ok")

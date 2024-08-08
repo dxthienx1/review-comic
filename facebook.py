@@ -198,20 +198,32 @@ class FacebookManager:
                     sleep(20) 
                     self.save_session()
                     self.get_profile_element()
+                    sleep(1)
+                    
             if self.page_name:
                 self.profile_element.click()
                 sleep(1)
+                self.click_page_list()
                 self.change_page(self.page_name)
         except:
             getlog()
             self.get_profile_element()
             if self.profile_element:
                 self.profile_element.click()
+                sleep(1)
+                self.click_page_list()
+                self.change_page(self.page_name)
             else:
                 notification(self.root, "Lỗi đường truyền mạng không ổn định!")
                 return False
 
 #-----------------------------------Thao tác trên facebook--------------------------------------------  
+    def click_page_list(self):
+        xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3")
+        page_list_ele = self.get_element_by_xpath(xpath, 'See all profiles')
+        if page_list_ele:
+            page_list_ele.click()
+            sleep(1)
     def get_profile_element(self):
         profile_xpath = get_xpath("div", "x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x1q0g3np x87ps6o x1lku1pv x1a2a7pz xzsf02u x1rg5ohu")
         self.profile_element = self.get_element_by_xpath(profile_xpath, "Your profile")
@@ -422,9 +434,7 @@ class FacebookManager:
             videos = os.listdir(videos_folder)
             if len(videos) == 0:
                 return
-            for k in videos:
-                if '.mp4' not in k:
-                    videos.remove(k)        
+            videos = [k for k in videos if '.mp4' in k]      
             videos = natsorted(videos)
             finish_folder = os.path.join(self.facebook_config['template'][self.page_name]['upload_folder'], 'upload_finished')
             os.makedirs(finish_folder, exist_ok=True)
@@ -440,8 +450,6 @@ class FacebookManager:
             for i, video_file in enumerate(videos):
                 if self.is_stop_upload:
                     break
-                if '.mp4' not in video_file:
-                    continue
                 old_video_path = os.path.join(self.facebook_config['template'][self.page_name]['upload_folder'], video_file)
                 new_video_path = os.path.join(finish_folder, video_file)
                 self.login()
