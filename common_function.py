@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone, time as dtime
 from time import sleep, time
 from tzlocal import get_localzone
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import traceback
 import pyttsx3
 import winreg
@@ -30,9 +31,14 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+
 from common_function_CTK import warning_message
 from selenium_stealth import stealth
 import subprocess
+import ffmpeg
+import pickle
+
 is_dev_enviroment = True
 def get_current_dir():
     """Lấy thư mục đang chạy tệp thực thi"""
@@ -40,12 +46,15 @@ def get_current_dir():
         # Đang chạy từ tệp thực thi đóng gói
         current_dir = os.path.dirname(sys.executable)
         is_dev_enviroment = False
+        print("Đang chạy từ tệp thực thi đóng gói")
     else:
         # Đang chạy trong môi trường phát triển
         current_dir = os.path.dirname(os.path.abspath(__file__))
         is_dev_enviroment = True
+        print("Đang chạy trong môi trường phát triển")
     return current_dir
 current_dir = get_current_dir()
+print(current_dir)
 # current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(current_dir)
 icon_path = os.path.join(current_dir, 'icon.png')
@@ -58,15 +67,34 @@ download_folder = f'{current_dir}\\download_folder'
 os.makedirs(download_folder, exist_ok=True)
 test_folder = f'{current_dir}\\test'
 local_storage_path = os.path.join(current_dir, 'local_storage.json')
-cookies_path = os.path.join(current_dir, 'cookies.json')
-cookies_tiktok_path = os.path.join(current_dir, 'cookies_tiktok.pkl')
-# cookies_youtube_path = os.path.join(current_dir, 'cookies_youtube.pkl')
+facebook_cookies_path = os.path.join(current_dir, 'facebook_cookies.json')
+tiktok_cookies_path = os.path.join(current_dir, 'tiktok_cookies.pkl')
+youtube_cookies_path = os.path.join(current_dir, 'youtube_cookies.pkl')
 youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
 tiktok_config_path = os.path.join(current_dir, 'tiktok_config.json')
 facebook_config_path = os.path.join(current_dir, 'facebook_config.json')
 pre_time_download = 0
 
-
+def load_ffmpeg():
+    def get_ffmpeg_dir():
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(__file__)
+        ffmpeg_dir = os.path.join(base_dir, "ffmpeg", "bin")
+        return ffmpeg_dir
+    def is_ffmpeg_available():
+        try:
+            subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return True
+        except FileNotFoundError:
+            return False
+    if not is_ffmpeg_available():
+        ffmpeg_dir = get_ffmpeg_dir()
+        os.environ["PATH"] += os.pathsep + ffmpeg_dir
+        print(ffmpeg_dir)
+#load ffmpeg
+load_ffmpeg()
 
 def get_driver(show=True):
     try:
@@ -77,7 +105,10 @@ def get_driver(show=True):
             options.add_argument('--headless')  # Chạy ở chế độ không giao diện
         options.add_argument('--disable-gpu')
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+        # options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36")
+        options.add_argument("--log-level=3")  # Suppress most logs
+        options.add_argument("--disable-logging")  # Disable logging
         options.add_experimental_option('excludeSwitches', ['enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
         driver = webdriver.Chrome(service=service, options=options)
@@ -97,11 +128,35 @@ def get_driver(show=True):
         warning_message("Lỗi trong quá trình khởi tạo chromedriver.")
         return None
 
+def check_publish_times_12h(publish_times):
+    try:
+        publish_times = publish_times.split(',')
+        is_ok = True
+        for time in publish_times:
+            hh, mm, am_pm = time.split(':')
+            if int(hh.strip()) < 0 or int(hh.strip()) > 12 or int(mm) < 0 or int(mm) > 59 :
+                is_ok = False
+                break
+            if am_pm != 'AM' and am_pm != 'PM':
+                is_ok = False
+                break
+        return is_ok
+    except:
+        return False
 
+def is_date_greater_than_current_day(date_str, day_delta):
+    input_date = datetime.strptime(date_str, '%Y-%m-%d')
+    current_date = datetime.now()
+    target_date = current_date + timedelta(days=day_delta)
+    return input_date > target_date
+       
 def convert_date_format_yyyymmdd_to_mmddyyyy(date_str):
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    formatted_date = date_obj.strftime("%m/%d/%Y")
-    return formatted_date
+    try:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        formatted_date = date_obj.strftime("%m/%d/%Y")
+        return formatted_date
+    except:
+        print(f"Định dạng ngày {date_str} không đúng yy-mm-dd")
 
 def is_format_date_yyyymmdd(date_str, daydelta=None):
     # Kiểm tra định dạng ngày bằng biểu thức chính quy
@@ -133,18 +188,63 @@ def convert_time_to_UTC(year, month, day, hour, minute, second=0, iso8601=True):
         return iso8601_time
     return utc_time
 
-def add_days(datetime, days):
-    return datetime + timedelta(days=days)
 
+def convert_datetime_to_string(date):
+    try:
+        return date.strftime('%Y-%m-%d')
+    except ValueError:
+        print("ngày không hợp lệ")
+        getlog()
+        return None
+    
 def convert_date_string_to_datetime(date_str):
-    """Chuyển đổi chuỗi ngày sang đối tượng datetime.date."""
+    if not date_str:
+        print("Ngày đầu vào không hợp lệ.")
+        return None
     date_str = date_str.strip()
     try:
         return datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
-        warning_message("Format date must be yyyy-mm-dd")
+        print("Định dạng ngày phải là yyyy-mm-dd")
         getlog()
         return None
+
+def convert_date_yyyymmdd_to_youtybe_date(date_yyyymmdd, is_english=True):
+    try:
+        year, month, day = date_yyyymmdd.split('-')
+        month = int(month.strip())
+        if is_english:
+            convert_month = {
+                '1':"Jan",
+                '2':"Feb",
+                '3':"Mar",
+                '4':"Apr",
+                '5':"May",
+                '6':"Jun",
+                '7':"Jul",
+                '8':"Aug",
+                '9':"Sep",
+                '10':"Oct",
+                '11':"Nov",
+                '12':"Dec",
+            }
+            date = f'{convert_month[str(month)]} {date}, {year}'
+        else:
+            date = f'{day.strip()} thg {month}, {year.strip()}'
+        return date
+    except:
+        return None
+
+def add_days(datetime, days):
+    return datetime + timedelta(days=days)
+    
+def add_date_into_string(date_str, day_gap):
+    date  = convert_date_string_to_datetime(date_str)
+    if date:
+        date += timedelta(days=day_gap)
+        return date.strftime("%Y-%m-%d")
+    return None
+
 def get_time_remaining_until_quota_reset():
     # Giờ PST (Pacific Standard Time) có UTC offset là -8 giờ
     pst_timezone = timezone(timedelta(hours=-8))
@@ -225,6 +325,8 @@ def remove_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
 
+
+
 def get_json_data(file_name):
     if os.path.exists(file_name):
         try:
@@ -248,7 +350,29 @@ def save_to_json_file(data, filename):
     except Exception as e:
         print(f"ERROR: can not save data to {filename}: {e}")
         getlog()
-    
+
+def get_pickle_data(file_path):
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "rb") as file:  # Mở file ở chế độ nhị phân
+                portalocker.lock(file, portalocker.LOCK_SH)  # Khóa chia sẻ (shared lock) để đọc
+                data = pickle.load(file)
+                portalocker.unlock(file)  # Giải phóng khóa
+                return data
+        except:
+            getlog()
+    return None
+
+
+def save_to_pickle_file(data, file_path):
+    try:
+        with open(file_path, "wb") as file:  # Mở file ở chế độ nhị phân
+            portalocker.lock(file, portalocker.LOCK_EX)  # Khóa độc quyền (exclusive lock) để ghi
+            pickle.dump(data, file)
+            portalocker.unlock(file)  # Giải phóng khóa
+    except:
+        getlog()
+
 def get_txt_data(file_path, utf8=False):
     if not os.path.isfile(file_path):
         return None
@@ -289,7 +413,7 @@ def get_audio_clip_from_video(video_path=None, is_get_video=False):
         audio_clip = video_clip.audio
         # Tạo video mới không có phần audio và lưu lại
         if is_get_video:
-            output_folder, output_video_path, file_name, finish_folder = get_output_folder(video_path)
+            output_folder, output_video_path, file_name = get_output_folder(video_path, output_folder_name='output_audio')
             video_clip_without_audio = video_clip.without_audio()
             video_clip_without_audio.write_videofile(output_video_path, codec='libx264', audio_codec='aac')
             video_clip_without_audio.close()
@@ -299,15 +423,13 @@ def get_audio_clip_from_video(video_path=None, is_get_video=False):
         getlog()
         return None
 
-def get_output_folder(input_video_path):
+def get_output_folder(input_video_path, output_folder_name='output_folder'):
     folder_input = os.path.dirname(input_video_path)
     file_name = os.path.basename(input_video_path)
-    output_folder = f'{folder_input}/output_folder'
+    output_folder = f'{folder_input}/{output_folder_name}'
     os.makedirs(output_folder, exist_ok=True)
-    finish_folder = f'{folder_input}/finish_folder'
-    os.makedirs(finish_folder, exist_ok=True)
     output_file_path = f'{output_folder}/{file_name}'
-    return output_folder, output_file_path, file_name, finish_folder
+    return output_folder, output_file_path, file_name
 
 #Áp dụng cho tất cả url
 def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=1):
@@ -327,7 +449,7 @@ def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=
             if not download_folder:
                 return False
             def get_file_path(file_name):
-                chars = ["/", "\\", ":", "|", "?", "*", "<", ">", "\""]
+                chars = ["/", "\\", ":", "|", "?", "*", "<", ">", "\"", "."]
                 for char in chars:
                     if char in file_name:
                         file_name = file_name.replace(char, "")
@@ -397,7 +519,7 @@ def get_info_by_url(url, download_folder=None, is_download=False):
         return None
 
 #chỉ tiktok
-def download_video_no_watermask_from_tiktok(video_url, download_folder=None):
+def download_video_no_watermark_from_tiktok(video_url, download_folder=None):
         url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/index"
         headers = {
             "x-rapidapi-key": "e1456d8b1dmsh0410da9e2ed2388p1991fdjsnf2f2ca37b287",
@@ -487,13 +609,14 @@ def download_videos_form_playhh3dhay_by_txt_file(id_file_txt, download_folder=do
             else:
                 no_video_downloaded = True
 
+
 def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None):
     if attribute and attribute_value:
         xpath = f"//{maintag}[@class=\"{class_name}\" and @{attribute}=\"{attribute_value}\"]"
     else:
         xpath = f"//{maintag}[@class=\"{class_name}\"]"
     return xpath
-def get_xpath_by_multi_attribute(maintag, attributes):
+def get_xpath_by_multi_attribute(maintag, attributes): #'class="style-scope yt-icon-button"'
     if len(attributes) > 1:
         attribute = " and @".join(attributes)
     else:
@@ -502,7 +625,7 @@ def get_xpath_by_multi_attribute(maintag, attributes):
     xpath = f"//{maintag}[{attribute}]"
     return xpath
 
-def rename_files_by_index(folder_path, base_name, extension=None, start_index=1):
+def rename_files_by_index(folder_path, base_name="", extension=None, start_index=1):
     if not extension:
         extension = '.mp4'
     try:
@@ -513,7 +636,12 @@ def rename_files_by_index(folder_path, base_name, extension=None, start_index=1)
     files = natsorted(files)
     for index, file_name in enumerate(files, start=start_index):
         old_file_path = os.path.join(folder_path, file_name)
-        new_file_name = f"{base_name}{index}{extension}"
+        if '<index>' in base_name:
+            name = base_name.replace('<index>', str(index))
+            new_file_name = f'{name}{extension}'
+        else:
+            print("Không có chuỗi <index> trong tên chung nên số thứ tự sẽ được đặt ở cuối tên file.")
+            new_file_name = f"{base_name}{index}{extension}"
         new_file_path = os.path.join(folder_path, new_file_name)
         try:
             os.rename(old_file_path, new_file_path)
@@ -521,3 +649,124 @@ def rename_files_by_index(folder_path, base_name, extension=None, start_index=1)
         except:
             print(f"Đổi tên file {old_file_path} không thành công")
 
+def remove_char_in_file_name(folder_path, chars_want_to_remove, extension=None):
+    if not extension:
+        extension = '.mp4'
+    try:
+        chars = chars_want_to_remove.split(',')
+        if len(chars) == 0:
+            return
+        files = [file for file in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, file)) and file.endswith(extension)]
+        files = natsorted(files)
+        for i, file_name in enumerate(files):
+            base_name = file_name.split(extension)[0]
+            for char in chars:
+                if char in base_name:
+                    base_name = base_name.replace(char, "")
+            old_file_path = os.path.join(folder_path, file_name)
+            new_file_name = f"{base_name}{extension}"
+            new_file_path = os.path.join(folder_path, new_file_name)
+            try:
+                os.rename(old_file_path, new_file_path)
+                print(f"Đã đổi tên {old_file_path} thành {new_file_path}")
+            except:
+                print(f"Đổi tên file {old_file_path} không thành công")
+    except:
+        pass
+
+def remove_or_move_after_upload(input_video_path, is_delete, finish_folder_name='upload_finished'):
+    try:
+        if is_delete:
+            os.remove(input_video_path)
+            print(f'Đã xóa file {input_video_path}')
+        else:
+            videos_folder = os.path.dirname(input_video_path)
+            finish_folder = os.path.join(videos_folder, f'{finish_folder_name}')
+            os.makedirs(finish_folder, exist_ok=True)
+            base_name = os.path.basename(input_video_path)
+            move_file_path = os.path.join(finish_folder, base_name)
+            shutil.move(input_video_path, move_file_path)
+            print(f'Đã di chuyển file đến {move_file_path}')
+    except:
+        print(f"Không thể xóa hoặc di chuyển file {input_video_path}")
+        
+def remove_or_move_file(input_video_path, is_delete=False, is_move=True):
+    try:
+        if is_delete:
+            os.remove(input_video_path)
+            print(f'Đã xóa file {input_video_path}')
+        elif is_move:
+            output_folder, output_file_path, file_name = get_output_folder(input_video_path)
+            finish_folder = os.path.join(output_folder, 'Finished Edit')
+            os.makedirs(finish_folder, exist_ok=True)
+            move_file_path = os.path.join(finish_folder, file_name)
+            shutil.move(input_video_path, move_file_path)
+            print(f'Đã di chuyển file đến {move_file_path}')
+    except:
+        if is_delete:
+            print(f"Xóa không thành công file: {input_video_path}")
+        else:
+            print(f"Di chuyển không thành công file: {input_video_path}")
+
+def get_upload_date(upload_date, next_day=False):
+    current_date = datetime.now().date()
+    if isinstance(upload_date, str):
+        try:
+            upload_date = convert_date_string_to_datetime(upload_date)
+        except:
+            upload_date = current_date
+    try:
+        if upload_date <= current_date:
+            upload_date = current_date
+    except:
+        upload_date = current_date
+    if next_day and upload_date == current_date:
+        upload_date = upload_date + timedelta(days=1)
+    return upload_date
+
+def get_day_gap(day_gap):
+    if not day_gap:
+        day_gap = "1"
+    try:
+        day_gap = int(day_gap.strip())
+    except:
+        day_gap = 1
+    return day_gap
+
+def get_number_of_days(number_of_days):
+    if not number_of_days:
+        number_of_days = "10"
+    try:
+        number_of_days = int(number_of_days.strip())
+    except:
+        number_of_days = 1
+    return number_of_days
+
+def run_command_ffmpeg(command):
+    subprocess.run(command, check=True, text=True, encoding='utf-8', errors='ignore')
+
+def convert_boolean_to_Yes_No(value):
+    if value:
+        return 'Yes'
+    else:
+        return 'No'
+
+def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=None):
+    if fast_connect:
+        print("---> đang nối nhanh video...")
+        command = [
+            'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
+            '-vf', 'fps=30', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
+            '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', output_file_path, '-loglevel', 'quiet'
+        ]
+    else:
+        print("---> đang nối video...")
+        if max_fps:
+            command = [
+                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c:v', 'libx264', '-c:a', 'aac', '-r', f'{max_fps}', '-y', output_file_path, '-loglevel', 'quiet'
+            ]
+        else:
+            command = [
+                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c:v', 'libx264', '-c:a', 'aac', '-y', output_file_path, '-loglevel', 'quiet'
+            ]
+    return command

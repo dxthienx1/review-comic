@@ -9,8 +9,8 @@ width_window = 500
 user32 = ctypes.windll.user32
 screen_width = user32.GetSystemMetrics(0)
 screen_height = user32.GetSystemMetrics(1)
-left = 1/4
-right = 3/4
+left = 0.3
+right = 0.7
 LEFT = 'left'
 RIGHT = 'right'
 CENTER = 'center'
@@ -22,6 +22,7 @@ def choose_folder():
 def choose_file():
     file_path = filedialog.askopenfilename( title="Select a file", filetypes=(("All files", "*.*"),) )
     return file_path
+
 def message_aks(message):
     messagebox.askquestion(title="Question", message=message)
 def warning_message(message):
