@@ -69,7 +69,7 @@ class FacebookManager:
             self.publish_times_var.delete(0, ctk.END)
             self.publish_times_var.insert(0, temppale['publish_times'])
             self.is_title_plus_video_name_var.set(convert_boolean_to_Yes_No(temppale['is_title_plus_video_name']))
-            self.show_browser_var.set(convert_boolean_to_Yes_No(temppale['show_browser']))
+            self.show_browser_var.set(convert_boolean_to_Yes_No(self.facebook_config['show_browser']))
             self.is_delete_after_upload_var.set(convert_boolean_to_Yes_No(temppale['is_delete_after_upload']))
             self.upload_folder_var.delete(0, ctk.END)
             self.upload_folder_var.insert(0, temppale['upload_folder'])
@@ -91,7 +91,7 @@ class FacebookManager:
         self.number_of_days_var = self.create_settings_input("Số ngày muốn đăng", "number_of_days", left=0.3, right=0.7)
         self.day_gap_var = self.create_settings_input("Khoảng cách giữa các ngày đăng", "day_gap", left=0.3, right=0.7)
         self.is_delete_after_upload_var = self.create_settings_input("Xóa video sau khi đăng", "is_delete_after_upload", values=["Yes", "No"], left=0.3, right=0.7)
-        self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", values=['Yes', 'No'], left=0.3, right=0.7)
+        self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", values=['Yes', 'No'], left=0.3, right=0.7, is_data_in_template=False)
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa video", command=choose_folder_upload, width=self.width, left=0.3, right=0.7)
         self.upload_folder_var.insert(0, self.facebook_config['template'][self.page_name]['upload_folder'])
         self.load_template_var = create_frame_button_and_combobox(self.root, "Tải mẫu có sẵn", command=load_template, values=[key for key in self.facebook_config['template'].keys()], width=self.width, left=0.3, right=0.7)
@@ -117,6 +117,16 @@ class FacebookManager:
             self.upload_video_thread.start()
 
     def save_upload_setting(self):
+        def check_publish_times_facebook(publish_times):
+            try:
+                publish_times = publish_times.split(',')
+                for time in publish_times:
+                    get_time = get_pushlish_time_hh_mm(time, facebook_time=True)
+                    if not get_time:
+                        return False
+                return True
+            except:
+                return False
         videos_folder = self.upload_folder_var.get()
         if not videos_folder:
             notification(self.root, "Vui lòng chọn thư mục chứa video!")
@@ -130,8 +140,7 @@ class FacebookManager:
                 return False
             publish_times = self.publish_times_var.get()
             if self.is_schedule:
-                if not check_publish_times_12h(publish_times):
-                    notification(self.root, "Định dạng giờ đăng video phải là hh:mm:AM hoặc hh:mm:PM")
+                if not check_publish_times_facebook(publish_times):
                     return
             self.facebook_config['template'][self.page_name]["title"] = self.title_var.get()
             self.facebook_config['template'][self.page_name]["description"] = self.description_var.get("1.0", ctk.END).strip()
@@ -155,10 +164,8 @@ class FacebookManager:
 
 #-----------------------------------Đăng Nhập FB--------------------------------------------
     def load_session(self, url="https://www.facebook.com"):
-        # Load trang web
         self.driver.get(url)
         sleep(2)
-        # Tải cookies
         try:
             self.cookies_info = get_json_data(facebook_cookies_path)
             if not self.cookies_info:
@@ -174,7 +181,6 @@ class FacebookManager:
                         self.driver.add_cookie(cookie)
         except FileNotFoundError:
             pass
-        # Tải local storage
         try:
             self.local_storage_info = get_json_data(local_storage_path)
             if not self.local_storage_info:
@@ -187,6 +193,7 @@ class FacebookManager:
                     self.driver.execute_script(f"window.localStorage.setItem('{key}', '{value}');")
         except FileNotFoundError:
             pass
+        sleep(2)
 
     def save_session(self):
         if 'facebook' not in self.cookies_info:
@@ -203,40 +210,37 @@ class FacebookManager:
         try:
             self.driver = get_driver(show=self.facebook_config['show_browser'])
             self.load_session()
-            sleep(1)
             self.driver.refresh()
-            sleep(2)
+            sleep(3)
             self.get_profile_element()
             if not self.profile_element:
                 if "Facebook" in self.driver.title:
                     email_input = self.driver.find_element(By.ID, 'email')
                     email_input.send_keys(self.account)
-                    sleep(1)
+                    sleep(0.5)
                     password_input = self.driver.find_element(By.ID, 'pass')
                     password_input.send_keys(self.password)
-                    sleep(1)
+                    sleep(0.5)
                     password_input.send_keys(Keys.RETURN)
-                    sleep(20) 
+                    sleep(10) 
                     self.save_session()
                     self.get_profile_element()
-                    sleep(1)
-                    
-            if self.page_name:
-                self.profile_element.click()
-                sleep(1)
-                self.click_page_list()
-                self.change_page(self.page_name)
-        except:
-            getlog()
-            self.get_profile_element()
             if self.profile_element:
                 self.profile_element.click()
                 sleep(1)
                 self.click_page_list()
                 self.change_page(self.page_name)
+                return True
             else:
-                notification(self.root, "Lỗi đường truyền mạng không ổn định!")
+                print("Đăng nhập không thành công, có thể cần xác minh tài khoản!")
                 return False
+        except:
+            getlog()
+            if self.is_auto_upload:
+                print("Lỗi khi đăng nhập, có thể do đường truyền mạng không ổn định!")
+            else:
+                notification(self.root, "Lỗi khi đăng nhập, có thể do đường truyền mạng không ổn định!")
+            return False
 
 #-----------------------------------Thao tác trên facebook--------------------------------------------  
     def click_page_list(self):
@@ -248,6 +252,7 @@ class FacebookManager:
     def get_profile_element(self):
         profile_xpath = get_xpath("div", "x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x1q0g3np x87ps6o x1lku1pv x1a2a7pz xzsf02u x1rg5ohu")
         self.profile_element = self.get_element_by_xpath(profile_xpath, "Your profile")
+        sleep(1)
 
     def click_element_by_js(self, element):
         self.driver.execute_script("arguments[0].click();", element)
@@ -308,17 +313,21 @@ class FacebookManager:
             print("Đã đóng trình duyệt.")
 
     def click_schedule_link(self):
-        original_window = self.driver.current_window_handle
-        xpath  = get_xpath("a", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xt0psk2 xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1a2a7pz x1sur9pj xkrqix3 x1fey0fg")
+        # original_window = self.driver.current_window_handle
+        xpath  = get_xpath_by_multi_attribute("a", ["role='link'"])
         ele = self.get_element_by_xpath(xpath, "Meta Business Suite")
         if ele:
-            ele.click()
+            link = ele.get_attribute('href')
+            self.driver.get(link) 
             sleep(4)
             # Chuyển qua tab mới
-            for handle in self.driver.window_handles:
-                if handle != original_window:
-                    self.driver.switch_to.window(handle)
-                    break
+            # for handle in self.driver.window_handles:
+            #     if handle != original_window:
+            #         self.driver.switch_to.window(handle)
+            #         break
+    def get_meta_business_suite(self):
+        self.driver.get("https://www.facebook.com/latest/content_calendar?")
+        sleep(4)
 
     def click_option_menu(self):
         att1 = "class='x3nfvp2 x120ccyz x1heor9g x2lah0s x1c4vz4f x1gryazu'"
@@ -327,7 +336,7 @@ class FacebookManager:
         ele = self.get_element_by_xpath(xpath)
         if ele:
             ele.click()
-            sleep(1)
+            sleep(2)
     def input_date(self, date):
         att1 = "class='xjbqb8w x972fbf xcfux6l x1qhh985 xm0m39n xdj266r x11i5rnm xat24cr x1mh8g0r x1t137rt xexx8yu x4uap5 x18d9i69 xkhd6sd xlyipyv xr4vacz x1gnnqk1 xbsr9hj x1urst0s x1glnyev x1ad04t7 x1ix68h3 x19gujb8 xni1clt x1tutvks xfrpkgu x15h3p50 x1gf4pb6 xh7izdl x10emqs4 x2yyzbt xu8dvwe xmi5d70 x1fvot60 xo1l8bm xxio538 xh8yej3'"
         att2 = "placeholder='mm/dd/yyyy'"
@@ -399,7 +408,7 @@ class FacebookManager:
         photo_video_button = self.get_element_by_xpath(xpath_photo_video, "photo/video")
         if photo_video_button:
             photo_video_button.click()
-            sleep(1)
+            sleep(2)
     def input_video_on_facebook(self, video_path):
         xpath = "//input[@accept='image/*,image/heif,image/heic,video/*,video/mp4,video/x-m4v,video/x-matroska,.mkv' and @class='x1s85apg']"
         upload_input = self.get_element_by_xpath(xpath)
@@ -438,7 +447,8 @@ class FacebookManager:
                 print(v)
             except:
                 cnt += 1
-                if cnt > 5:
+                if cnt > 3:
+                    self.is_stop_upload = True
                     return
             sleep(2)
     def input_description(self, description):
@@ -455,25 +465,23 @@ class FacebookManager:
     def upload_video(self):
         try:
             videos_folder = self.facebook_config['template'][self.page_name]['upload_folder']
-            if not videos_folder:
-                if not self.is_auto_upload:
-                    notification(self.root, "Hãy chọn thư mục chứa video muốn đăng")
-                return
-            if not os.path.isdir(videos_folder):
-                if not self.is_auto_upload:
-                    notification(self.root, f"Thư mục {videos_folder} không tồn tại")
-                return
-            videos = os.listdir(videos_folder)
+            if not check_folder(videos_folder):
+                return False
+            all_file = os.listdir(videos_folder)
+            videos = [k for k in all_file if '.mp4' in k]
             if len(videos) == 0:
-                return
-            videos = [k for k in videos if '.mp4' in k]      
+                if self.is_auto_upload:
+                    print(f"Thư mục {videos_folder} không chứa video(loại \n.mp4\n).")
+                else:
+                    notification(self.root, f"Thư mục {videos_folder} không chứa video(loại \n.mp4\n).")
+                return False
             videos = natsorted(videos)
             upload_count = 0
             date_cnt = 0
             time_cnt = 0
+            number_of_days = get_number_of_days(self.facebook_config['template'][self.page_name]['number_of_days'])
             if self.is_schedule:
                 # Xác định thời gian đăng cho video
-                number_of_days = get_number_of_days(self.facebook_config['template'][self.page_name]['number_of_days'])
                 day_gap = get_day_gap(self.facebook_config['template'][self.page_name]['day_gap'])
                 upload_date_yymmdd_str = self.facebook_config['template'][self.page_name]['upload_date']
                 upload_date_yymmdd = convert_date_string_to_datetime(upload_date_yymmdd_str)
@@ -482,14 +490,15 @@ class FacebookManager:
                 publish_times_str = self.facebook_config['template'][self.page_name]['publish_times']
                 publish_times = publish_times_str.split(',')
                 if self.is_auto_upload:
-                    number_of_days = 10
+                    number_of_days = 100
                     self.facebook_config['show_browser'] = False
 
+            if not self.login():
+                return
             for i, video_file in enumerate(videos, start=0):
                 if self.is_stop_upload:
                     break
-                self.login()
-                self.check_switch_button()
+                # self.check_switch_button()
                 video_name = os.path.splitext(video_file)[0] #lấy tên
                 title = self.facebook_config['template'][self.page_name]['title']
                 description = self.facebook_config['template'][self.page_name]['description']
@@ -497,21 +506,20 @@ class FacebookManager:
                     full_title = f"{title}{video_name}"
                 else:
                     full_title = title
-                full_title = f"{full_title}\n----Thấy hay thì like và theo dõi để ủng hộ mình với nhé----"
+                full_title = f"{full_title}"
                 description=f"{full_title}\n{description}"
 
                 video_path = os.path.join(videos_folder, video_file)
                 if self.is_schedule:
                     upload_date = convert_date_format_yyyymmdd_to_mmddyyyy(upload_date_yymmdd)
-                    public_time = publish_times[time_cnt].strip().split(':')
-                    if len(public_time) != 3:
-                        if not self.is_auto_upload:
-                            notification(self.root, "Time format must be hh:mm:AM or hh:mm:PM")
+                    publish_time = publish_times[time_cnt].strip()
+                    publish_time = get_pushlish_time_hh_mm(publish_time, facebook_time=True)
+                    if not publish_time:
                         return
-                    hour, minute, am_pm = public_time[0], public_time[1], public_time[2]
-
-                    self.click_upload_video_icon()
-                    self.click_schedule_link()
+                    hour, minute, am_pm = publish_time.split(':')
+                    # self.click_upload_video_icon()
+                    # self.click_schedule_link()
+                    self.get_meta_business_suite()
                     if self.is_stop_upload:
                         break
                     self.click_option_menu()
@@ -541,7 +549,6 @@ class FacebookManager:
                         self.facebook_config['template'][self.page_name]['upload_date'] = upload_date_yymmdd
                         self.save_facebook_config()
                     remove_or_move_after_upload(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], 'facebook_upload_finished')
-                    self.close()
                     if (time_cnt) % len(publish_times) == 0:
                         upload_date_yymmdd = add_date_into_string(upload_date_yymmdd, day_gap)
                         date_cnt += 1
@@ -563,9 +570,10 @@ class FacebookManager:
                         if self.is_stop_upload:
                             break
                         self.click_post_button()
-                        upload_count += 1
                     remove_or_move_after_upload(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], 'facebook_upload_finished')
-                    break
+                    upload_count += 1
+                    if upload_count == number_of_days:
+                        break
             if not self.is_auto_upload:
                 notification(self.root, f"Đăng thành công {upload_count} video")
             else:
@@ -691,7 +699,11 @@ class FacebookManager:
     def clear_after_action(self):
         pass
 
-    def create_settings_input(self, label_text, config_key=None, values=None, is_textbox = False, left=0.4, right=0.6, add_button=False, text=None, command=None):
+    def create_settings_input(self, label_text, config_key=None, values=None, is_textbox = False, left=0.4, right=0.6, add_button=False, text=None, command=None, is_data_in_template=True):
+        if is_data_in_template:
+            config = self.facebook_config['template'][self.page_name]
+        else:
+            config = self.facebook_config
         frame = create_frame(self.root)
         if add_button:
             create_button(frame= frame, text=text, command=command, width=0.2, side=RIGHT)
@@ -700,13 +712,13 @@ class FacebookManager:
         if values:
             if not config_key:
                 val = ""
-            elif config_key not in self.facebook_config['template'][self.page_name]:
+            elif config_key not in config:
                 val = ""
             else:
-                val = self.facebook_config['template'][self.page_name][config_key]
-                if self.facebook_config['template'][self.page_name][config_key] == True:
+                val = config[config_key]
+                if config[config_key] == True:
                     val = "Yes"
-                elif self.facebook_config['template'][self.page_name][config_key] == False:
+                elif config[config_key] == False:
                     val = "No"
             var = ctk.StringVar(value=str(val))
 
@@ -717,14 +729,14 @@ class FacebookManager:
             result = combobox
         elif is_textbox:
             textbox = ctk.CTkTextbox(frame, height=120, width=self.width*right)
-            textbox.insert("1.0", self.facebook_config['template'][self.page_name][config_key])  # Đặt giá trị ban đầu vào textbox
+            textbox.insert("1.0", config[config_key])  # Đặt giá trị ban đầu vào textbox
             textbox.pack(side=RIGHT, padx=padx)
             result = textbox
         else:
             if not config_key:
                 var = ""
             else:
-                var = self.facebook_config['template'][self.page_name][config_key]
+                var = config[config_key]
             entry = ctk.CTkEntry(frame, width=self.width*right)
             entry.pack(side="right", padx=padx)
             entry.insert(0, var)

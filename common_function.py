@@ -128,23 +128,7 @@ def get_driver(show=True):
         warning_message("Lỗi trong quá trình khởi tạo chromedriver.")
         return None
 
-def check_publish_times_12h(publish_times):
-    try:
-        publish_times = publish_times.split(',')
-        is_ok = True
-        for time in publish_times:
-            hh, mm, am_pm = time.split(':')
-            if int(hh.strip()) < 0 or int(hh.strip()) > 12 or int(mm) < 0 or int(mm) > 59 :
-                is_ok = False
-                break
-            if am_pm != 'AM' and am_pm != 'PM':
-                is_ok = False
-                break
-        return is_ok
-    except:
-        return False
-
-def is_date_greater_than_current_day(date_str, day_delta):
+def is_date_greater_than_current_day(date_str, day_delta=0):
     input_date = datetime.strptime(date_str, '%Y-%m-%d')
     current_date = datetime.now()
     target_date = current_date + timedelta(days=day_delta)
@@ -188,6 +172,33 @@ def convert_time_to_UTC(year, month, day, hour, minute, second=0, iso8601=True):
         return iso8601_time
     return utc_time
 
+def get_pushlish_time_hh_mm(publish_time="", facebook_time=False):
+    try:
+        hh, mm = map(int, publish_time.split(':'))
+        if hh >= 0 and hh < 24 and mm >= 0 and mm < 60:
+            if mm > 45:
+                mm = 45
+            elif mm > 30:
+                mm = 30
+            elif mm > 15:
+                mm = 15
+            else:
+                mm = 0
+            if facebook_time:
+                if hh > 12:
+                    hh = hh - 12
+                    get_time = f"{hh}:{mm}:PM"
+                else:
+                    get_time = f"{hh}:{mm}:AM"
+            else:
+                get_time = f"{hh}:{mm}"
+            return get_time
+        else:
+            print("Định dạng giờ phải là hh:mm (ví dụ: 08:30,20:00)")
+    except:
+        print("Định dạng giờ phải là hh:mm (ví dụ: 08:30,20:00)")
+    return None
+    hh, mm, ss = publish_time.split(':')
 
 def convert_datetime_to_string(date):
     try:

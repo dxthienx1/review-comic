@@ -1,6 +1,7 @@
 from tkinter import messagebox, filedialog
 import customtkinter as ctk
 import ctypes
+import os
 
 padx = 5
 pady = 2
@@ -14,6 +15,15 @@ right = 0.7
 LEFT = 'left'
 RIGHT = 'right'
 CENTER = 'center'
+
+def check_folder(folder):
+    if not folder:
+        print("Hãy chọn thư mục lưu video.")
+        return False
+    if not os.path.exists(folder):
+        print(f"Thư mục {folder} không tồn tại.")
+        return False
+    return True
 
 def choose_folder():
     folder_path = filedialog.askdirectory()

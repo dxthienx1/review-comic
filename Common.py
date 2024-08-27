@@ -18,7 +18,7 @@ def load_config():
             "current_tiktok_account": "",
             "current_facebook_account": "",
             "current_channel": "",
-            "current_channel_id": "",
+            "current_page": "",
 
             "download_by_video_url": "",
             "download_by_channel_id": "",
@@ -62,43 +62,11 @@ def load_config():
             "audio_edit_path": "", 
             "video_get_audio_path": "", 
             "video_get_audio_url": "", 
+            "speed_talk": "1", 
+            "convert_multiple_record": False, 
 
             "supported_languages": {
-                "ar": "Arabic",
-                "bn": "Bengali",
-                "zh-cn": "Chinese (Simplified, China)",
-                "zh-tw": "Chinese (Traditional, Taiwan)",
-                "cs": "Czech",
-                "da": "Danish",
-                "nl": "Dutch",
                 "en-us": "English (United States)",
-                "en-uk": "English (United Kingdom)",
-                "fi": "Finnish",
-                "fr": "French",
-                "de": "German",
-                "el": "Greek",
-                "he": "Hebrew",
-                "hi": "Hindi",
-                "hu": "Hungarian",
-                "id": "Indonesian",
-                "it": "Italian",
-                "ja": "Japanese",
-                "ko": "Korean",
-                "ms": "Malay",
-                "no": "Norwegian",
-                "fa": "Persian",
-                "pl": "Polish",
-                "pt": "Portuguese",
-                "ro": "Romanian",
-                "ru": "Russian",
-                "sr": "Serbian",
-                "sk": "Slovak",
-                "sl": "Slovenian",
-                "es": "Spanish",
-                "sv": "Swedish",
-                "th": "Thai",
-                "tr": "Turkish",
-                "uk": "Ukrainian",
                 "vi": "Vietnamese"
             }
         }
@@ -140,6 +108,16 @@ youtube_category = {
 }
 
 youtube_config = {
+   "registered_account":["dxthienx2@gmail.com", "dxthienx10@gmail.com", "tranhangbk.001@gmail.com", "tranghangbk.002@gmail.com"],
+   "current_youtube_account": "dxthienx2@gmail.com",
+   "current_channel": "The Interesting Football",
+   "download_folder": "E:/Video/Super Review/upload_finished",
+   "download_by_video_url": "https://drive.google.com/uc?export=download&id=1zzsthUUDxl1B3XX9TpMJVG_laMTLa3n7",
+   "download_by_channel_id": "",
+   "filter_by_like": "",
+   "filter_by_views": "",
+   "use_cookies": True,
+   "show_browser": False,
    "template": {
       "Brain Training": {
          "gmail": "tranghangbk.002@gmail.com",
@@ -295,26 +273,24 @@ youtube_config = {
          "day_gap": "1",
          "last_auto_upload_date": ""
       }
-   },
-   "registered_account":["dxthienx2@gmail.com", "dxthienx10@gmail.com", "tranhangbk.001@gmail.com", "tranghangbk.002@gmail.com"],
-   "current_youtube_account": "dxthienx2@gmail.com",
-   "current_channel": "The Interesting Football",
-   "download_folder": "E:/Video/Super Review/upload_finished",
-   "download_by_video_url": "https://drive.google.com/uc?export=download&id=1zzsthUUDxl1B3XX9TpMJVG_laMTLa3n7",
-   "download_by_channel_id": "",
-   "filter_by_like": "",
-   "filter_by_views": "",
-   "use_cookies": True,
-   "show_browser": False
+   }
    }
 
 tiktok_config = {
-   "registered_account": ["dxthienx1@gmail.com"],
-   "show_browser": False,
-   "download_folder": "",
+   "registered_account": [
+      "dxthienx1@gmail.com",
+      "tranhang.001@gmail.com",
+      "badboymmo1901@gmail.com",
+      "dxthienx10@gmail.com"
+   ],
+   "output_folder": "E:/Video/chua xu ly/animals/smart animal",
+   "show_browser": True,
    "download_by_channel_url": "",
+   "download_folder": "E:/Video/hh3d HD/chua xu ly",
+   "is_move": False,
+   "is_delete_after_upload": False,
    "filter_by_like": 20000,
-   "filter_by_views": 500000,
+   "filter_by_views": "300000",
    "template": {
       "dxthienx1@gmail.com": {
          "account": "dxthienx1@gmail.com",
@@ -325,13 +301,52 @@ tiktok_config = {
          "upload_date": "2024-08-05",
          "waiting_verify": False,
          "is_delete_after_upload": False,
+         "number_of_days": "4",
+         "day_gap": "1"
+      },
+      "tranhang.001@gmail.com": {
+         "account": "tranhang.001@gmail.com",
+         "password": "hang140991",
+         "upload_folder": "E:/Python/developping/Super-Social-Media/test",
+         "description": "ffff",
+         "publish_times": "07:00",
+         "title": "",
+         "is_title_plus_video_name": False,
+         "upload_date": "2024-08-11",
+         "waiting_verify": False,
+         "is_delete_after_upload": False,
          "number_of_days": "1",
          "day_gap": "1"
+      },
+      "badboymmo1901@gmail.com": {
+         "account": "badboymmo1901@gmail.com",
+         "password": "thien191",
+         "upload_folder": "",
+         "description": "",
+         "publish_times": "",
+         "title": "",
+         "is_title_plus_video_name": False,
+         "upload_date": "2024-08-15",
+         "is_delete_after_upload": False,
+         "waiting_verify": False,
+         "number_of_days": "1",
+         "day_gap": "1"
+      },
+      "dxthienx10@gmail.com": {
+         "account": "dxthienx10@gmail.com",
+         "password": "thien191!",
+         "upload_folder": "E:/Video/hh3d HD/edited_videos",
+         "description": "#hoathinhtrungquoc #hoathinhtrungquoc3d #animechina #3d #\u0111\u1ea5ula\u0111\u1ea1il\u1ee5c #\u0111\u1ea5uph\u00e1th\u01b0\u01a1ngkhung #ti\u00eanngh\u1ecbch #th\u1ebfgi\u1edbiho\u00e0nm\u1ef9 #ph\u00e0mnh\u00e2ntuti\u00ean #ti\u00eanhi\u1ec7p #tuti\u00ean #ki\u1ebfmhi\u1ec7p #dauladailuc #phimhoathinh3dtrungquoc #phimHD #ho\u1ea1th\u00ecnh3dthuy\u1ebftminh #fullHD #phim4k #ho\u1ea1th\u00ecnh3dvietsub\n#reviewphim #t\u00f3mt\u1eaftphim #phimhay #reviewphimm\u1edbi #topphimhay #phimchi\u1ebfur\u1ea1p #reviewseries #phimkinh\u0111i\u1ec3n #t\u00f3mt\u1eaft #trailerphim #c\u1ea3mnh\u1eadnphim #t\u00f3mt\u1eaftphimhay #phimbomt\u1ea5n #phimh\u00e0nh\u0111\u1ed9ng #phimh\u00e0i #phimc\u1ed5trang #phimh\u00e0i #phiml\u1ebb #phimh\u00e0nh\u0111\u1ed9nghay #reviewphimhay #phimt\u00e2ml\u00fdhay #phimchi\u1ebfur\u1ea1phay #t\u00f3mt\u1eaftphimhay #phimhot #phimn\u1ed5iti\u1ebfng #phimm\u1edbinh\u1ea5t #t\u1ed5ngh\u1ee3pphimhay #phimnextflix #c\u1ef1chay #si\u00eauhay #phimd\u00e0it\u1eadp #phimhaytronbo #phimh\u00e0nqu\u1ed1chay #phimh\u00e0nh\u0111\u1ed9ngh\u00e0nqu\u1ed1c #m\u1edbinh\u1ea5t #xemnhi\u1ec1u",
+         "publish_times": "18:30",
+         "title": "",
+         "is_title_plus_video_name": False,
+         "upload_date": "2024-08-24",
+         "is_delete_after_upload": False,
+         "waiting_verify": False,
+         "number_of_days": "8",
+         "day_gap": "1"
       }
-   },
-   "registered_account": [
-      "dxthienx1@gmail.com"
-   ]
+   }
 }
 
 facebook_config = {
@@ -357,20 +372,6 @@ facebook_config = {
          "day_gap": "1"
       },
       "Humor Haven - Relaxing Moment": {
-         "account": "badboymmo1901@gmail.com",
-         "password": "thien191!",
-         "upload_folder": "",
-         "description": "",
-         "publish_times": "",
-         "title": "",
-         "is_title_plus_video_name": False,
-         "upload_date": "2024-08-07",
-         "show_browser": False,
-         "is_delete_after_upload": False,
-         "number_of_days": "10",
-         "day_gap": "1"
-      },
-      "Ho\u1ea1t H\u00ecnh 3D HD": {
          "account": "badboymmo1901@gmail.com",
          "password": "thien191!",
          "upload_folder": "",

@@ -616,7 +616,11 @@ class YouTubeManager():
             if self.is_use_cookies:
                 self.thumbnail_var.delete(0, ctk.END)
                 self.thumbnail_var.insert(0, template.get("thumbnail", ""))
-                self.playlist_var.set(template.get("playlist", ""))
+                try:
+                    self.playlist_var.set(template.get("playlist", ""))
+                except:
+                    self.playlist_var.delete(0, ctk.END)
+                    self.playlist_var.insert(0, template.get("playlist", ""))
                 self.altered_content_var.set(convert_boolean_to_Yes_No(template.get("altered_content", False)))
             self.upload_folder_var.insert(0, template.get("upload_folder", ""))
             self.is_delete_after_upload_var.set(convert_boolean_to_Yes_No(self.youtube_config['template'][self.channel_name]['is_delete_after_upload']))
@@ -651,7 +655,7 @@ class YouTubeManager():
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa video", command=set_upload_folder, width=self.width)
         self.upload_folder_var.insert(0, self.youtube_config['template'][self.channel_name]['upload_folder'])
         self.load_template_combobox = create_frame_button_and_combobox(self.root,text="Tải mẫu có sẵn", width=self.width, command=load_template, values=list(self.youtube_config['template'].keys()))
-        self.load_template_combobox.set(self.youtube_config['current_channel'])
+        self.load_template_combobox.set(self.channel_name)
         create_frame_button_and_button(self.root,text1="Đăng video ngay", width=self.width, command1=self.start_upload_videos_now, text2="Lên lịch đăng video", command2=self.start_upload_videos_with_schedule, left=0.5, right=0.5)
         create_button(self.root, text="Lùi lại", command=self.get_start_youtube, width=self.width)
         self.show_window()
@@ -868,25 +872,9 @@ class YouTubeManager():
                     break
                 if self.is_schedule:
                     publish_time = publish_times[upload_count % len(publish_times)].strip()
-                    try:
-                        datetime.strptime(publish_time.strip(), '%H:%M:%S').time()
-                    except:
-                        if not self.is_auto_upload:
-                            notification(self.root, "time data %r does not match format %r" % (publish_time, '%H:%M:%S'))
-                        return
-                    hh, mm, ss = publish_time.split(':')
-                    publish_time = f'{hh}:{mm}'
-                    try:
-                        if int(hh) < 0 or int(hh) > 23:
-                            print("Giờ không hợp lệ, lấy mặc định là 00")
-                            hh = '00'
-                        if int(mm) != 0 and int(mm) != 15 and int(mm) != 30 and int(mm) != 45:
-                            print("Phút không hợp lệ, lấy mặc định là 00")
-                            mm = '00'
-                    except:
-                        print("Giờ đăng video không hợp lệ. Định dạng đúng là hh:mm (Ví dụ: 09:00,21:00)")
-                        return
-                
+                    publish_time = get_pushlish_time_hh_mm(publish_time)
+                    if not publish_time:
+                        return False
                 if self.is_stop_upload:
                     break
                 video_name = os.path.splitext(video_file)[0] #lấy tên
@@ -1183,6 +1171,7 @@ class YouTubeManager():
 
 
 #common -------------------------------------------------------------------------------------------------------------
+    
     def setting_screen_position(self):
         try:
             self.root.update_idletasks()
@@ -1202,7 +1191,7 @@ class YouTubeManager():
             self.root.title(f"Upload video Youtube: {self.channel_name}")
             self.width = 800
             if self.is_use_cookies:
-                self.height_window = 971
+                self.height_window = 972
             else:
                 self.height_window = 924
             self.is_upload_video_window = False
