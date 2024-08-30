@@ -74,7 +74,7 @@ class MainApp:
             self.pre_time_check_auto_upload_tiktok = 0
             self.is_stop_edit = False
 
-            self.start_main_check_thread()
+            # self.start_main_check_thread()
             self.setting_window_size()
             self.create_icon()
             self.get_start_window()
@@ -95,9 +95,9 @@ class MainApp:
     def main_check_thread(self):
         while True:
             try:
-                # self.auto_upload_youtube()
-                # self.auto_upload_facebook()
-                # self.auto_upload_tiktok()
+                self.auto_upload_youtube()
+                self.auto_upload_facebook()
+                self.auto_upload_tiktok()
                 sleep(30)
             except:
                 getlog()

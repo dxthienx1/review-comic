@@ -368,6 +368,7 @@ facebook_config = {
          "upload_date": "2024-08-11",
          "show_browser": False,
          "is_delete_after_upload": False,
+         "waiting_verify": False,
          "number_of_days": "10",
          "day_gap": "1"
       },
@@ -382,6 +383,7 @@ facebook_config = {
          "upload_date": "2024-08-07",
          "show_browser": False,
          "is_delete_after_upload": False,
+         "waiting_verify": False,
          "number_of_days": "10",
          "day_gap": "1"
       },
@@ -396,6 +398,7 @@ facebook_config = {
          "upload_date": "2024-08-24",
          "show_browser": False,
          "is_delete_after_upload": True,
+         "waiting_verify": False,
          "number_of_days": "10",
          "day_gap": "1"
       }

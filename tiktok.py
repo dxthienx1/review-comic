@@ -61,7 +61,7 @@ class TikTokManager:
                         password_input.send_keys(self.password)
                         sleep(0.3)
                         password_input.send_keys(Keys.RETURN)
-                        sleep(3)
+                    self.waiting_for_capcha_verify()
                     upload_link = self.get_upload_button()
             if upload_link:
                 upload_link.click()

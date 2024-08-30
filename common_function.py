@@ -134,10 +134,13 @@ def is_date_greater_than_current_day(date_str, day_delta=0):
     target_date = current_date + timedelta(days=day_delta)
     return input_date > target_date
        
-def convert_date_format_yyyymmdd_to_mmddyyyy(date_str):
+def convert_date_format_yyyymmdd_to_mmddyyyy(date_str, vi_date=False):
     try:
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        formatted_date = date_obj.strftime("%m/%d/%Y")
+        if vi_date:
+            formatted_date = date_obj.strftime("%d Tháng %m, %Y")
+        else:
+            formatted_date = date_obj.strftime("%m/%d/%Y")
         return formatted_date
     except:
         print(f"Định dạng ngày {date_str} không đúng yy-mm-dd")
@@ -198,7 +201,6 @@ def get_pushlish_time_hh_mm(publish_time="", facebook_time=False):
     except:
         print("Định dạng giờ phải là hh:mm (ví dụ: 08:30,20:00)")
     return None
-    hh, mm, ss = publish_time.split(':')
 
 def convert_datetime_to_string(date):
     try:
