@@ -138,7 +138,7 @@ def convert_date_format_yyyymmdd_to_mmddyyyy(date_str, vi_date=False):
     try:
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         if vi_date:
-            formatted_date = date_obj.strftime("%d Tháng %m, %Y")
+            formatted_date = date_obj.strftime("%d/%m/%Y")
         else:
             formatted_date = date_obj.strftime("%m/%d/%Y")
         return formatted_date
@@ -149,13 +149,13 @@ def is_format_date_yyyymmdd(date_str, daydelta=None):
     # Kiểm tra định dạng ngày bằng biểu thức chính quy
     date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
     if not date_pattern.match(date_str):
-        return False, "Invalid date format"
+        return False, "Định dạng ngày phải là yyyy-mm-dd"
     if daydelta:
         try:
             # Chuyển đổi từ chuỗi ngày sang đối tượng datetime
             date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
-            return False, "Invalid date format"
+            return False, "Định dạng ngày phải là yyyy-mm-dd"
 
         # Lấy ngày hiện tại
         current_date = datetime.now()

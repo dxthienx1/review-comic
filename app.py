@@ -1480,9 +1480,9 @@ class MainApp:
         self.is_auto_upload_youtube = False
         self.is_auto_upload_facebook = False
         self.is_auto_upload_tiktok = False
-        self.youtube = None
-        self.facebook = None
-        self.tiktok = None
+        # self.youtube = None
+        # self.facebook = None
+        # self.tiktok = None
         print("Đã dừng tất cả các luồng chương trình đang chạy, quá trình dừng có thể mất vài giây.")
 
     def create_image(self, icon_path=None):

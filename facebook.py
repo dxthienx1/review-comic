@@ -71,6 +71,7 @@ class FacebookManager:
             self.is_title_plus_video_name_var.set(convert_boolean_to_Yes_No(temppale['is_title_plus_video_name']))
             self.show_browser_var.set(convert_boolean_to_Yes_No(self.facebook_config['show_browser']))
             self.is_delete_after_upload_var.set(convert_boolean_to_Yes_No(temppale['is_delete_after_upload']))
+            self.is_reel_video_var.set(convert_boolean_to_Yes_No(temppale['is_reel_video']))
             self.waiting_verify_var.set(convert_boolean_to_Yes_No(temppale['waiting_verify_var']))
             self.upload_folder_var.delete(0, ctk.END)
             self.upload_folder_var.insert(0, temppale['upload_folder'])
@@ -92,6 +93,7 @@ class FacebookManager:
         self.number_of_days_var = self.create_settings_input("Số ngày muốn đăng", "number_of_days", left=0.3, right=0.7)
         self.day_gap_var = self.create_settings_input("Khoảng cách giữa các ngày đăng", "day_gap", left=0.3, right=0.7)
         self.is_delete_after_upload_var = self.create_settings_input("Xóa video sau khi đăng", "is_delete_after_upload", values=["Yes", "No"], left=0.3, right=0.7)
+        self.is_reel_video_var = self.create_settings_input("Đây là thước phim?", "is_reel_video", values=["Yes", "No"], left=0.3, right=0.7)
         self.waiting_verify_var = self.create_settings_input("Thêm thời gian chờ xác minh", "waiting_verify", values=["Yes", "No"], left=0.3, right=0.7)
         self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", values=['Yes', 'No'], left=0.3, right=0.7, is_data_in_template=False)
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa video", command=choose_folder_upload, width=self.width, left=0.3, right=0.7)
@@ -151,6 +153,7 @@ class FacebookManager:
             self.facebook_config['template'][self.page_name]["is_title_plus_video_name"] = self.is_title_plus_video_name_var.get() == "Yes"
             self.facebook_config['template'][self.page_name]["upload_folder"] = self.upload_folder_var.get()
             self.facebook_config['template'][self.page_name]["is_delete_after_upload"] = self.is_delete_after_upload_var.get() == 'Yes'
+            self.facebook_config['template'][self.page_name]["is_reel_video"] = self.is_reel_video_var.get() == 'Yes'
             self.facebook_config['template'][self.page_name]["waiting_verify"] = self.waiting_verify_var.get() == 'Yes'
             self.facebook_config['template'][self.page_name]["number_of_days"] = self.number_of_days_var.get()
             self.facebook_config['template'][self.page_name]["day_gap"] = self.day_gap_var.get()
@@ -213,7 +216,7 @@ class FacebookManager:
 
     def waiting_for_capcha_verify(self):
         sleep(2)
-        if self.facebook_config['template'][self.account]['waiting_verify']:
+        if self.facebook_config['template'][self.page_name]['waiting_verify']:
             sleep(28)
         self.save_session()
 
@@ -241,6 +244,9 @@ class FacebookManager:
                 sleep(1)
                 self.click_page_list()
                 self.change_page(self.page_name)
+                from selenium.webdriver.common.action_chains import ActionChains
+                actions = ActionChains(self.driver)
+                actions.send_keys(Keys.ESCAPE).perform()
                 return True
             else:
                 print("Đăng nhập không thành công, có thể cần xác minh tài khoản!")
@@ -422,7 +428,7 @@ class FacebookManager:
             ele = self.get_element_by_xpath(xpath, "Đăng")
         if ele:
             ele.click()
-            sleep(7)
+            sleep(5)
     def click_schedule_option(self):
         xpath = get_xpath('div', "x1xqt7ti x1fvot60 xk50ysn xxio538 x1heor9g xuxw1ft x6ikm8r x10wlt62 xlyipyv x1h4wwuj xeuugli")
         if self.en_language:
@@ -436,9 +442,15 @@ class FacebookManager:
     def click_bulk_upload_video_button(self):
         xpath = get_xpath("div", "xmi5d70 x1fvot60 xo1l8bm xxio538 xbsr9hj xq9mrsl x1mzt3pk x1vvkbs x13faqbe xeuugli x1iyjqo2")
         if self.en_language:
-            ele = self.get_element_by_xpath(xpath, "Bulk upload videos")
+            if self.is_reel_video:
+                ele = self.get_element_by_xpath(xpath, "Bulk upload reels")
+            else:
+                ele = self.get_element_by_xpath(xpath, "Bulk upload videos")
         else:
-            ele = self.get_element_by_xpath(xpath, "Tải video lên hàng loạt")
+            if self.is_reel_video:
+                ele = self.get_element_by_xpath(xpath, "Tải hàng loạt thước phim lên")
+            else:
+                ele = self.get_element_by_xpath(xpath, "Tải video lên hàng loạt")
         if ele:
             ele.click()
             sleep(5)
@@ -457,15 +469,24 @@ class FacebookManager:
     def click_upload_video_icon(self):
         xpath_photo_video = "//div[@class=\"x1i10hfl xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1q0g3np x87ps6o x1lku1pv x1a2a7pz x6s0dn4 x1lq5wgf xgqcy7u x30kzoy x9jhf4c x78zum5 x1r8uery x1iyjqo2 xs83m0k xl56j7k x1pshirs x1y1aw1k x1sxyh0 xwib8y2 xurb0ha\"]"
         if self.en_language:
-            photo_video_button = self.get_element_by_xpath(xpath_photo_video, "photo/video")
+            if self.is_reel_video:
+                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "Reel")
+            else:
+                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "photo/video")
         else:
-            photo_video_button = self.get_element_by_xpath(xpath_photo_video, "Ảnh/video")
+            if self.is_reel_video:
+                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "Thước phim")
+            else:
+                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "Ảnh/video")
         if photo_video_button:
             photo_video_button.click()
             sleep(1.5)
 
     def input_video_on_facebook(self, video_path):
-        xpath = "//input[@accept='image/*,image/heif,image/heic,video/*,video/mp4,video/x-m4v,video/x-matroska,.mkv' and @class='x1s85apg']"
+        if self.is_reel_video:
+            xpath = get_xpath('input', 'x1s85apg', 'accept', 'video/*,video/mp4,video/x-m4v,video/x-matroska,.mkv')
+        else:
+            xpath = "//input[@accept='image/*,image/heif,image/heic,video/*,video/mp4,video/x-m4v,video/x-matroska,.mkv' and @class='x1s85apg']"
         upload_input = self.get_element_by_xpath(xpath)
         if upload_input:
             upload_input.send_keys(video_path)
@@ -485,34 +506,46 @@ class FacebookManager:
 
     def check_status_upload_video(self):
         status_xpath = get_xpath("div", "x117nqv4 x1sln4lm xexx8yu x10l6tqk xh8yej3 x14ctfv")
-        v = ""
-        while(v!="100%"):
-            if self.is_stop_upload:
-                break
-            try:
-                status_xpath_element = self.get_element_by_xpath(status_xpath)
-                v = status_xpath_element.text
-                print(v)
-            except:
-                pass
-            sleep(5)
-    def check_status_schedule_upload_video(self):
-        status_xpath = get_xpath("span", "xmi5d70 xw23nyj xo1l8bm x63nzvj xbsr9hj xq9mrsl x1h4wwuj xeuugli xsgj6o6")
-        v = ""
         cnt = 0
-        while(v!="100%"):
+        pre_v = "0%"
+        while True:
             if self.is_stop_upload:
                 break
             try:
                 status_xpath_element = self.get_element_by_xpath(status_xpath)
                 v = status_xpath_element.text
-                print(v)
+                if v != pre_v:
+                    print(v)
+                    pre_v = v
+                if v == "100%":
+                    break
             except:
                 cnt += 1
-                if cnt > 3:
+                if cnt > 10:
                     self.is_stop_upload = True
-                    return
             sleep(2)
+
+    def check_status_schedule_upload_video(self):
+        status_xpath = get_xpath("span", "xmi5d70 xw23nyj xo1l8bm x63nzvj xbsr9hj xq9mrsl x1h4wwuj xeuugli xsgj6o6")
+        cnt = 0
+        pre_v = "0%"
+        while True:
+            if self.is_stop_upload:
+                break
+            try:
+                status_xpath_element = self.get_element_by_xpath(status_xpath)
+                v = status_xpath_element.text
+                if v != pre_v:
+                    print(v)
+                    pre_v = v
+                if v == "100%":
+                    break
+            except:
+                cnt += 1
+                if cnt > 10:
+                    self.is_stop_upload = True
+            sleep(2)
+
     def input_description(self, description):
         try:
             if self.en_language:
@@ -541,32 +574,50 @@ class FacebookManager:
             element.click()
             sleep(4)
     
-    def check_next_button_if_short_video(self):
-        if self.en_language:
-            xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Next")
-        else:
-            xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Tiếp")
-        element = self.get_element_by_xpath(xpath)
-        if element:
-            element.click()
-            sleep(1)
-        return element
+    def click_next_button_if_short_video(self):
+        for i in range(2):
+            if self.en_language:
+                xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Next")
+            else:
+                xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Tiếp")
+            element = self.get_element_by_xpath(xpath)
+            if element:
+                element.click()
+                sleep(1)
     
     def input_describe_short_video(self, text):
         if self.en_language:
-            xpath = get_xpath("div", "xzsf02u x1a2a7pz x1n2onr6 x14wi4xw x9f619 x1lliihq x5yr21d xh8yej3 notranslate", "aria-label", "Describe your reel")
+            xpath = get_xpath("div", "xzsf02u x1a2a7pz x1n2onr6 x14wi4xw x9f619 x1lliihq x5yr21d xh8yej3 notranslate", "aria-label", "Describe your reel...")
         else:
             xpath = get_xpath("div", "xzsf02u x1a2a7pz x1n2onr6 x14wi4xw x9f619 x1lliihq x5yr21d xh8yej3 notranslate", "aria-label", "Mô tả thước phim của bạn...")
         element = self.get_element_by_xpath(xpath)
         if element:
             element.send_keys(text)
-            sleep(2)
+            sleep(1)
 
     def click_public_short_video(self):
         xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3")
-        element = self.get_element_by_xpath(xpath, "Publish")
-        if element:
-            element.click()
+        cnt = 0
+        while True:
+            try:
+                if self.is_stop_upload:
+                    break
+                if self.en_language:
+                    element = self.get_element_by_xpath(xpath, "Publish")
+                else:
+                    element = self.get_element_by_xpath(xpath, "Đăng")
+                if element:
+                    element.click()
+                    sleep(3)
+                    break
+            except:
+                pass
+            cnt += 1
+            sleep(3)
+            if cnt > 10:
+                self.is_stop_upload = True
+
+            
 
     def click_post_button(self):
         if self.en_language:
@@ -577,7 +628,7 @@ class FacebookManager:
         if element:
             element.click()
             print("Đang tiến hành đăng video...")
-            sleep(6)
+            sleep(5)
         else:
             print("không tìm thấy post_button")
     
@@ -599,6 +650,7 @@ class FacebookManager:
     def upload_video(self):
         try:
             videos_folder = self.facebook_config['template'][self.page_name]['upload_folder']
+            self.is_reel_video = self.facebook_config['template'][self.page_name]['is_reel_video']
             if not check_folder(videos_folder):
                 return False
             all_file = os.listdir(videos_folder)
@@ -662,6 +714,7 @@ class FacebookManager:
                     if self.is_stop_upload:
                         break
                     self.click_option_menu()
+
                     self.click_bulk_upload_video_button()
                     if self.is_stop_upload:
                         break
@@ -678,6 +731,8 @@ class FacebookManager:
                     self.input_minutes(minute)
                     if self.en_language:
                         self.input_AM_or_PM(am_pm)
+                    if self.is_stop_upload:
+                        break
                     self.click_update_schedule_button()
                     self.check_status_schedule_upload_video()
                     if self.is_stop_upload:
@@ -696,20 +751,24 @@ class FacebookManager:
                         if date_cnt == number_of_days:
                             break
                 else:
-                    self.click_upload_video_icon()
-                    self.input_video_on_facebook(video_path)
-                    self.input_title(full_title)
-                    next_button = self.check_next_button_if_short_video()
-                    if next_button:
-                        self.input_describe_short_video(title)
+                    if self.is_reel_video:
+                        self.driver.get("https://www.facebook.com/reels/create/?surface=ADDL_PROFILE_PLUS")
+                        sleep(1)
+                        self.input_video_on_facebook(video_path)
+                        self.click_next_button_if_short_video()
+                        self.input_describe_short_video(description)
                         if self.is_stop_upload:
                             break
                         self.click_public_short_video()
                     else:
+                        self.click_upload_video_icon()
+                        self.input_video_on_facebook(video_path)
+                        self.input_title(description)
                         self.check_status_upload_video()
                         if self.is_stop_upload:
                             break
                         self.click_post_button()
+
                     remove_or_move_after_upload(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], 'facebook_upload_finished')
                     upload_count += 1
                     if upload_count == number_of_days:
@@ -746,7 +805,7 @@ class FacebookManager:
         elif self.is_upload_video_window:
             self.root.title(f"Facebook: {self.account}")
             self.width = 700
-            self.height_window = 825
+            self.height_window = 870
             self.is_upload_video_window = False
        
         self.setting_screen_position()
