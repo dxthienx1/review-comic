@@ -327,6 +327,7 @@ class MainApp:
         self.youtube_config['template'][channel_name]['tags'] = ""
         self.youtube_config['template'][channel_name]['category_id'] = ""
         self.youtube_config['template'][channel_name]['thumbnail'] = ""
+        self.youtube_config['template'][channel_name]['curent_playlist'] = ""
         self.youtube_config['template'][channel_name]['playlist'] = []
         self.youtube_config['template'][channel_name]['altered_content'] = False
         self.youtube_config['template'][channel_name]['privacy_status'] = "private"
@@ -878,12 +879,12 @@ class MainApp:
         self.is_random_zoom_var = self.create_settings_input("Zoom ngẫu nhiên(xử lý chậm)", "is_random_zoom", values=["Yes", "No"])
         self.horizontal_position_var = self.create_settings_input("Vị trí zoom theo chiều ngang", "horizontal_position", values=["left", "center", "right"])
         self.vertical_position_var = self.create_settings_input("Vị trí zoom theo chiều dọc", "vertical_position", values=["top", "center", "bottom"])
-        self.top_overlay_var = self.create_settings_input("Chiều cao lớp phủ trên", "top_overlay", values=["100", "150", "200"])
-        self.bot_overlay_var = self.create_settings_input("Chiều cao lớp phủ dưới", "bot_overlay", values=["100", "150", "200"])
+        self.top_bot_overlay_var = self.create_settings_input("Chiều cao lớp phủ trên, dưới(vd: 100,50)", "top_bot_overlay", values=["50", "100", "150"])
+        self.left_right_overlay_var = self.create_settings_input("Chiều cao lớp phủ trái, phải(vd: 100,50)", "left_right_overlay", values=["50", "100", "150"])
         self.is_delete_original_audio_var = self.create_settings_input("Xóa audio gốc", "is_delete_original_audio", values=["Yes", "No"])
         self.background_music_path, self.background_music_volume_var = create_frame_button_input_input(self.root,text="Chọn nhạc nền", width=self.width, command= self.choose_background_music, place_holder1="Đường dẫn file mp3", place_holder2="âm lượng")
         self.water_path_var = create_frame_button_and_input(self.root,text="Chọn ảnh Watermark", width=self.width, command= self.choose_water_mask_image, left=0.4, right=0.6)
-        self.vertical_watermark_position_var, self.horizontal_watermark_position_var = create_frame_label_input_input(self.root, "Vị trí Watermark", place_holder1="nhập vị trí chiều ngang", place_holder2="Nhập vị trí chiều dọc", width=self.width, left=0.4, mid=0.35, right=0.35)
+        self.vertical_watermark_position_var, self.horizontal_watermark_position_var = create_frame_label_input_input(self.root, "Vị trí Watermark", place_holder1="nhập vị trí chiều ngang", place_holder2="Nhập vị trí chiều dọc", width=self.width, left=0.4, mid=0.28, right=0.32)
         self.horizontal_watermark_position_var.insert(0, self.config['horizontal_watermark_position'])
         self.vertical_watermark_position_var.insert(0, self.config['vertical_watermark_position'])
         self.watermark_scale_var = self.create_settings_input("Chỉnh kích thước Watermark", config_key='watermark_scale')
@@ -903,6 +904,7 @@ class MainApp:
         self.create_thread_edit_video()
     def create_thread_edit_video(self):
         if not self.edit_thread or not self.edit_thread.is_alive():
+            self.is_stop_edit = False
             self.edit_thread = threading.Thread(target=self.start_edit_video)
             self.edit_thread.start()
 
@@ -926,6 +928,7 @@ class MainApp:
             self.config['flip_video'] = self.flip_video_var.get() == "Yes"
             self.config['speed_up'] = self.speed_up_var.get()
             self.config['max_zoom_size'] = self.max_zoom_size_var.get()
+            self.config['is_random_zoom'] = self.is_random_zoom_var.get() == "Yes"
             self.config['vertical_position'] = self.vertical_position_var.get()
             self.config['horizontal_position'] = self.horizontal_position_var.get()
             self.config['water_path'] = self.water_path_var.get()
@@ -934,8 +937,8 @@ class MainApp:
             self.config['watermark_scale'] = self.watermark_scale_var.get()
             if not self.config['watermark_scale']:
                 self.config['watermark_scale'] = "1,1"
-            self.config['top_overlay'] = self.top_overlay_var.get()
-            self.config['bot_overlay'] = self.bot_overlay_var.get()
+            self.config['top_bot_overlay'] = self.top_bot_overlay_var.get()
+            self.config['left_right_overlay'] = self.left_right_overlay_var.get()
             if not self.config['videos_edit_folder']:
                 self.noti("Hãy chọn thư mục lưu video.")
                 return
@@ -973,13 +976,14 @@ class MainApp:
                 continue
             index += 1
             video_path = f'{videos_folder}\\{video_file}'
+            print(f"--> Bắt đầu xử lý video: {video_file}")
             if self.is_fast_edit:
                 is_edit_ok = self.fast_edit_video(video_path, index)
             else:
                 is_edit_ok = self.edit_video_by_moviepy(video_path, index)
             if is_edit_ok:
                 list_edit_finished.append(video_file)
-                print(f"Edited finish video {video_file}")
+                print(f"\n--> Xử lý thành công video: {video_file}")
         cnt = len(list_edit_finished)
         if cnt > 0:
             self.noti(f"Chỉnh sửa thành công {cnt} video")
@@ -999,8 +1003,8 @@ class MainApp:
         vertical_watermark_position = self.config.get('vertical_watermark_position', 'center')
         watermark_scale = self.config.get('watermark_scale', '1,1')
         flip_horizontal = self.config.get('flip_video', False)
-        top_overlay = self.config.get('top_overlay', 5)
-        bot_overlay = self.config.get('bot_overlay', 5)
+        top_bot_overlay = self.config.get('top_bot_overlay', '2,2')
+        left_right_overlay = self.config.get('left_right_overlay', '2,2')
         new_audio_path = self.config.get('background_music_path', None)  # Đường dẫn âm thanh mới
         background_music_volume = self.config.get('background_music_volume', '100')  # Mức âm lượng mới
         remove_original_audio = self.config.get('is_delete_original_audio', False)  # Xóa âm thanh gốc hay không
@@ -1011,6 +1015,8 @@ class MainApp:
             audio_volume = 1.0
 
         try:
+            top_bot = top_bot_overlay.split(',')
+            top_overlay, bot_overlay = top_bot[0], top_bot[1]
             if int(top_overlay) == 0:
                 top_overlay = 1
             if int(bot_overlay) == 0:
@@ -1019,10 +1025,20 @@ class MainApp:
             top_overlay = bot_overlay = 1
 
         try:
+            left_right = left_right_overlay.split(',')
+            left_overlay, right_overlay = left_right[0], left_right[1]
+            if int(left_overlay) == 0:
+                left_overlay = 1
+            if int(right_overlay) == 0:
+                right_overlay = 1
+        except:
+            left_right = right_overlay = 1
+
+        try:
             output_folder, output_file_path, file_name = get_output_folder(input_video_path, output_folder_name='edited_videos')
             if not self.index_file_name:
                 file_name = file_name.split('.mp4')[0]
-                file_name = convert_sang_tieng_viet_khong_dau(file_name)
+                # file_name = convert_sang_tieng_viet_khong_dau(file_name)
             else:
                 file_name = self.index_file_name.replace("<index>", str(index))
             output_file = os.path.join(output_folder, f"{file_name}.mp4")
@@ -1034,9 +1050,15 @@ class MainApp:
             video_height = video_info['height']
             video_duration = video_info['duration']
             video_fps = video_info['fps']
-            duration = float(video_duration)
-            first_cut = convert_time_to_seconds(first_cut)
-            end_cut = convert_time_to_seconds(end_cut)
+            if speed_up:
+                try:
+                    speed_up = float(speed_up)
+                except:
+                    speed_up = 1.01
+            duration = float(video_duration)/speed_up
+
+            first_cut = convert_time_to_seconds(first_cut)/speed_up
+            end_cut = convert_time_to_seconds(end_cut)/speed_up
             if not end_cut or end_cut >= duration:
                 end_cut = 0
             if not first_cut or first_cut >= duration - end_cut:
@@ -1045,47 +1067,13 @@ class MainApp:
 
             if watermark:
                 if os.path.isfile(watermark):
-                    if horizontal_watermark_position == 'center':
-                        horizontal_watermark_position = 50
-                    elif horizontal_watermark_position == 'left':
-                        horizontal_watermark_position = 0
-                    elif horizontal_watermark_position == 'right':
-                        horizontal_watermark_position = 100
-                    else:
-                        try:
-                            horizontal_watermark_position = float(horizontal_watermark_position)
-                            if horizontal_watermark_position > 100:
-                                horizontal_watermark_position = 100
-                            elif horizontal_watermark_position < 0:
-                                horizontal_watermark_position = 0
-                        except:
-                            horizontal_watermark_position = 50
-                    if vertical_watermark_position == 'center':
-                        vertical_watermark_position = 50
-                    elif vertical_watermark_position == 'top':
-                        vertical_watermark_position = 0
-                    elif vertical_watermark_position == 'bottom':
-                        vertical_watermark_position = 100
-                    else:
-                        try:
-                            vertical_watermark_position = float(vertical_watermark_position)
-                            if vertical_watermark_position > 100:
-                                vertical_watermark_position = 100
-                            elif vertical_watermark_position < 0:
-                                vertical_watermark_position = 0
-                        except:
-                            vertical_watermark_position = 50
-                    watermark_x = int(video_width * horizontal_watermark_position / 100)
-                    watermark_y = int(video_height * vertical_watermark_position / 100)
+                    watermark_x, watermark_y = add_watermark_by_ffmpeg(video_width, video_height, horizontal_watermark_position, vertical_watermark_position)
+                    if not watermark_x or not watermark_y:
+                        print("Có lỗi trong khi lấy vị trí watermark. Hãy đảm bảo thông số đầu vào chính xác!")
+                        return
                 else:
                     self.noti("Đường dẫn watermark không hợp lệ")
                     return
-
-            if speed_up:
-                try:
-                    speed_up = float(speed_up)
-                except:
-                    speed_up = 1.01
 
             if zoom_size:
                 try:
@@ -1123,9 +1111,10 @@ class MainApp:
             if flip_horizontal:
                 flip_filter += ',hflip'
 
-            # Thêm bộ lọc lớp phủ màu đen
             top_black_bar = f"drawbox=x=0:y=0:w=iw:h={top_overlay}:color=black:t=fill"
             bottom_black_bar = f"drawbox=x=0:y=ih-{bot_overlay}:w=iw:h={bot_overlay}:color=black:t=fill"
+            left_black_bar = f"drawbox=x=0:y=0:w={left_overlay}:h=ih:color=black:t=fill"
+            right_black_bar = f"drawbox=x=iw-{right_overlay}:y=0:w={right_overlay}:h=ih:color=black:t=fill"
 
             zoom_filter = f"scale=iw*{zoom_size}:ih*{zoom_size},crop={int(video_width*0.999)}:{int(video_height*0.999)}:{zoom_x}:{zoom_y}{flip_filter}"
 
@@ -1137,14 +1126,14 @@ class MainApp:
                 except:
                     scale_w = 1
                     scale_h = 1
-                watermark_filter = f"[0:v]{zoom_filter},{top_black_bar},{bottom_black_bar},setpts=PTS/{speed_up}[v];[1:v]scale=iw*{scale_w}:ih*{scale_h},format=yuva420p[wm];[v][wm]overlay={watermark_x}:{watermark_y}[video]"
+                watermark_filter = f"[0:v]{zoom_filter},{top_black_bar},{bottom_black_bar},{left_black_bar},{right_black_bar},setpts=PTS/{speed_up}[v];[1:v]scale=iw*{scale_w}:ih*{scale_h},format=yuva420p[wm];[v][wm]overlay={watermark_x}:{watermark_y}[video]"
             else:
-                watermark_filter = f"[0:v]{zoom_filter},{top_black_bar},{bottom_black_bar},setpts=PTS/{speed_up}[video]"
-            #các đoạn code khác...
+                watermark_filter = f"[0:v]{zoom_filter},{top_black_bar},{bottom_black_bar},{left_black_bar},{right_black_bar},setpts=PTS/{speed_up}[video]"
             combined_audio_path = os.path.join(output_folder, "combined_audio.wav")
             if new_audio_path:
                 combine_audio_command = [
                     'ffmpeg',
+                    '-loglevel', 'quiet',
                     '-i', input_video_path,   # Đầu vào video để lấy âm thanh gốc
                     '-i', new_audio_path,     # Đầu vào âm thanh mới
                     '-filter_complex', f'[0:a]volume=1[a1];[1:a]volume={audio_volume}[a2];[a1][a2]amerge=inputs=2[a]',
@@ -1152,12 +1141,11 @@ class MainApp:
                     '-ac', '2',  # Đảm bảo đầu ra âm thanh có 2 kênh
                     '-y', combined_audio_path
                 ]
-                subprocess.run(combine_audio_command, check=True, encoding='utf-8', errors='ignore')
-
-
+                run_command_ffmpeg(combine_audio_command)
 
             command = [
                 'ffmpeg',
+                '-progress', 'pipe:1',
             ]
             if first_cut > 0:
                 command.extend(['-ss', str(first_cut)])
@@ -1176,14 +1164,13 @@ class MainApp:
                     command.extend([
                         '-map', '[video]',
                         '-map', '2:a',  # Âm thanh mới
-                        '-filter:a:0', f'volume={audio_volume}',  # Chỉnh âm lượng âm thanh mới
-                        
+                        '-filter:a:0', f'volume={audio_volume},atempo={speed_up}',  # Chỉnh âm lượng âm thanh mới
                     ])
                 else: #trường hợp này bị lỗi
                     command.extend([
                         '-map', '[video]',
                         '-map', '2:a',  # Âm thanh mới kết hợp từ file âm thanh kết hợp
-                        '-filter:a:0', f'volume=1',
+                        '-filter:a:0', f'volume=1,atempo={speed_up}',
                     ])
             elif not remove_original_audio:
                 command.extend([
@@ -1203,10 +1190,10 @@ class MainApp:
             ])
             if end_cut is not None:
                 duration = end_cut - first_cut
-                command.extend(['-t', str(duration)])
+                command.extend(['-to', str(duration)])
             command.append(output_file)
-            print(f'command--> {command}')
-            subprocess.run(command, check=True, encoding='utf-8', errors='ignore')
+            run_command_with_progress(command, duration)
+            # subprocess.run(command, check=True, encoding='utf-8', errors='ignore')
             remove_file(combined_audio_path)
             remove_or_move_file(input_video_path, is_delete=self.config['is_delete_video'], is_move=self.config['is_move'])
             return True
@@ -1221,7 +1208,7 @@ class MainApp:
             output_folder, output_file_path, file_name = get_output_folder(input_video_path, output_folder_name='edited_videos')
             if not self.index_file_name:
                 file_name = file_name.split('.mp4')[0]
-                file_name = convert_sang_tieng_viet_khong_dau(file_name)
+                # file_name = convert_sang_tieng_viet_khong_dau(file_name)
             else:
                 file_name = self.index_file_name.replace("<index>", str(index))
             output_file = os.path.join(output_folder, f"{file_name}.mp4")
@@ -1249,7 +1236,7 @@ class MainApp:
             else:
                 zoom_clip = apply_zoom(clip=speed_clip, zoom_factor=self.config['max_zoom_size'], vertical_position=self.config['vertical_position'], horizontal_position=self.config['horizontal_position'])
   
-            water_clip = add_image_watermark_into_video(zoom_clip, top_overlay_height=self.config['top_overlay'], bot_overlay_height=self.config['bot_overlay'], watermark=self.config['water_path'], vertical_watermark_position=self.config['vertical_watermark_position'], horizontal_watermark_position=self.config['horizontal_watermark_position'])
+            water_clip = add_image_watermark_into_video(zoom_clip, top_bot_overlay_height=self.config['top_bot_overlay'], left_right_overlay_width=self.config['left_right_overlay'], watermark=self.config['water_path'], vertical_watermark_position=self.config['vertical_watermark_position'], horizontal_watermark_position=self.config['horizontal_watermark_position'], watermark_scale=self.config['watermark_scale'])
             if self.is_stop_edit:
                 water_clip.close()
                 input_clip.close()
@@ -1480,10 +1467,10 @@ class MainApp:
         self.is_auto_upload_youtube = False
         self.is_auto_upload_facebook = False
         self.is_auto_upload_tiktok = False
+        print("Đã dừng tất cả các luồng chương trình đang chạy, quá trình dừng có thể mất vài giây.")
         # self.youtube = None
         # self.facebook = None
         # self.tiktok = None
-        print("Đã dừng tất cả các luồng chương trình đang chạy, quá trình dừng có thể mất vài giây.")
 
     def create_image(self, icon_path=None):
         if icon_path:

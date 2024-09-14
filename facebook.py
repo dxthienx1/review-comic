@@ -505,7 +505,8 @@ class FacebookManager:
             self.is_stop_upload = True
 
     def check_status_upload_video(self):
-        status_xpath = get_xpath("div", "x117nqv4 x1sln4lm xexx8yu x10l6tqk xh8yej3 x14ctfv")
+        status_xpath = get_xpath("div", "x117nqv4 x1sln4lm xexx8yu x10l6tqk xh8yej3", contain=True)
+        # status_xpath = "//div[contains(@class, 'x117nqv4') and contains(@class, 'x1sln4lm') and contains(@class, 'xexx8yu') and contains(@class, 'x10l6tqk') and contains(@class, 'xh8yej3')]"
         cnt = 0
         pre_v = "0%"
         while True:
@@ -536,7 +537,7 @@ class FacebookManager:
                 status_xpath_element = self.get_element_by_xpath(status_xpath)
                 v = status_xpath_element.text
                 if v != pre_v:
-                    print(v)
+                    print(f'Đã tải lên được {v} ... \n')
                     pre_v = v
                 if v == "100%":
                     break
@@ -689,7 +690,7 @@ class FacebookManager:
                 title = self.facebook_config['template'][self.page_name]['title']
                 description = self.facebook_config['template'][self.page_name]['description']
                 if self.facebook_config['template'][self.page_name]['is_title_plus_video_name']:
-                    full_title = f"{title}{video_name}"
+                    full_title = f"{title} {video_name}"
                 else:
                     full_title = title
                 full_title = f"{full_title}"
@@ -749,6 +750,9 @@ class FacebookManager:
                         date_cnt += 1
                         time_cnt = 0
                         if date_cnt == number_of_days:
+                            break
+                        if is_date_greater_than_current_day(upload_date_yymmdd, 28):
+                            print("Dừng đăng video vì ngày lên lịch đã vượt  quá giới hạn mà facebook cho phép(tối đa 29 ngày)")
                             break
                 else:
                     if self.is_reel_video:

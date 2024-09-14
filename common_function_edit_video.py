@@ -2,6 +2,37 @@ from common_function import *
 from common_function_CTK import *
 
 
+def run_command_ffmpeg(command):
+    subprocess.run(command, check=True, text=True, encoding='utf-8', errors='ignore')
+
+def run_command_with_progress(command, duration):
+    # Khởi chạy ffmpeg và theo dõi tiến trình
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,  # Đọc dữ liệu dưới dạng văn bản
+        encoding='utf-8',  # Chỉ định mã hóa utf-8
+    )
+
+    # Biến lưu thời gian đã xử lý
+    current_time = 0.0
+
+    for line in process.stdout:
+        if 'out_time_ms=' in line:
+            # Phân tích thời gian xử lý từ dòng tiến trình
+            match = re.search(r'out_time_ms=(\d+)', line)
+            if match:
+                out_time_ms = int(match.group(1))
+                # Tính toán thời gian đã xử lý (giây)
+                current_time = out_time_ms / 1000000.0
+                # Tính toán phần trăm
+                percent_complete = (current_time / duration) * 100
+                sys.stdout.write(f'\rĐã xử lý: {percent_complete:.2f}%')
+                sys.stdout.flush()
+
+    process.wait()  # Đợi tiến trình hoàn tất
+
 def convert_time_to_seconds(time_str):
     try:
         list_time = time_str.split(':')
@@ -100,12 +131,18 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
                 return
             if end > duration:
                 end = duration
+            base_name = file_name.split('.mp4')[0]
             index = 1
-            segment_file_path = os.path.join(output_folder, f"{index}.mp4")
+            if len(segments) == 1:
+                segment_file_path = os.path.join(output_folder, file_name)
+                if os.path.exists(segment_file_path):
+                    segment_file_path = os.path.join(output_folder, f"{base_name}_{index}.mp4")
+            else:
+                segment_file_path = os.path.join(output_folder, f"{base_name}_{index}.mp4")
             while True:
                 if os.path.exists(segment_file_path):
                     index +=1
-                    segment_file_path = os.path.join(output_folder, f"{index}.mp4")
+                    segment_file_path = os.path.join(output_folder, f"{base_name}_{index}.mp4")
                 else:
                     break
 
@@ -133,7 +170,7 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
 
         if is_connect != 'no' and combine_videos:
             try:
-                with open(temp_list_file, 'w') as f:
+                with open(temp_list_file, 'w', encoding= 'utf-8') as f:
                     for video in combine_videos:
                         f.write(f"file '{video}'\n")
                 command = connect_video(temp_list_file, output_file_path, fast_connect=is_connect == 'fast connect')
@@ -342,6 +379,26 @@ def merge_videos_use_moviepy(videos_folder, file_path=None, is_delete=False, is_
     for video_path in remove_videos:
         remove_or_move_file(video_path, is_delete=is_delete, is_move=is_move)
 
+def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=None):
+    if fast_connect:
+        print("---> đang nối nhanh video...")
+        command = [
+            'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
+            '-vf', 'fps=30', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
+            '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', output_file_path, '-loglevel', 'quiet'
+        ]
+    else:
+        print("---> đang nối video...")
+        if max_fps:
+            command = [
+                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c:v', 'libx264', '-c:a', 'aac', '-r', f'{max_fps}', '-y', output_file_path, '-loglevel', 'quiet'
+            ]
+        else:
+            command = [
+                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c:v', 'libx264', '-c:a', 'aac', '-y', output_file_path, '-loglevel', 'quiet'
+            ]
+    return command
+
 def get_index_of_temp_file (input_path):
     return int(input_path.split('temp')[-1].split('.mp4')[0])
     
@@ -400,8 +457,8 @@ def apply_zoom(clip, zoom_factor, vertical_position, horizontal_position):
     return zoom_and_crop(clip, zoom_factor, vertical_position, horizontal_position)
 
 def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center', horizontal_position='center'):
-    min_time_to_change_zoom = 3
-    max_time_to_change_zoom = 5
+    min_time_to_change_zoom = 4
+    max_time_to_change_zoom = 8
     max_zoom_size = float(max_zoom_size)
     min_time_to_change_zoom = int(min_time_to_change_zoom)
     max_time_to_change_zoom = int(max_time_to_change_zoom)
@@ -496,56 +553,129 @@ def increase_video_quality(input_path, output_path): #Tăng chất lượng vide
     except:
         print(f"Có lỗi trong quá trình tăng chất lượng video: \n{input_path}")
         return False
-
-def add_image_watermark_into_video(clip, top_overlay_height="10", bot_overlay_height="10", watermark = None, vertical_watermark_position=50, horizontal_watermark_position=50):
-    if not top_overlay_height or int (top_overlay_height) < 0:
-        top_overlay_height = 2
-    else:
-        top_overlay_height = int(top_overlay_height)
-    if not bot_overlay_height or int (bot_overlay_height) < 0:
-        bot_overlay_height = 2
-    else:
-        bot_overlay_height = int(bot_overlay_height)
     
+def add_watermark_by_ffmpeg(video_width, video_height, horizontal_watermark_position, vertical_watermark_position):
+    try:
+        if horizontal_watermark_position == 'center':
+            horizontal_watermark_position = 50
+        elif horizontal_watermark_position == 'left':
+            horizontal_watermark_position = 0
+        elif horizontal_watermark_position == 'right':
+            horizontal_watermark_position = 100
+        else:
+            try:
+                horizontal_watermark_position = float(horizontal_watermark_position)
+                if horizontal_watermark_position > 100:
+                    horizontal_watermark_position = 100
+                elif horizontal_watermark_position < 0:
+                    horizontal_watermark_position = 0
+            except:
+                horizontal_watermark_position = 50
+        if vertical_watermark_position == 'center':
+            vertical_watermark_position = 50
+        elif vertical_watermark_position == 'top':
+            vertical_watermark_position = 0
+        elif vertical_watermark_position == 'bottom':
+            vertical_watermark_position = 100
+        else:
+            try:
+                vertical_watermark_position = float(vertical_watermark_position)
+                if vertical_watermark_position > 100:
+                    vertical_watermark_position = 100
+                elif vertical_watermark_position < 0:
+                    vertical_watermark_position = 0
+            except:
+                vertical_watermark_position = 50
+        watermark_x = int(video_width * horizontal_watermark_position / 100)
+        watermark_y = int(video_height * vertical_watermark_position / 100)
+        return watermark_x, watermark_y
+    except:
+        return None, None
+
+def add_image_watermark_into_video(clip, top_bot_overlay_height='2,2', left_right_overlay_width='2,2', watermark=None, vertical_watermark_position=0, horizontal_watermark_position=0, watermark_scale='1,1'):
+    w, h = clip.size
+    try:
+        if not top_bot_overlay_height:
+            top_bot_overlay_height = '2,2'
+        top_overlay_height, bot_overlay_height = top_bot_overlay_height.split(',')
+        if not top_overlay_height or int(top_overlay_height) < 0 or int(top_overlay_height) >= h:
+            top_overlay_height = 2
+        else:
+            top_overlay_height = int(top_overlay_height)
+        if not bot_overlay_height or int(bot_overlay_height) < 0 or int(bot_overlay_height) >= (h-top_overlay_height):
+            bot_overlay_height = 2
+        else:
+            bot_overlay_height = int(bot_overlay_height)
+    except:
+        print("kích thước lớp phủ trên và dưới đã nhập không hợp lệ, lấy kích thước lớp phủ mặc định là 2")
+        bot_overlay_height = top_overlay_height = 2
+
+    try:
+        if not left_right_overlay_width:
+            left_right_overlay_width = '2,2'
+        left_overlay_width, right_overlay_width = left_right_overlay_width.split(',')
+        if not left_overlay_width or int(left_overlay_width) < 0 or int(left_overlay_width) >= w:
+            left_overlay_width = 2
+        else:
+            left_overlay_width = int(left_overlay_width)
+        if not right_overlay_width or int(right_overlay_width) < 0 or int(right_overlay_width) >= (w - left_overlay_width):
+            right_overlay_width = 2
+        else:
+            right_overlay_width = int(right_overlay_width)
+    except:
+        print("kích thước lớp phủ trái và phải đã nhập không hợp lệ, lấy kích thước lớp phủ mặc định là 2")
+        left_overlay_width = right_overlay_width = 2
+
     try:
         width, height = clip.size
         top_image = ColorClip(size=(width, top_overlay_height), color=(0, 0, 0)).set_position(('center', 0)).set_duration(clip.duration)
         bottom_image = ColorClip(size=(width, bot_overlay_height), color=(0, 0, 0)).set_position(('center', height - bot_overlay_height)).set_duration(clip.duration)
+        left_image = ColorClip(size=(left_overlay_width, height), color=(0, 0, 0)).set_position((0, 'center')).set_duration(clip.duration)
+        right_image = ColorClip(size=(right_overlay_width, height), color=(0, 0, 0)).set_position((width - right_overlay_width, 'center')).set_duration(clip.duration)
 
         if watermark:
+            try:
+                scale_w, scale_h = [float(s) for s in watermark_scale.split(',')]
+            except:
+                scale_w = scale_h = 1.0
             watermark_image = ImageClip(watermark).set_duration(clip.duration)
             watermark_width, watermark_height = watermark_image.size
+            scaled_width = int(watermark_width * scale_w)
+            scaled_height = int(watermark_height * scale_h)
+
+            watermark_image = watermark_image.resize((scaled_width, scaled_height))
             if horizontal_watermark_position == 'center':
-                horizontal_watermark_position = (width - watermark_width) / 2
+                horizontal_watermark_position = (width - scaled_width) / 2
             elif horizontal_watermark_position == 'left':
                 horizontal_watermark_position = 0
             elif horizontal_watermark_position == 'right':
-                horizontal_watermark_position = width - watermark_width
+                horizontal_watermark_position = width - scaled_width
             else:
                 try:
                     horizontal_watermark_position = int(float(horizontal_watermark_position) * width / 100)
                 except ValueError:
-                    horizontal_watermark_position = 'center'
+                    horizontal_watermark_position = (width - scaled_width) / 2
 
             if vertical_watermark_position == 'center':
-                vertical_watermark_position = (height - watermark_height) / 2
+                vertical_watermark_position = (height - scaled_height) / 2
             elif vertical_watermark_position == 'top':
                 vertical_watermark_position = 0
             elif vertical_watermark_position == 'bottom':
-                vertical_watermark_position = height - watermark_height
+                vertical_watermark_position = height - scaled_height
             else:
                 try:
                     vertical_watermark_position = int(float(vertical_watermark_position) * height / 100)
                 except ValueError:
-                    vertical_watermark_position = 'center'
+                    vertical_watermark_position = (height - scaled_height) / 2
 
-            watermark_image = (ImageClip(watermark).set_position((horizontal_watermark_position, vertical_watermark_position)).set_duration(clip.duration))
-            final_clip = CompositeVideoClip([clip, top_image, bottom_image, watermark_image])
+            watermark_image = watermark_image.set_position((horizontal_watermark_position, vertical_watermark_position))
+            final_clip = CompositeVideoClip([clip, top_image, bottom_image, left_image, right_image, watermark_image])
         else:
-            final_clip = CompositeVideoClip([clip, top_image, bottom_image])
+            final_clip = CompositeVideoClip([clip, top_image, bottom_image, left_image, right_image])
         return final_clip
-    except:
-        getlog()
+
+    except Exception as e:
+        print(f"Lỗi khi thêm watermark: {e}")
         return None
 
 def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="1080x1920", is_delete=False, is_move=True):
@@ -557,33 +687,21 @@ def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="1080x
             zoom_size = 0.9
         else:
             zoom_size = float(zoom_size)
-        # Kích thước khung hình mục tiêu
         target_width, target_height = list(map(int, resolution.split('x')))
         video_display_height = target_height * zoom_size
         zoom = video_display_height / height
         zoomed_video = video.resize(newsize=(int(width * zoom), int(height * zoom)))
         zoomed_width, zoomed_height = zoomed_video.size
         background = ColorClip(size=(target_width, target_height), color=(0, 0, 0), duration=video.duration)
-        # Tính toán vị trí để căn giữa video zoomed
         x_pos = (target_width - zoomed_width) / 2
         y_pos = (target_height - zoomed_height) / 2
-
-        # Kết hợp video zoomed với nền đen
         final_video = CompositeVideoClip([background, zoomed_video.set_position((x_pos, y_pos))], size=(target_width, target_height))
-
-        # Ghi video kết quả vào file
         final_video.write_videofile(output_file_path, codec='libx264', audio_codec='aac')
-
-        # Đóng các đối tượng video
         final_video.close()
         zoomed_video.close()
         video.close()
-
-        # Xóa video gốc nếu cần
         remove_or_move_file(input_video_path, is_delete=is_delete, is_move=is_move)
-        
         return True
-
     except Exception as e:
         getlog()
         return False
@@ -696,3 +814,4 @@ def set_audio_for_clip(clip, background_music, background_music_volume="10"):
         return clip
     except:
         print("Có lỗi ghi ghép audio vào video")
+

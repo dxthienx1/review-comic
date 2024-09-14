@@ -32,8 +32,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-
-from common_function_CTK import warning_message
 from selenium_stealth import stealth
 import subprocess
 import ffmpeg
@@ -125,7 +123,7 @@ def get_driver(show=True):
         return driver
     except:
         getlog()
-        warning_message("Lỗi trong quá trình khởi tạo chromedriver.")
+        print("Lỗi trong quá trình khởi tạo chromedriver.")
         return None
 
 def is_date_greater_than_current_day(date_str, day_delta=0):
@@ -179,11 +177,11 @@ def get_pushlish_time_hh_mm(publish_time="", facebook_time=False):
     try:
         hh, mm = map(int, publish_time.split(':'))
         if hh >= 0 and hh < 24 and mm >= 0 and mm < 60:
-            if mm > 45:
+            if mm >= 45:
                 mm = 45
-            elif mm > 30:
+            elif mm >= 30:
                 mm = 30
-            elif mm > 15:
+            elif mm >= 15:
                 mm = 15
             else:
                 mm = 0
@@ -206,8 +204,7 @@ def convert_datetime_to_string(date):
     try:
         return date.strftime('%Y-%m-%d')
     except ValueError:
-        print("ngày không hợp lệ")
-        getlog()
+        print(f"ngày {date} không hợp lệ")
         return None
     
 def convert_date_string_to_datetime(date_str):
@@ -217,9 +214,8 @@ def convert_date_string_to_datetime(date_str):
     date_str = date_str.strip()
     try:
         return datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        print("Định dạng ngày phải là yyyy-mm-dd")
-        getlog()
+    except:
+        print(f"Định dạng ngày {date_str} phải là yyyy-mm-dd")
         return None
 
 def convert_date_yyyymmdd_to_youtybe_date(date_yyyymmdd, is_english=True):
@@ -500,7 +496,7 @@ def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=
         sleep(sleep_time)
         return True
     except:
-        getlog()
+        sleep(5)
     return False
     
 def get_info_by_url(url, download_folder=None, is_download=False):
@@ -623,12 +619,22 @@ def download_videos_form_playhh3dhay_by_txt_file(id_file_txt, download_folder=do
                 no_video_downloaded = True
 
 
-def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None):
-    if attribute and attribute_value:
-        xpath = f"//{maintag}[@class=\"{class_name}\" and @{attribute}=\"{attribute_value}\"]"
+def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None, contain=False):
+    if contain:
+        if class_name:
+            class_list = class_name.split()
+            class_condition = " and ".join([f"contains(@class, '{cls}')" for cls in class_list])
+        if attribute and attribute_value:
+            xpath = f"//{maintag}[{class_condition} and @{attribute}=\"{attribute_value}\"]"
+        else:
+            xpath = f"//{maintag}[{class_condition}]"
     else:
-        xpath = f"//{maintag}[@class=\"{class_name}\"]"
+        if attribute and attribute_value:
+            xpath = f"//{maintag}[@class=\"{class_name}\" and @{attribute}=\"{attribute_value}\"]"
+        else:
+            xpath = f"//{maintag}[@class=\"{class_name}\"]"
     return xpath
+
 def get_xpath_by_multi_attribute(maintag, attributes): #'class="style-scope yt-icon-button"'
     if len(attributes) > 1:
         attribute = " and @".join(attributes)
@@ -755,31 +761,10 @@ def get_number_of_days(number_of_days):
         number_of_days = 1
     return number_of_days
 
-def run_command_ffmpeg(command):
-    subprocess.run(command, check=True, text=True, encoding='utf-8', errors='ignore')
-
 def convert_boolean_to_Yes_No(value):
     if value:
         return 'Yes'
     else:
         return 'No'
+    
 
-def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=None):
-    if fast_connect:
-        print("---> đang nối nhanh video...")
-        command = [
-            'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
-            '-vf', 'fps=30', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
-            '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', output_file_path, '-loglevel', 'quiet'
-        ]
-    else:
-        print("---> đang nối video...")
-        if max_fps:
-            command = [
-                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c:v', 'libx264', '-c:a', 'aac', '-r', f'{max_fps}', '-y', output_file_path, '-loglevel', 'quiet'
-            ]
-        else:
-            command = [
-                'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c:v', 'libx264', '-c:a', 'aac', '-y', output_file_path, '-loglevel', 'quiet'
-            ]
-    return command

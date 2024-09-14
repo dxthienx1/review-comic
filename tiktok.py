@@ -122,28 +122,22 @@ class TikTokManager:
             sleep(1)
             xpath_hh = get_xpath('span', "tiktok-timepicker-option-text tiktok-timepicker-left")
             hh_elements = self.driver.find_elements(By.XPATH, xpath_hh)
-            cnt = 0
             for element in hh_elements:
-                # cnt += 1
-                # if cnt % 3 == 0:
                 self.scroll_into_view(element)
-                if element.text == hh:
+                if int(element.text) == int(hh):
                     element.click()
-                    print("đã chọn giờ")
+                    print(f"đã chọn {element.text} giờ")
                     break
-            sleep(1)
-            time_ele.click()
+            # sleep(1)
+            # time_ele.click()
             sleep(1)
             xpath_mm = get_xpath('span', "tiktok-timepicker-option-text tiktok-timepicker-right")
             mm_elements = self.driver.find_elements(By.XPATH, xpath_mm)
-            cnt = 0
             for element in mm_elements:
-                # cnt += 1
-                # if cnt % 3 == 0:
                 self.scroll_into_view(element)
-                if element.text == mm:
+                if int(element.text) == int(mm):
                     element.click()
-                    print("đã chọn phút")
+                    print(f"đã chọn {element.text} phút")
                     break
             sleep(2)
 
@@ -201,6 +195,7 @@ class TikTokManager:
         xpath = get_xpath_by_multi_attribute("div", ["class='notranslate public-DraftEditor-content'", "contenteditable='true'", "role='combobox'"])
         ele = self.get_element_by_xpath(xpath)
         if ele:
+            ele.clear()
             ele.send_keys(description)
             sleep(1)
 
@@ -223,27 +218,22 @@ class TikTokManager:
             pass
 
     def check_status_copyright_check(self):
-        cnt = 0
         while True:
             try:
                 if self.is_stop_upload:
-                    break
+                    return False
                 xpath = "//img[contains(@class, 'check-icon')]"
                 ele = self.get_element_by_xpath(xpath)
                 if ele:
                     src = ele.get_attribute('src')
                     if src == "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8yMjI3XzQ5MTM3KSI+CiAgICAgICAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiCiAgICAgICAgICAgIGQ9Ik05Ljk5OTkyIDE5LjE2NjhDMTUuMDYyNSAxOS4xNjY4IDE5LjE2NjYgMTUuMDYyOCAxOS4xNjY2IDEwLjAwMDJDMTkuMTY2NiA0LjkzNzU1IDE1LjA2MjUgMC44MzM0OTYgOS45OTk5MiAwLjgzMzQ5NkM0LjkzNzMxIDAuODMzNDk2IDAuODMzMjUyIDQuOTM3NTUgMC44MzMyNTIgMTAuMDAwMkMwLjgzMzI1MiAxNS4wNjI4IDQuOTM3MzEgMTkuMTY2OCA5Ljk5OTkyIDE5LjE2NjhaTTE0LjMzMTYgNi4zODg3MkwxMy40NDIgNS44Mjk2OUMxMy4xOTQxIDUuNjc5IDEyLjg2ODQgNS43NTE5MSAxMi43MTc3IDUuOTk5ODNMOC44ODcxMSAxMi4xMjk3TDYuNzYyODEgOS43MDRDNi41NjgzNiA5LjQ4NTI1IDYuMjM3ODEgOS40NjA5NCA2LjAyMzkyIDkuNjUwNTNMNS4yMjY2OSAxMC4zNDU3QzUuMDA3OTUgMTAuNTM1MiA0Ljk4MzY0IDEwLjg3NTUgNS4xNzgwOCAxMS4wODk0TDguMjM1NzIgMTQuNTg0NkM4LjQ1NDQ3IDE0LjgzNzMgOC43NzUzMSAxNC45Njg2IDkuMTA1ODYgMTQuOTM5NEM5LjQ0MTI4IDE0LjkxNTEgOS43Mzc4MSAxNC43MzA0IDkuOTE3NjcgMTQuNDQzNkwxNC41MDE3IDcuMTE3ODlDMTQuNjUyNCA2Ljg2OTk3IDE0LjU3OTUgNi41NDQyOCAxNC4zMzE2IDYuMzg4NzJaIgogICAgICAgICAgICBmaWxsPSIjMDBDMzlCIiAvPgogICAgPC9nPgogICAgPGRlZnM+CiAgICAgICAgPGNsaXBQYXRoIGlkPSJjbGlwMF8yMjI3XzQ5MTM3Ij4KICAgICAgICAgICAgPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSJ3aGl0ZSIgLz4KICAgICAgICA8L2NsaXBQYXRoPgogICAgPC9kZWZzPgo8L3N2Zz4KICAgIA==":
-                        return "noissues"
+                        return True
                     elif src == "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkuMDM3NzIgMi4yMjYyMkM5LjQ2MTkzIDEuNDc5OTMgMTAuNTM3OSAxLjQ3OTkzIDEwLjk2MjEgMi4yMjYyMkwxOS4wMjA1IDE2LjQwMjhDMTkuNDM5NyAxNy4xNDAyIDE4LjkwNjggMTguMDU1NCAxOC4wNTgzIDE4LjA1NTRIMS45NDE1NEMxLjA5MzAyIDE4LjA1NTQgMC41NjAxNyAxNy4xNDAyIDAuOTc5MzQ2IDE2LjQwMjhMOS4wMzc3MiAyLjIyNjIyWiIgZmlsbD0iI0ZGNEMzQSIvPgo8cGF0aCBkPSJNOS4xNjY0NSA2LjkzMTY2QzkuMTY2NDUgNi43ODUyMiA5LjI5MDgyIDYuNjY2NSA5LjQ0NDIzIDYuNjY2NUgxMC41NTUzQzEwLjcwODggNi42NjY1IDEwLjgzMzEgNi43ODUyMiAxMC44MzMxIDYuOTMxNjZWMTIuMjM0N0MxMC44MzMxIDEyLjM4MTEgMTAuNzA4OCAxMi40OTk4IDEwLjU1NTMgMTIuNDk5OEg5LjQ0NDIzQzkuMjkwODIgMTIuNDk5OCA5LjE2NjQ1IDEyLjM4MTEgOS4xNjY0NSAxMi4yMzQ3VjYuOTMxNjZaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTEuMTEwOSAxNC43MjIxQzExLjExMDkgMTUuMzM1NyAxMC42MTM0IDE1LjgzMzIgOS45OTk3OCAxNS44MzMyQzkuMzg2MTMgMTUuODMzMiA4Ljg4ODY3IDE1LjMzNTcgOC44ODg2NyAxNC43MjIxQzguODg4NjcgMTQuMTA4NCA5LjM4NjEzIDEzLjYxMDkgOS45OTk3OCAxMy42MTA5QzEwLjYxMzQgMTMuNjEwOSAxMS4xMTA5IDE0LjEwODQgMTEuMTEwOSAxNC43MjIxWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg==":
-                        return "issues"
+                        return False
                 else:
-                    cnt += 1
-                    sleep(2)
+                    return True
             except:
-                cnt += 1
-                sleep(3)
-            if cnt > 2:
-                break
+                return True
 
     def click_post_button(self):
         cnt = 0
@@ -253,13 +243,6 @@ class TikTokManager:
             if ele:
                 ele.click()
                 sleep(4)
-                # post_anyway_xpath = get_xpath('div', 'TUXButton-label')
-                # post_anyway = self.get_element_by_xpath(post_anyway_xpath, 'Post')
-                # if post_anyway:
-                #     post_anyway.click()
-                #     sleep(4)
-                # else:
-                #     sleep(3)
                 break
             else:
                 cnt += 1
@@ -272,18 +255,21 @@ class TikTokManager:
         cnt = 0
         while True:
             if self.is_stop_upload:
-                break
-            xpath = get_xpath("div", "jsx-1384908514 info-progress-num")
+                return False
+            xpath = get_xpath("div", "info-progress-num", contain=True)
+            # xpath = get_xpath("div", "jsx-305849304 info-progress-num")
             ele = self.get_element_by_xpath(xpath)
             if ele:
                 ff = ele.text
                 print(ff)
                 if ff == '100%':
-                    break
-                sleep(5)
+                    return True
+                sleep(3)
+            else:
+                sleep(1)
                 cnt += 1
-            if cnt > 200:
-                break
+            if cnt > 3:
+                return False
 
 
     def click_schedule_post(self):
@@ -305,9 +291,9 @@ class TikTokManager:
             print("không thấy upload more video button")
     
     def waiting_for_capcha_verify(self):
-        sleep(1.5)
+        sleep(2)
         if self.tiktok_config['template'][self.account]['waiting_verify']:
-            sleep(20)
+            sleep(18)
         self.save_session()
 
     def get_element_by_xpath(self, xpath, key=None):
@@ -492,12 +478,15 @@ class TikTokManager:
                 description = f"{video_name}\n{description}"
                 video_path = os.path.join(videos_folder, video_file)
                 if upload_count > 0:
-                    self.click_upload_more_video_button()
+                    # self.click_upload_more_video_button()
+                    self.driver.get("https://www.tiktok.com/tiktokstudio/upload")
+                    sleep(3)
                 if self.is_stop_upload:
                     break
                 if not self.input_video_on_tiktok(video_path):
                     print(f'Có lỗi trong quá trình tải video lên.')
                     break
+                self.click_copyright_check()
                 self.input_description(description)
                 if self.is_stop_upload:
                     break
@@ -511,13 +500,18 @@ class TikTokManager:
                     if self.is_stop_upload:
                         break
                     self.select_time(publish_time)
-                    self.check_progress_upload()
-                    # self.click_copyright_check()
-                    # self.check_status_copyright_check()
-                    if self.is_stop_upload:
-                        break
+                    if self.check_progress_upload():
+                        if self.check_status_copyright_check():
+                            if self.is_stop_upload:
+                                break
+                            self.click_schedule_post()
+                        else:
+                            print(f'CẢNH BÁO: video {video_path} có thể đã vi phạm chính sách tiltok, hãy kiểm tra lại...')
+                            continue
+                    else:
+                        continue
 
-                    self.click_schedule_post()
+                    
                     upload_count += 1
                     if self.tiktok_config['template'][self.account]['upload_date'] != upload_date:
                         self.tiktok_config['template'][self.account]['upload_date'] = upload_date
@@ -528,16 +522,27 @@ class TikTokManager:
                         date_cnt += 1
                         if date_cnt == number_of_days:
                             break
+                        if is_date_greater_than_current_day(upload_date, 9):
+                            print("Dừng đăng video vì ngày lên lịch đã vượt  quá giới hạn mà tiktok cho phép(tối đa 10 ngày)")
+                            break
                 else:
                     if self.is_stop_upload:
                         break
                     if self.is_stop_upload:
                         break
-                    self.check_progress_upload()
-                    self.click_post_button()
+                    if self.check_progress_upload():
+                        if self.check_status_copyright_check():
+                            if self.is_stop_upload:
+                                break
+                            self.click_post_button()
+                        else:
+                            print(f'CẢNH BÁO: video {video_path} có thể đã vi phạm chính sách tiltok, hãy kiểm tra lại...')
+                            continue
+                    else:
+                        continue
                     
-                    remove_or_move_after_upload(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
                     upload_count += 1
+                    remove_or_move_after_upload(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
                     if upload_count == number_of_days:
                         break
             if upload_count > 0:

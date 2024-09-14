@@ -206,7 +206,6 @@ class YouTubeManager():
         if ele:
             ele.clear()
             ele.send_keys(description)
-            sleep(1)
 
     def input_thumbnail(self, thumbnail_path):
         xpath = get_xpath('input', 'style-scope ytcp-thumbnail-uploader', attribute='accept', attribute_value='image/jpeg,image/png')
@@ -377,7 +376,7 @@ class YouTubeManager():
             xpath = get_xpath('ytcp-icon-button', 'style-scope ytcp-date-picker', 'aria-label', 'Tháng sau')
         ele = self.get_element_by_xpath(xpath)
         if ele:
-            for i in range(2):
+            for i in range(3):
                 ele.click()
                 sleep(1)
     def click_previous_month(self):
@@ -408,6 +407,27 @@ class YouTubeManager():
         if ele:
             ele.click()
             sleep(5)
+
+    def check_status_upload(self):
+        xpath = get_xpath('span', 'progress-label style-scope ytcp-video-upload-progress')
+        cnt = 0
+        while True:
+            try:
+                ele = self.get_element_by_xpath(xpath)
+                status = ele.text
+                if 'Đã tải được' in status:
+                    print(status)
+                    sleep(1.5)
+                else:
+                    print(status)
+                    break
+            except:
+                getlog()
+                cnt += 1
+                if cnt > 5:
+                    break
+                sleep(2)
+
 
     def click_close_button(self):
         if self.en_language:
@@ -591,7 +611,7 @@ class YouTubeManager():
             self.get_youtube_config()
             template_name = self.load_template_combobox.get()
             template = self.youtube_config['template'][template_name]
-            # Clear existing values
+
             self.title_var.delete(0, ctk.END)
             self.description_var.delete("1.0", ctk.END)
             self.upload_date_var.delete(0, ctk.END)
@@ -600,7 +620,6 @@ class YouTubeManager():
             self.number_of_days_var.delete(0, ctk.END)
             self.day_gap_var.delete(0, ctk.END)
 
-            # Insert new values from template
             self.title_var.insert(0, template.get("title", ""))
             self.is_title_plus_video_name_var.set(convert_boolean_to_Yes_No(self.youtube_config['template'][self.channel_name]['is_title_plus_video_name']))
             self.description_var.delete("1.0", ctk.END)
@@ -666,7 +685,6 @@ class YouTubeManager():
 
     def save_upload_setting(self):
         try:
-            self.get_youtube_config()
             self.youtube_config['template'][self.channel_name]["title"] = self.title_var.get()
             self.youtube_config['template'][self.channel_name]["is_title_plus_video_name"] = self.is_title_plus_video_name_var.get() == "Yes"
             self.youtube_config['template'][self.channel_name]["description"] = self.description_var.get("1.0", ctk.END).strip()
@@ -924,6 +942,7 @@ class YouTubeManager():
                     self.choose_publish_time(publish_time)
                     if self.is_stop_upload:
                         break
+                    self.check_status_upload()
                     self.click_schedule_now()
                     # self.click_close_button()
                     upload_count += 1
@@ -1031,7 +1050,7 @@ class YouTubeManager():
                     else:
                         self.youtube_config['template'][self.channel_name]['upload_date'] = convert_datetime_to_string(datetime.now().date())
                     self.save_youtube_config()
-                    print(f"Đăng thành công video '{video_file}' lúc {publish_datetime}")
+                    print(f"Đăng thành công video '{video_file}'")
                     if self.is_schedule:
                         if (i + 1) % len(publish_times) == 0:
                             upload_date += timedelta(days=day_gap)
@@ -1085,6 +1104,8 @@ class YouTubeManager():
                     if item['status']['privacyStatus'] == 'private':
                         continue
                     video_id = item["snippet"]["resourceId"]["videoId"]
+                    if video_id == 'KL69Lqiwc3Q':
+                        print(video_id)
                     self.video_info[video_id]={}
                     self.video_info[video_id]["title"] = item["snippet"]["title"]
                     self.video_info[video_id]["status"] = item['status']
@@ -1160,7 +1181,7 @@ class YouTubeManager():
                 video_id = video['id']
                 video_url = f'https://www.youtube.com/watch?v={video_id}'
                 if video_url in self.download_info['downloaded_urls']:
-                    print("url này đã tải hoặc có trong danh sách đợi download")
+                    print(f"video này đã tải trước đây rồi: {video_url}")
                     continue
                 print(f"bắt đầu tải video: {video_url} với {like_count} lượt thích và {view_count} lượt xem")
                 title = self.video_info[video_id]['title']
@@ -1180,13 +1201,13 @@ class YouTubeManager():
     def download_video_youtube_by_url(self, video_url):
         try:
             self.get_download_info()
-            download_video_by_url(video_url, self.youtube_config['download_folder'])
-            self.list_videos_download_from_channel.append(video_url)
-            if video_url not in self.download_info['downloaded_urls']:
-                self.download_info['downloaded_urls'].append(video_url)
-            save_to_json_file(self.download_info, download_info_path)
+            if download_video_by_url(video_url, self.youtube_config['download_folder']):
+                self.list_videos_download_from_channel.append(video_url)
+                if video_url not in self.download_info['downloaded_urls']:
+                    self.download_info['downloaded_urls'].append(video_url)
+                save_to_json_file(self.download_info, download_info_path)
         except:
-            getlog()
+            sleep(1)
 
 
 #common -------------------------------------------------------------------------------------------------------------
