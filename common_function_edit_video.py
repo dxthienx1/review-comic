@@ -754,7 +754,7 @@ def edit_audio(audio_path=None, video_path=None, video_url=None, speed="1", firs
     elif video_path:
         target_path = video_path
     elif video_url:
-        video_path = download_video_by_url(video_url, download_folder)
+        video_path = download_video_by_url(video_url, download_folder, return_file_path=True)
         target_path = video_path
     else:
         warning_message("Vui lòng chọn nguồn để edit video")

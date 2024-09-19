@@ -19,12 +19,7 @@ def load_config():
             "current_facebook_account": "",
             "current_channel": "",
             "current_page": "",
-
             "download_by_video_url": "",
-            "download_by_channel_id": "",
-            "download_by_channel_url": "",
-            "filter_by_like": 10000,
-            "filter_by_views": 500000,
 
             "file_name": "",
             "start_index": "",
@@ -103,10 +98,10 @@ youtube_category = {
 
 youtube_config = {
    "registered_account":[],
-   "current_youtube_account": "dxthienx2@gmail.com",
-   "current_channel": "The Interesting Football",
-   "download_folder": "E:/Video/Super Review/upload_finished",
-   "download_by_video_url": "https://drive.google.com/uc?export=download&id=1zzsthUUDxl1B3XX9TpMJVG_laMTLa3n7",
+   "current_youtube_account": "",
+   "current_channel": "",
+   "download_folder": "",
+   "download_by_video_url": "",
    "download_by_channel_id": "",
    "filter_by_like": "",
    "filter_by_views": "",
@@ -117,14 +112,14 @@ youtube_config = {
 
 tiktok_config = {
    "registered_account": [],
-   "output_folder": "E:/Video/chua xu ly/animals/smart animal",
+   "output_folder": "",
    "show_browser": True,
    "download_by_channel_url": "",
-   "download_folder": "E:/Video/hh3d HD/chua xu ly",
+   "download_folder": "",
    "is_move": False,
    "is_delete_after_upload": False,
-   "filter_by_like": 20000,
-   "filter_by_views": "300000",
+   "filter_by_like": "",
+   "filter_by_views": "",
    "template": {}
 }
 

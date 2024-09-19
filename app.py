@@ -1,19 +1,50 @@
 from common_function_edit_video import *
 from Common import *
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageTk
 import pystray
 from pystray import MenuItem as item
 from tiktok import TikTokManager
 from facebook import FacebookManager
 from youtube import YouTubeManager
+mac_registered = {
+    "0025_38D2_1104_730B.":{
+        "password":"123456",
+        "ngayhethan":"2025-09-19",
+        "bank":""
+    },
+    "82DD95ED-93E8-451C-A6A2-B0F478F7A36E":{
+        "password":"123456",
+        "ngayhethan":"2024-10-15",
+        "bank":""
+    },
+}
+is_registed_mac_address = False
+list_mac_registered = [mac for mac in mac_registered.keys()]
+
+mac_address = get_disk_serial()
+if mac_address in list_mac_registered:
+    ngayhethan_str = mac_registered[mac_address]['ngayhethan']
+    if is_date_greater_than_current_day(ngayhethan_str):
+        is_registed_mac_address = True
+        if is_date_greater_than_current_day(ngayhethan_str, day_delta=-5):
+            print(f'Tài khoản của bạn sẽ hết hạn vào ngày {ngayhethan_str} lúc 00:00:00')
 
 class MainApp:
     def __init__(self):
         try:
             self.root = ctk.CTk()
             self.root.title("Super App")
+
+            ico_path = os.path.join(current_dir, 'icon.ico')
+            if not os.path.exists(ico_path):
+                if os.path.exists(icon_path):
+                    image = Image.open(icon_path)
+                    image.save(ico_path, format='ICO')
+                    image.close()
+            if os.path.exists(ico_path):
+                self.root.iconbitmap(ico_path)
+
             self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-            self.lock = threading.Lock()
             self.download_thread = threading.Thread()
             self.upload_thread = threading.Thread()
             self.edit_thread = threading.Thread()
@@ -30,16 +61,13 @@ class MainApp:
             self.facebook = None
             self.is_sign_up_facebook = False
             self.is_facebook_window = False
-
             self.engine = pyttsx3.init()
             self.voices = []
             self.all_voice_index = {}
-
             remove_file("log.txt")
             #kiem tra quota
             time_remaining = get_time_remaining_until_quota_reset()
             self.next_time_check_quocta = time() + time_remaining
-
             self.thread_main = None
             self.icon = None
             self.translator=None
@@ -54,6 +82,10 @@ class MainApp:
             self.is_open_edit_video_menu = False
             self.is_open_common_setting = False
             self.is_other_window = False
+            self.is_other_download_window = False
+            self.is_download_douyin_video_window = False
+
+
             self.is_text_to_mp3_window = False
             self.is_edit_audio_window = False
             self.is_169_to_916 = True
@@ -61,7 +93,7 @@ class MainApp:
             self.is_increse_video_quality_window = False
             self.is_rename_file_by_index_window = False
             self.is_remove_char_in_file_name_window = False
-
+            self.is_open_register_mac_addres_window = False
             self.is_editing_video = False
             self.is_auto_upload_youtube = False
             self.is_auto_upload_facebook = False
@@ -73,16 +105,20 @@ class MainApp:
             self.pre_time_check_auto_upload_facebook = 0
             self.pre_time_check_auto_upload_tiktok = 0
             self.is_stop_edit = False
-
+            self.is_stop_download = False
             # self.start_main_check_thread()
-            self.setting_window_size()
-            self.create_icon()
-            self.get_start_window()
 
-            if self.config["auto_start"]:
-                set_autostart()
+            if is_registed_mac_address:
+                self.setting_window_size()
+                self.create_icon()
+                self.get_start_window()
+
+                if self.config["auto_start"]:
+                    set_autostart()
+                else:
+                    unset_autostart()
             else:
-                unset_autostart()
+                self.open_register_mac_addres_window()
         except:
             getlog()
 
@@ -191,6 +227,9 @@ class MainApp:
 #-------------------------------------------Điều hướng window--------------------------------------------
 
     def get_start_window(self):
+        if not is_registed_mac_address:
+            self.noti('Vui lòng đăng ký mã máy trước khi sử dụng')
+            return
         if not self.is_start_app:
             self.reset()
         self.show_window()
@@ -202,10 +241,70 @@ class MainApp:
         create_button(frame=self.root, text="Quản lý Facebook", command=self.open_facebook_window)
         create_button(frame=self.root, text="Xử lý video", command=self.open_edit_video_menu)
         create_button(frame=self.root, text="Xử lý audio", command=self.open_edit_audio_window)
+        create_button(frame=self.root, text="Tải video từ các nền tảng khác", command=self.open_other_download_video_window)
         create_button(frame=self.root, text="Chức năng khác", command=self.other_function)
         create_button(frame=self.root, text="Cài đặt đăng video tự động", command=self.setting_auto_upload)
         create_button(frame=self.root, text="Cài đặt chung", command=self.open_common_settings)
+    
+    def open_other_download_video_window(self):
+        def start_download_by_video_url():
+            download_url = self.download_by_video_url.get()
+            if not download_url:
+                self.noti("Hãy nhập link video muốn tải trước.")
+                return
+            if not self.download_thread or not self.download_thread.is_alive():
+                self.is_stop_download = False
+                self.download_thread = threading.Thread(target=self.download_video_by_video_url)
+                self.download_thread.start()
+        
+        self.reset()
+        self.is_other_download_window = True
+        self.show_window()
+        self.setting_window_size()
+        self.is_start_app = False
+        self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu video", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
+        self.download_by_video_url = create_frame_button_and_input(self.root,text="Tải video từ URL", command=start_download_by_video_url, width=self.width, left=0.4, right=0.6)
+        create_button(frame=self.root, text="Tải video từ Douyin", command=self.open_download_douyin_video_window)
+        create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
+    def choose_folder_to_save(self):
+        download_folder = filedialog.askdirectory()
+        if download_folder:
+            self.download_folder_var.delete(0, ctk.END)
+            self.download_folder_var.insert(0, download_folder)
+            self.config['download_folder'] = download_folder
+            self.save_config()
+
+    def download_video_by_video_url(self):
+        video_url = self.download_by_video_url.get()
+        download_video_by_url(video_url, self.config['download_folder'])
+
+
+    def open_download_douyin_video_window(self):
+        self.reset()
+        self.is_download_douyin_video_window = True
+        self.show_window()
+        self.setting_window_size()
+
+        def start_download_douyin_video_by_url():
+            url = self.download_by_video_url.get()
+            pass
+
+        def start_download_douyin_channel():
+            channel_link = self.download_by_channel_link.get()
+            if not channel_link:
+                self.noti("Hãy nhập link kênh muốn tải video trước.")
+                return
+            driver = get_driver()
+            driver.get(channel_link)
+
+        self.download_by_video_url = create_frame_button_and_input(self.root, text="Tải video từ link video", command=start_download_douyin_video_by_url, width=self.width, left=0.4, right=0.6)
+        self.download_by_channel_link = create_frame_button_and_input(self.root, text="Tải hàng loạt video từ link kênh", command=start_download_douyin_channel, width=self.width, left=0.4, right=0.6)
+        create_button(self.root, text="Lùi lại", command=self.open_other_download_video_window, width=self.width)
+
+    def check_noti_login_douyin(self):
+        xpath = get_xpath()
+        
     def open_edit_audio_window(self):
         self.reset()
         self.is_edit_audio_window = True
@@ -222,6 +321,7 @@ class MainApp:
         self.setting_window_size()
         create_button(self.root, text="Đặt tên file theo chỉ số", command=self.open_rename_file_by_index_window, width=self.width)
         create_button(self.root, text="Xóa ký tự trong file", command=self.open_remove_char_in_file_name_window, width=self.width)
+        create_button(self.root, text="Đăng ký mã máy", command=self.open_register_mac_addres_window, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
     def setting_auto_upload(self):
@@ -249,7 +349,10 @@ class MainApp:
         self.is_youtube_window = True
         self.show_window()
         self.setting_window_size()
-        self.input_gmail = self.create_settings_input("Chọn tài khoản Youtube", "current_youtube_account" ,values=list(set([self.youtube_config['template'][key]['gmail'] for key in self.youtube_config['template'].keys()])), left=0.4, right=0.6, add_button=True, text='Tìm channel', command=self.choose_a_youtube_channel)
+        values = list(set([self.youtube_config['template'][key]['gmail'] for key in self.youtube_config['template'].keys()]))
+        if not values:
+            values = ['-------------------------']
+        self.input_gmail = self.create_settings_input("Chọn tài khoản Youtube", "current_youtube_account" ,values=values, left=0.4, right=0.6, add_button=True, text='Tìm channel', command=self.choose_a_youtube_channel)
         self.input_gmail.set(self.youtube_config['current_youtube_account'])
         if self.youtube_config['current_youtube_account']:
             values = [k for k,v in self.youtube_config['template'].items() if v.get('gmail') == self.youtube_config['current_youtube_account']]
@@ -304,7 +407,7 @@ class MainApp:
         self.show_window()
         self.input_gmail = self.create_settings_input(label_text="Tài khoản youtube", config_key='current_youtube_account', values=self.youtube_config['registered_account'], left=0.3, right=0.7)
         self.input_current_channel_name = create_frame_label_and_input(self.root, label_text="Nhập tên kênh")
-        create_button(frame=self.root, text="Đăng ký ngay(có xác minh)", command=self.sign_up_youtube_channel)
+        create_button(frame=self.root, text="Đăng ký ngay", command=self.sign_up_youtube_channel)
         create_button(self.root, text="Lùi lại", command=self.open_youtube_window, width=self.width)
     
     def sign_up_youtube_channel(self):
@@ -351,13 +454,14 @@ class MainApp:
             channel_name = self.input_current_channel_name.get().strip()
             if not gmail or not channel_name:
                 self.noti("Hãy nhập đủ thông tin!")
+                return
             if channel_name not in self.youtube_config['template'].keys():
                 self.noti("kênh này chưa đăng ký!")
                 return
             if gmail not in self.youtube_config['registered_account']: 
                 self.noti("Gmail này chưa đăng ký!")
                 return
-        self.youtube = YouTubeManager(gmail, channel_name, is_auto_upload=False, lock=self.lock, download_thread=self.download_thread, upload_thread=self.upload_thread)
+        self.youtube = YouTubeManager(gmail, channel_name, is_auto_upload=False, download_thread=self.download_thread, upload_thread=self.upload_thread)
         self.reset()
         self.youtube_config['current_youtube_account'] = gmail
         self.youtube_config['current_channel'] = channel_name
@@ -436,7 +540,7 @@ class MainApp:
             self.start_tiktok_management()
 
         self.tiktok_account_var = create_frame_label_and_input(self.root, label_text="Nhập tài khoản tiktok")
-        self.tiktok_password_var = create_frame_label_and_input(self.root, label_text="Nhập mật khẩu")
+        self.tiktok_password_var = create_frame_label_and_input(self.root, label_text="Nhập mật khẩu", is_password=True)
         create_button(self.root, text="Đăng ký ngay", command=sign_up_tiktok)
         create_button(self.root, text="Lùi lại", command=self.open_tiktok_window, width=self.width)
 
@@ -492,8 +596,11 @@ class MainApp:
             self.facebook_config['template'][self.facebook_page_name]['is_title_plus_video_name'] = False
             self.facebook_config['template'][self.facebook_page_name]['upload_date'] = datetime.now().strftime('%Y-%m-%d')
             self.facebook_config['template'][self.facebook_page_name]['is_delete_after_upload'] = False
+            self.facebook_config['template'][self.facebook_page_name]['is_move_after_upload'] = False
             self.facebook_config['template'][self.facebook_page_name]['number_of_days'] = "1"
             self.facebook_config['template'][self.facebook_page_name]['day_gap'] = "1"
+            self.facebook_config['template'][self.facebook_page_name]['is_reel_video'] = False
+            self.facebook_config['template'][self.facebook_page_name]['waiting_verify'] = False
             if self.facebook_account not in self.facebook_config['registered_account']:
                 self.facebook_config['registered_account'].append(self.facebook_account)
             save_to_json_file(self.facebook_config, facebook_config_path)
@@ -501,7 +608,7 @@ class MainApp:
 
         # self.facebook_account_var = create_frame_label_and_input(self.root, label_text="Nhập tên đăng nhập facebook")
         self.facebook_account_var = self.create_settings_input(label_text="Tài khoản Facebook", config_key='current_facebook_account', values=self.facebook_config['registered_account'], left=0.3, right=0.7)
-        self.facebook_password_var = create_frame_label_and_input(self.root, label_text="Nhập mật khẩu")
+        self.facebook_password_var = create_frame_label_and_input(self.root, label_text="Nhập mật khẩu", is_password=True)
         self.facebook_page_name_var = create_frame_label_and_input(self.root, label_text="Nhập tên trang")
         create_button(self.root, text="Đăng ký ngay", command=sign_up_facebook)
         create_button(self.root, text="Lùi lại", command=self.open_facebook_window, width=self.width)
@@ -1399,9 +1506,12 @@ class MainApp:
         self.is_text_to_mp3_window = False
         self.is_combine_video_window = False
         self.is_increse_video_quality_window = False
-        self.is_other_window = False
         self.is_rename_file_by_index_window = False
         self.is_remove_char_in_file_name_window = False
+        self.is_open_register_mac_addres_window = False
+        self.is_other_window = False
+        self.is_other_download_window = False
+        self.is_download_douyin_video_window = False
         self.clear_after_action()
         clear_widgets(self.root)
         self.videos_edit_folder_var = None
@@ -1423,7 +1533,6 @@ class MainApp:
             icon_path = os.path.join(current_dir, 'icon.png')
             if not os.path.exists(icon_path):
                 icon_path = None
-
             image = self.create_image(icon_path)
             menu = (
                 item("Hiển thị menu", self.get_start_window),
@@ -1433,7 +1542,7 @@ class MainApp:
                 item("Dừng tất cả tiến trình đang chạy", self.stop_all_process),
                 item("Thoát ứng dụng", self.exit_app),
             )
-            self.icon = pystray.Icon("Smart Reminder", image, "Smart Reminder", menu)
+            self.icon = pystray.Icon("Super Social Media", image, "Super Social Media", menu)
             tray_thread = threading.Thread(target=self.icon.run_detached)
             tray_thread.daemon = True
             tray_thread.start()
@@ -1447,7 +1556,7 @@ class MainApp:
             self.facebook.is_stop_download = True
         if self.tiktok:
             self.tiktok.is_stop_download = True
-        print("Đã dừng quá trình download video, quá trình dừng có thể mất vài giây.")
+        print("Đã dừng quá trình tải video (những file đang tải sẽ không hủy được, nếu muốn dừng thì phải khởi động lại chương trình)")
     def stop_upload(self):
         if self.youtube:
             self.youtube.is_stop_upload = True
@@ -1455,10 +1564,10 @@ class MainApp:
             self.facebook.is_stop_upload = True
         if self.tiktok:
             self.tiktok.is_stop_upload = True
-        print("Đã dừng quá trình upload video, quá trình dừng có thể mất vài giây.")
+        print("Đã dừng quá trình đăng video (những video đang đăng sẽ không hủy được, nếu muốn dừng thì phải khởi động lại chương trình)")
     def stop_edit_videos(self):
         self.is_stop_edit = True
-        print("Đã dừng quá trình chỉnh sửa video, quá trình dừng có thể mất vài giây.")
+        print("Đã dừng quá trình chỉnh sửa video (những video đang chỉnh sửa sẽ không dừng được, nếu muốn dừng thì phải khởi động lại chương trình)")
 
     def stop_all_process(self):
         self.stop_download()
@@ -1467,10 +1576,7 @@ class MainApp:
         self.is_auto_upload_youtube = False
         self.is_auto_upload_facebook = False
         self.is_auto_upload_tiktok = False
-        print("Đã dừng tất cả các luồng chương trình đang chạy, quá trình dừng có thể mất vài giây.")
-        # self.youtube = None
-        # self.facebook = None
-        # self.tiktok = None
+        print("Đã dừng tất cả các chương trình")
 
     def create_image(self, icon_path=None):
         if icon_path:
@@ -1513,7 +1619,7 @@ class MainApp:
     def setting_window_size(self):
         if self.is_start_app:
             self.width = 500
-            self.height_window = 435
+            self.height_window = 480
         else:
             if self.is_setting:
                 self.root.title("Setting")
@@ -1624,11 +1730,26 @@ class MainApp:
                 self.width = 500
                 self.height_window = 315
                 self.is_remove_char_in_file_name_window = False
+            elif self.is_open_register_mac_addres_window:
+                self.root.title("Change Mac Address")
+                self.width = 500
+                self.height_window = 365
+                self.is_open_register_mac_addres_window = False
             elif self.is_other_window:
                 self.root.title("Other")
                 self.width = 500
-                self.height_window = 215
+                self.height_window = 263
                 self.is_other_window = False
+            elif self.is_other_download_window:
+                self.root.title("Other Download Window")
+                self.width = 500
+                self.height_window = 263
+                self.is_other_download_window = False
+            elif self.is_download_douyin_video_window:
+                self.root.title("Download Douyin Video")
+                self.width = 500
+                self.height_window = 263
+                self.is_download_douyin_video_window = False
 
         self.setting_screen_position()
 
@@ -1656,8 +1777,41 @@ class MainApp:
         self.file_name_extension_var.insert(0, '.mp4')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         create_button(frame=self.root, text="Bắt Đầu Đổi Tên", command= self.remove_char_in_file_name)
-        create_button(self.root, text="Back", command=self.other_function, width=self.width)
+        create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
         self.show_window()
+
+    def open_register_mac_addres_window(self):
+        if not self.is_start_app:
+            self.reset()
+        self.is_open_register_mac_addres_window = True
+        self.show_window()
+        self.setting_window_size()
+
+        def sign_up_mac_address():
+            print("chưa kết nối server")
+
+        def change_mac_address_now():
+            print("chưa kết nối server")
+
+        def change_mac_address_window():
+            self.reset()
+            self.is_open_register_mac_addres_window = True
+            self.show_window()
+            self.setting_window_size()
+            self.get_mac_address_var = create_frame_label_and_input(self.root, label_text="Nhập mã máy cũ",  width=self.width, left=0.4, right=0.6)
+            self.pass_mac_var = create_frame_label_and_input(self.root, label_text="Nhập mật mã xác nhận", width=self.width, left=0.4, right=0.6)
+            self.get_mac_address_var = create_frame_label_and_input(self.root, label_text="Nhập mã máy mới",  width=self.width, left=0.4, right=0.6)
+            create_button(frame=self.root, text="Đổi thông tin ngay", command= change_mac_address_now, width=self.width)
+            create_button(self.root, text="Lùi lại", command=self.open_register_mac_addres_window, width=self.width)
+
+        self.get_mac_address_var = create_frame_button_and_input(self.root, text="Lấy mã máy", command=self.get_mac_address_now, width=self.width, left=0.4, right=0.6)
+        self.pass_mac_var = create_frame_label_and_input(self.root, label_text="Tạo mật mã xác nhận (6 số)", width=self.width, left=0.4, right=0.6)
+        self.deadline_var = create_frame_label_and_input(self.root, label_text="Nhập số tháng đã đăng ký", width=self.width, left=0.4, right=0.6)
+        self.bank_account_var = create_frame_label_and_input(self.root, label_text="Số tài khoản ngân hàng đã chuyển tiền",  width=self.width, left=0.4, right=0.6)
+        create_button(frame=self.root, text="Gửi đăng ký và chờ duyệt (duyệt trong vòng 24h)", command= sign_up_mac_address, width=self.width)
+        if is_registed_mac_address:
+            create_button(frame=self.root, text="Đổi thông tin", command= change_mac_address_window, width=self.width)
+            
 
     def rename_file_by_index(self):
         base_name = self.file_name_var.get()
@@ -1666,6 +1820,11 @@ class MainApp:
         videos_folder = self.videos_edit_folder_var.get()
         if self.check_folder(videos_folder):
             rename_files_by_index(videos_folder, base_name, extension, index)
+    
+    def get_mac_address_now(self):
+        mac = get_disk_serial()
+        self.get_mac_address_var.delete(0, ctk.END)
+        self.get_mac_address_var.insert(0, mac)
 
     def remove_char_in_file_name(self):
         chars_want_to_remove = self.char_want_to_remove_var.get()

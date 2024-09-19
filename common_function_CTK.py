@@ -82,10 +82,13 @@ def create_frame(frame, fill='x', side=None):
     frame.pack(padx=padx, pady=pady, fill=fill, side=side)
     return frame
 
-def create_text_input(frame, width=width_window, placeholder=None, side="right", default=""):
+def create_text_input(frame, width=width_window, placeholder=None, side="right", default="", is_password=False):
     if not width:
         width = width
-    text_input = ctk.CTkEntry(master=frame, width=width, height=height_element*0.8, placeholder_text=placeholder, textvariable=default)
+    if is_password:
+        text_input = ctk.CTkEntry(master=frame, width=width, height=height_element*0.8, placeholder_text=placeholder, textvariable=default, show="*")
+    else:
+        text_input = ctk.CTkEntry(master=frame, width=width, height=height_element*0.8, placeholder_text=placeholder, textvariable=default)
     text_input.pack(pady=pady, padx=padx, side=side)
     return text_input
 
@@ -115,10 +118,11 @@ def create_frame_label_input_input(root, label_text="", place_holder1=None, plac
     entry2 = create_text_input(frame=frame, width=width*right, placeholder=place_holder2)
     return entry1, entry2
 
-def create_frame_label_and_input(root, label_text="", place_holder=None, width=width_window, left=left, right=right):
+def create_frame_label_and_input(root, label_text="", place_holder=None, width=width_window, left=left, right=right, is_password=False):
     frame = create_frame(root)
     label = create_label(frame=frame, text=label_text, side=LEFT, width=width*left, compound=LEFT, anchor='w')
-    entry = create_text_input(frame=frame, width=width*right, placeholder=place_holder)
+    entry = create_text_input(frame=frame, width=width*right, placeholder=place_holder, is_password=is_password)
+
     return entry
 
 def create_frame_button_input_input(root,text, width=width_window, place_holder1=None, place_holder2=None, command=None, left=0.25, mid=0.56, right=0.19):

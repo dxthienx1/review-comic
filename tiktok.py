@@ -61,6 +61,7 @@ class TikTokManager:
                         password_input.send_keys(self.password)
                         sleep(0.3)
                         password_input.send_keys(Keys.RETURN)
+                    press_esc_key(2, self.driver)
                     self.waiting_for_capcha_verify()
                     upload_link = self.get_upload_button()
             if upload_link:
@@ -261,7 +262,8 @@ class TikTokManager:
             ele = self.get_element_by_xpath(xpath)
             if ele:
                 ff = ele.text
-                print(ff)
+                sys.stdout.write(f'\rĐã tải lên được {ff} ...')
+                sys.stdout.flush()
                 if ff == '100%':
                     return True
                 sleep(3)
@@ -477,6 +479,7 @@ class TikTokManager:
                 description = self.tiktok_config['template'][self.account]['description']
                 description = f"{video_name}\n{description}"
                 video_path = os.path.join(videos_folder, video_file)
+                print(f'--> Bắt đầu đăng video {video_file}')
                 if upload_count > 0:
                     # self.click_upload_more_video_button()
                     self.driver.get("https://www.tiktok.com/tiktokstudio/upload")
@@ -516,6 +519,7 @@ class TikTokManager:
                     if self.tiktok_config['template'][self.account]['upload_date'] != upload_date:
                         self.tiktok_config['template'][self.account]['upload_date'] = upload_date
                         self.save_tiktok_config()
+                    print(f'--> Đăng thành công video {video_file}')
                     remove_or_move_after_upload(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
                     if (upload_count) % len(publish_times) == 0:
                         upload_date = add_date_into_string(upload_date, day_gap)
@@ -542,6 +546,7 @@ class TikTokManager:
                         continue
                     
                     upload_count += 1
+                    print(f'--> Đăng thành công video {video_file}')
                     remove_or_move_after_upload(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
                     if upload_count == number_of_days:
                         break
@@ -635,6 +640,7 @@ class TikTokManager:
         # self.get_tiktok_videos_by_channel_url(channel_url=channel_url, view_cnt=self.tiktok_config['filter_by_views'], like_cnt=self.tiktok_config['filter_by_like'])
 
     def get_tiktok_videos_by_channel_url(self, url, view_cnt=0):
+        t = time()
         file_name = self.file_name_var.get()
         if file_name:
             if '<index>' not in file_name:
@@ -666,12 +672,15 @@ class TikTokManager:
                 sleep(1)
                 self.driver.refresh()
                 sleep(2)
-            self.driver.get(url) # Mở trang TikTok
-            sleep(4)  # Đợi trang tải
+            self.driver.get(url)
+            press_esc_key(1, self.driver)
+            sleep(4)
             if self.is_stop_download:
                 self.close()
                 return None
-            last_height = self.driver.execute_script("return document.body.scrollHeight") # Tự động cuộn trang
+            last_height = self.driver.execute_script("return document.body.scrollHeight")
+            k = False
+            print(f"Bắt đầu quét video trong kênh theo link {url} ...")
             while True:
                 if self.is_stop_download:
                     self.close()
@@ -680,12 +689,17 @@ class TikTokManager:
                 sleep(2)
                 new_height = self.driver.execute_script("return document.body.scrollHeight") # Tính chiều cao mới của trang
                 if new_height == last_height: # Kiểm tra nếu không có thêm nội dung mới
-                    break
-                last_height = new_height
-                if self.is_download_by_search_url:
-                    cnt_search += 1
-                    if cnt_search > 15:
+                    if k:
                         break
+                    else:
+                        k = True
+                        sleep(2)
+                        continue
+                k = False
+                last_height = new_height
+                cnt_search += 1
+                if cnt_search > 200:
+                    break
             
             self.download_info = load_download_info()
             video_urls = []

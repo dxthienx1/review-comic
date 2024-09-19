@@ -31,11 +31,25 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium_stealth import stealth
+
 import subprocess
 import ffmpeg
 import pickle
+import uuid
+import wmi
+def get_mac_address():
+    mac = uuid.getnode()
+    return ':'.join(('%012X' % mac)[i:i+2] for i in range(0, 12, 2))
+
+def get_disk_serial():
+    c = wmi.WMI()
+    for disk in c.Win32_DiskDrive():
+        for partition in disk.associators("Win32_DiskDriveToDiskPartition"):
+            for logical_disk in partition.associators("Win32_LogicalDiskToPartition"):
+                if logical_disk.DeviceID == "C:" or logical_disk.DeviceID == "c:":
+                    return disk.SerialNumber
 
 is_dev_enviroment = True
 def get_current_dir():
@@ -44,12 +58,12 @@ def get_current_dir():
         # Đang chạy từ tệp thực thi đóng gói
         current_dir = os.path.dirname(sys.executable)
         is_dev_enviroment = False
-        print("Đang chạy từ tệp thực thi đóng gói")
+        # print("Đang chạy từ tệp thực thi đóng gói")
     else:
         # Đang chạy trong môi trường phát triển
         current_dir = os.path.dirname(os.path.abspath(__file__))
         is_dev_enviroment = True
-        print("Đang chạy trong môi trường phát triển")
+        # print("Đang chạy trong môi trường phát triển")
     return current_dir
 current_dir = get_current_dir()
 print(current_dir)
@@ -90,13 +104,12 @@ def load_ffmpeg():
     if not is_ffmpeg_available():
         ffmpeg_dir = get_ffmpeg_dir()
         os.environ["PATH"] += os.pathsep + ffmpeg_dir
-        print(ffmpeg_dir)
+        # print(ffmpeg_dir)
 #load ffmpeg
 load_ffmpeg()
 
 def get_driver(show=True):
     try:
-        print(chromedriver_path)
         service = Service(chromedriver_path)
         options = webdriver.ChromeOptions()
         if not show:
@@ -382,13 +395,17 @@ def save_to_pickle_file(data, file_path):
     except:
         getlog()
 
-def get_txt_data(file_path, utf8=False):
+def get_txt_data(file_path):
     if not os.path.isfile(file_path):
         return None
-    encoding = "utf-8" if utf8 else None
-    with open(file_path, "r", encoding=encoding) as file:
+    with open(file_path, "r", encoding="utf-8") as file:
         content = file.read()
     return content
+
+def save_list_to_txt(data_list, file_path):
+    with open(file_path, "w", encoding="utf-8") as file:
+        for item in data_list:
+            file.write(f"{item}\n")
 
 def get_json_data_from_url(url):
     response = requests.get(url)
@@ -441,7 +458,8 @@ def get_output_folder(input_video_path, output_folder_name='output_folder'):
     return output_folder, output_file_path, file_name
 
 #Áp dụng cho tất cả url
-def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=1):
+def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=3, return_file_path=False):
+    t = time()
     if not url:
         return False
     try:
@@ -485,6 +503,13 @@ def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=
                             break
                 else:
                     file_path = get_file_path(title)
+                    cnt = 0
+                    while True:
+                        if os.path.exists(file_path):
+                            cnt += 1
+                            file_path = f"{file_path.split('.mp4')[0]}_{cnt}.mp4"
+                        else:
+                            break
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -493,11 +518,20 @@ def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download(url)
-        sleep(sleep_time)
-        return True
+        t1 = time() - t
+        if t1 < sleep_time:
+            sleep(sleep_time-t1)
+        print(f'Tải thành công video: {file_path}')
+        if return_file_path:
+            return file_path
+        else:
+            return True
     except:
         sleep(5)
-    return False
+    if get_file_path:
+        return None
+    else:
+        return False
     
 def get_info_by_url(url, download_folder=None, is_download=False):
     if not url:
@@ -693,19 +727,19 @@ def remove_char_in_file_name(folder_path, chars_want_to_remove, extension=None):
     except:
         pass
 
-def remove_or_move_after_upload(input_video_path, is_delete, finish_folder_name='upload_finished'):
+def remove_or_move_after_upload(input_video_path, is_delete=False, is_move=True, finish_folder_name='upload_finished'):
     try:
         if is_delete:
             os.remove(input_video_path)
             print(f'Đã xóa file {input_video_path}')
-        else:
+        elif is_move:
             videos_folder = os.path.dirname(input_video_path)
             finish_folder = os.path.join(videos_folder, f'{finish_folder_name}')
             os.makedirs(finish_folder, exist_ok=True)
             base_name = os.path.basename(input_video_path)
             move_file_path = os.path.join(finish_folder, base_name)
             shutil.move(input_video_path, move_file_path)
-            print(f'Đã di chuyển file đến {move_file_path}')
+            print(f'Đã di chuyển file {input_video_path} đến thư mục {finish_folder}')
     except:
         print(f"Không thể xóa hoặc di chuyển file {input_video_path}")
         
@@ -767,4 +801,9 @@ def convert_boolean_to_Yes_No(value):
     else:
         return 'No'
     
-
+def press_esc_key(cnt=1, driver=None):
+    if driver:
+        for i in range(cnt):
+            actions = ActionChains(driver)
+            actions.send_keys(Keys.ESCAPE).perform()
+            sleep(0.2)

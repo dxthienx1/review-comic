@@ -41,7 +41,7 @@ class FacebookManager:
         self.show_window()
         self.setting_window_size()
         create_button(frame = self.root, text="Upload Videos", command= self.open_upload_video_window)
-        create_button(frame = self.root, text="Download Videos", command=self.open_download_video_window)
+        create_button(frame = self.root, text="Download Videos", command=self.open_download_page_video_window)
         try:
             self.root.mainloop()
         except:
@@ -71,8 +71,9 @@ class FacebookManager:
             self.is_title_plus_video_name_var.set(convert_boolean_to_Yes_No(temppale['is_title_plus_video_name']))
             self.show_browser_var.set(convert_boolean_to_Yes_No(self.facebook_config['show_browser']))
             self.is_delete_after_upload_var.set(convert_boolean_to_Yes_No(temppale['is_delete_after_upload']))
+            self.is_move_after_upload_var.set(convert_boolean_to_Yes_No(temppale['is_move_after_upload']))
             self.is_reel_video_var.set(convert_boolean_to_Yes_No(temppale['is_reel_video']))
-            self.waiting_verify_var.set(convert_boolean_to_Yes_No(temppale['waiting_verify_var']))
+            self.waiting_verify_var.set(convert_boolean_to_Yes_No(temppale['waiting_verify']))
             self.upload_folder_var.delete(0, ctk.END)
             self.upload_folder_var.insert(0, temppale['upload_folder'])
             self.number_of_days_var.delete(0, ctk.END)
@@ -93,6 +94,7 @@ class FacebookManager:
         self.number_of_days_var = self.create_settings_input("Số ngày muốn đăng", "number_of_days", left=0.3, right=0.7)
         self.day_gap_var = self.create_settings_input("Khoảng cách giữa các ngày đăng", "day_gap", left=0.3, right=0.7)
         self.is_delete_after_upload_var = self.create_settings_input("Xóa video sau khi đăng", "is_delete_after_upload", values=["Yes", "No"], left=0.3, right=0.7)
+        self.is_move_after_upload_var = self.create_settings_input("Di chuyển video sau khi đăng", "is_move_after_upload", values=["Yes", "No"], left=0.3, right=0.7)
         self.is_reel_video_var = self.create_settings_input("Đây là thước phim?", "is_reel_video", values=["Yes", "No"], left=0.3, right=0.7)
         self.waiting_verify_var = self.create_settings_input("Thêm thời gian chờ xác minh", "waiting_verify", values=["Yes", "No"], left=0.3, right=0.7)
         self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", values=['Yes', 'No'], left=0.3, right=0.7, is_data_in_template=False)
@@ -153,6 +155,7 @@ class FacebookManager:
             self.facebook_config['template'][self.page_name]["is_title_plus_video_name"] = self.is_title_plus_video_name_var.get() == "Yes"
             self.facebook_config['template'][self.page_name]["upload_folder"] = self.upload_folder_var.get()
             self.facebook_config['template'][self.page_name]["is_delete_after_upload"] = self.is_delete_after_upload_var.get() == 'Yes'
+            self.facebook_config['template'][self.page_name]["is_move_after_upload"] = self.is_move_after_upload_var.get() == 'Yes'
             self.facebook_config['template'][self.page_name]["is_reel_video"] = self.is_reel_video_var.get() == 'Yes'
             self.facebook_config['template'][self.page_name]["waiting_verify"] = self.waiting_verify_var.get() == 'Yes'
             self.facebook_config['template'][self.page_name]["number_of_days"] = self.number_of_days_var.get()
@@ -165,8 +168,101 @@ class FacebookManager:
             return False
         
 
-    def open_download_video_window(self):
-        pass
+    def open_download_page_video_window(self):
+        self.reset()
+        self.is_download_video_window = True
+        self.show_window()
+        self.setting_window_size()
+
+        def choose_folder_to_save():
+            download_folder = choose_folder()
+            if download_folder:
+                self.download_folder_var.delete(0, ctk.END)
+                self.download_folder_var.insert(0, download_folder)
+                self.facebook_config['download_folder'] = download_folder
+                self.save_facebook_config()
+
+        def download_page_videos_now():
+            try:
+                t = time()
+                video_urls = []
+                page_link = self.page_link_var.get()
+                if self.login(is_download=True):
+                    self.driver.get(page_link)
+                    press_esc_key(2, self.driver)
+                    sleep(2)
+                    last_height = self.driver.execute_script("return document.body.scrollHeight") # Tự động cuộn trang
+                    cnt_search = 0
+                    k = False
+                    print(f"Bắt đầu quét video trong trang facebook theo link {page_link}...")
+                    while True:
+                        if self.is_stop_download:
+                            break
+                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);") # Cuộn xuống cuối trang
+                        sleep(2)
+                        new_height = self.driver.execute_script("return document.body.scrollHeight") # Tính chiều cao mới của trang
+                        if new_height == last_height: # Kiểm tra nếu không có thêm nội dung mới
+                            if k:
+                                break
+                            else:
+                                k = True
+                                sleep(6)
+                                continue
+                        k = False
+                        last_height = new_height
+                        cnt_search += 1
+                        if cnt_search > 250:
+                            break
+
+                    # link_video_eles = self.driver.find_elements(By.XPATH, './/a[contains(@href, "/videos/")]')
+                    link_video_eles = self.driver.find_elements(By.XPATH, './/a[contains(@href, "/videos/") and not(contains(@href, "?comment"))]')
+                    if len(link_video_eles) > 0:
+                        for ele in link_video_eles:
+                            if self.is_stop_download:
+                                    break
+                            url = ele.get_attribute('href') or None
+                            if url and url not in video_urls:
+                                video_urls.append(url)
+                        t1 = int(time() - t)
+                        print(f'Thời gian quét video là {int(t1/60)} phút {t1%60} giây --> Tổng tìm thấy {len(link_video_eles)} video ...')
+                    else:
+                        print(f"Không tìm thấy video nào từ link {page_link}")
+                    if len(video_urls) > 0:
+                        print('Quá trình tải video bắt đầu ...')
+                        download_info = get_json_data(download_info_path)
+                        cnt = 0
+                        for url in video_urls:
+                            if self.is_stop_download:
+                                    break
+                            if download_video_by_url(url, self.facebook_config['download_folder']):
+                                if url not in download_info['downloaded_urls']:
+                                    download_info['downloaded_urls'].append(url)
+                                    video_urls.remove(url)
+                                    save_to_json_file(download_info, download_info_path)
+                                    cnt += 1
+                    if len(video_urls) > 0:
+                        save_list_to_txt(video_urls, f"{os.path.join(self.facebook_config['download_folder'], 'danh sach video chua tai.txt')}")
+                    if cnt > 0:
+                        print(f'Đã tải thành công {cnt} video')
+                    else:
+                        print('Không tải được video.')
+                self.close()
+            except:
+                getlog()
+                if len(video_urls) > 0:
+                    save_list_to_txt(video_urls, f"{os.path.join(self.facebook_config['download_folder'], 'danh sach video chua tai.txt')}")
+                self.close()
+
+        def start_thread_download_page_video():
+            if not self.download_thread or not self.download_thread.is_alive():
+                self.is_stop_download = False
+                self.download_thread = threading.Thread(target=download_page_videos_now)
+                self.download_thread.start()
+        
+        self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu video", command=choose_folder_to_save, width=self.width, left=0.35, right=0.65)
+        self.download_folder_var.insert(0, self.facebook_config['download_folder'])
+        self.page_link_var = create_frame_button_and_input(self.root,text="Tải từ link trang facebook", command=start_thread_download_page_video, width=self.width, left=0.35, right=0.65)
+        create_button(self.root, text="Lùi lại", command=self.get_start_facebook, width=self.width)
 
 #-----------------------------------Đăng Nhập FB--------------------------------------------
     def load_session(self, url="https://www.facebook.com"):
@@ -220,33 +316,31 @@ class FacebookManager:
             sleep(28)
         self.save_session()
 
-    def login(self):
+    def login(self, is_download=False):
         try:
-            self.driver = get_driver(show=self.facebook_config['show_browser'])
+            if is_download:
+                self.driver = get_driver(show=False)
+            else:
+                self.driver = get_driver(show=self.facebook_config['show_browser'])
             self.load_session()
-            profile_element, language = self.get_profile_element()
-            if not profile_element:
+            self.profile_element, language = self.get_profile_element()
+            if not self.profile_element:
                 email_input = self.driver.find_element(By.ID, 'email')
                 email_input.send_keys(self.account)
-                sleep(0.5)
+                sleep(0.8)
                 password_input = self.driver.find_element(By.ID, 'pass')
                 password_input.send_keys(self.password)
-                sleep(0.5)
+                sleep(0.8)
                 password_input.send_keys(Keys.RETURN)
+                sleep(2)
                 self.waiting_for_capcha_verify()
-                profile_element, language = self.get_profile_element()
-            if profile_element:
+                self.profile_element, language = self.get_profile_element()
+            if self.profile_element:
                 if language == 'en':
                     self.en_language = True
                 else:
                     self.en_language = False
-                profile_element.click()
-                sleep(1)
-                self.click_page_list()
-                self.change_page(self.page_name)
-                from selenium.webdriver.common.action_chains import ActionChains
-                actions = ActionChains(self.driver)
-                actions.send_keys(Keys.ESCAPE).perform()
+                print("Đăng nhập thành công!")
                 return True
             else:
                 print("Đăng nhập không thành công, có thể cần xác minh tài khoản!")
@@ -258,8 +352,10 @@ class FacebookManager:
             else:
                 notification(self.root, "Lỗi khi đăng nhập, có thể do đường truyền mạng không ổn định!")
             return False
+        
 
 #-----------------------------------Thao tác trên facebook--------------------------------------------  
+
     def click_page_list(self):
         if self.en_language:
             xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "See all profiles")
@@ -359,8 +455,23 @@ class FacebookManager:
             #         self.driver.switch_to.window(handle)
             #         break
     def get_meta_business_suite(self):
+        xpath = get_xpath('span', 'x1lliihq x6ikm8r x10wlt62 x1n2onr6')
+        ele = self.get_element_by_xpath(xpath, 'Meta Business Suite')
+        if ele:
+            try:
+                press_esc_key(2, self.driver)
+                ele.click()
+            except:
+                pass
         self.driver.get("https://www.facebook.com/latest/content_calendar?")
         sleep(4)
+        # xpath = get_xpath('div', 'xmi5d70 x1fvot60 xxio538 xbsr9hj xuxw1ft x6ikm8r x10wlt62 xlyipyv x1h4wwuj x1fcty0u')
+        # ele = self.get_element_by_xpath(xpath)
+        # if ele:
+        #     if ele.text == self.page_name:
+        #         sleep(2)
+        #     else:
+        #         self.scroll_into_view(ele)
 
     def click_option_menu(self):
         att1 = "class='x3nfvp2 x120ccyz x1heor9g x2lah0s x1c4vz4f x1gryazu'"
@@ -537,7 +648,9 @@ class FacebookManager:
                 status_xpath_element = self.get_element_by_xpath(status_xpath)
                 v = status_xpath_element.text
                 if v != pre_v:
-                    print(f'Đã tải lên được {v} ... \n')
+                    sys.stdout.write(f'\rĐã tải lên được {v} ...')
+                    sys.stdout.flush()
+                    # print(f'Đã tải lên được {v} ...')
                     pre_v = v
                 if v == "100%":
                     break
@@ -559,14 +672,20 @@ class FacebookManager:
         except:
             getlog()
 
-
-
-
-    def change_page(self, page_name):
-        page_xpath = f"//div[span[text()='{page_name}']]"
-        page_element = self.get_element_by_xpath(page_xpath, page_name)
-        page_element.click()
-        sleep(4)
+    def change_page(self):
+        try:
+            press_esc_key(4, self.driver)
+            self.profile_element.click()
+            sleep(1)
+            self.click_page_list()
+            page_xpath = f"//div[span[text()='{self.page_name}']]"
+            page_element = self.get_element_by_xpath(page_xpath, self.page_name)
+            page_element.click()
+            print(f'Đã chuyển sang trang {self.page_name}')
+            sleep(4)
+            return True
+        except:
+            return False
 
     def check_switch_button(self):
         xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3")
@@ -682,6 +801,9 @@ class FacebookManager:
 
             if not self.login():
                 return
+            if not self.change_page():
+                print(f"Gặp lỗi khi chuyển trang {self.page_name}")
+                return
             for i, video_file in enumerate(videos, start=0):
                 if self.is_stop_upload:
                     break
@@ -697,6 +819,7 @@ class FacebookManager:
                 description=f"{full_title}\n{description}"
 
                 video_path = os.path.join(videos_folder, video_file)
+                print(f'--> Bắt đầu đăng video {video_file}')
                 if self.is_schedule:
                     publish_time = publish_times[time_cnt].strip()
                     if self.en_language:
@@ -709,12 +832,14 @@ class FacebookManager:
                         if not publish_time:
                             return
                         hour, minute = publish_time.split(':')
-                    # self.click_upload_video_icon()
-                    # self.click_schedule_link()
                     self.get_meta_business_suite()
                     if self.is_stop_upload:
                         break
-                    self.click_option_menu()
+                    try:
+                        self.click_option_menu()
+                    except:
+                        press_esc_key(2, self.driver)
+                        self.click_option_menu()
 
                     self.click_bulk_upload_video_button()
                     if self.is_stop_upload:
@@ -744,7 +869,8 @@ class FacebookManager:
                     if self.facebook_config['template'][self.page_name]['upload_date'] != upload_date_yymmdd:
                         self.facebook_config['template'][self.page_name]['upload_date'] = upload_date_yymmdd
                         self.save_facebook_config()
-                    remove_or_move_after_upload(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], 'facebook_upload_finished')
+                    print(f'--> Đăng thành công video {video_file}')
+                    remove_or_move_after_upload(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], self.facebook_config['template'][self.page_name]['is_move_after_upload'], 'facebook_upload_finished')
                     if (time_cnt) % len(publish_times) == 0:
                         upload_date_yymmdd = add_date_into_string(upload_date_yymmdd, day_gap)
                         date_cnt += 1
@@ -772,8 +898,8 @@ class FacebookManager:
                         if self.is_stop_upload:
                             break
                         self.click_post_button()
-
-                    remove_or_move_after_upload(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], 'facebook_upload_finished')
+                    print(f'--> Đăng thành công video {video_file}')
+                    remove_or_move_after_upload(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], self.facebook_config['template'][self.page_name]['is_move_after_upload'], 'facebook_upload_finished')
                     upload_count += 1
                     if upload_count == number_of_days:
                         break
@@ -809,7 +935,12 @@ class FacebookManager:
         elif self.is_upload_video_window:
             self.root.title(f"Facebook: {self.account}")
             self.width = 700
-            self.height_window = 870
+            self.height_window = 918
+            self.is_upload_video_window = False
+        elif self.is_download_video_window:
+            self.root.title(f"Download Fanpage Videos")
+            self.width = 500
+            self.height_window = 217
             self.is_upload_video_window = False
        
         self.setting_screen_position()
@@ -841,6 +972,7 @@ class FacebookManager:
         self.clear_after_action()
         clear_widgets(self.root)
         self.root.withdraw()
+
     def clear_after_action(self):
         pass
 

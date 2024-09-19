@@ -18,7 +18,7 @@ YOUTUBE_API_VERSION = "v3"
 
 #-----------------------------------------------------------------------------------------------------------------
 class YouTubeManager():
-    def __init__(self, gmail, channel_name=None, is_auto_upload=False, lock=None, download_thread=None, upload_thread=None):
+    def __init__(self, gmail, channel_name=None, is_auto_upload=False, download_thread=None, upload_thread=None):
         self.is_auto_upload = is_auto_upload
         if not is_auto_upload:
             self.root = ctk.CTk()
@@ -31,12 +31,9 @@ class YouTubeManager():
         self.gmail = gmail
         self.channel_name = channel_name
         self.get_youtube_config()
-        self.youtube = self.get_authenticated_service()
-        if not self.youtube:
-            return
+        self.youtube = None
         self.pre_time_check_status = 0
 
-        self.list_waiting_dowload_videos = []
         self.list_videos_download_from_channel = []
         self.list_videos_detail = []
         self.list_video_ids_delete = []
@@ -416,8 +413,9 @@ class YouTubeManager():
                 ele = self.get_element_by_xpath(xpath)
                 status = ele.text
                 if 'Đã tải được' in status:
-                    print(status)
-                    sleep(1.5)
+                    sys.stdout.write(f'\r{status}')
+                    sys.stdout.flush()
+                    sleep(2)
                 else:
                     print(status)
                     break
@@ -499,21 +497,22 @@ class YouTubeManager():
         try:
             self.secret_data = get_json_data(secret_path)
             self.secret_info={}
-            gmails = [self.youtube_config['template'][channel_name]['gmail'] for channel_name in self.youtube_config['template'].keys()]
-            for gmail in gmails:
-                oauth = self.secret_data[gmail]['oauth']
-                api = self.secret_data[gmail]['api']
-                oauth_path = f'{current_dir}\\oauth\\{gmail}.json'
-                save_to_json_file(oauth, oauth_path)
-                self.secret_info[gmail] = {}
-                self.secret_info[gmail]["oauth_path"] = oauth_path
-                self.secret_info[gmail]["api"] = api
-            self.oauth_path = self.secret_info[self.gmail]["oauth_path"]
-            self.api_key = self.secret_info[self.gmail]["api"]
+            gmails = [gmail for gmail in self.secret_data.keys()]
+            if not gmails:
+                print(f"Tài khoản {self.gmail} chưa được đăng ký api...")
+                return False
+            if self.gmail not in gmails:
+                notification(self.root, f"Tài khoản {self.gmail} chưa đăng ký hoặc hết hạn sử dụng.")
+                return False
+            else:
+                oauth = self.secret_data[self.gmail]['oauth']
+                self.api_key = self.secret_data[self.gmail]['api']
+                self.oauth_path = f'{current_dir}\\oauth\\{self.gmail}.json'
+                save_to_json_file(oauth, self.oauth_path)
+                return True
         except:
             getlog()
-            self.oauth_path = None
-            self.api_key = None
+            return False
 
     def get_start_youtube(self):
         self.get_youtube_config()
@@ -525,7 +524,7 @@ class YouTubeManager():
         self.show_window()
         self.setting_window_size()
         create_button(frame = self.root,text="Đăng video sử dụng cookies(khuyến khích)", command= self.open_upload_video_by_cookies_window)
-        create_button(frame = self.root,text="Đăng video bằng google(tối đa 6 video/ ngày / 1 gmail)", command= self.open_upload_video_by_API_window)
+        create_button(frame = self.root,text="Đăng video bằng api (đăng ký api của google)", command= self.open_upload_video_by_API_window)
         create_button(frame = self.root,text="Download Videos", command=self.open_download_video_window)
         try:
             self.root.mainloop()
@@ -549,10 +548,10 @@ class YouTubeManager():
                 notification(self.root, "hãy nhập url hoặc Id channel muốn tải video.")
                 return False
             self.youtube_config['download_folder'] = download_folder
-            self.youtube_config['download_by_video_url'] = download_url
-            self.youtube_config['download_by_channel_id'] = download_channel_id
-            self.youtube_config['filter_by_like'] = self.filter_by_like_var.get()
-            self.youtube_config['filter_by_views'] = self.filter_by_views_var.get()
+            if download_channel_id:
+                self.youtube_config['download_by_channel_id'] = download_channel_id
+                self.youtube_config['filter_by_like'] = self.filter_by_like_var.get()
+                self.youtube_config['filter_by_views'] = self.filter_by_views_var.get()
             self.save_youtube_config()
             return True
 
@@ -566,6 +565,11 @@ class YouTubeManager():
                     return
 
         def start_download_by_channel_id():
+            if not self.youtube:
+                self.youtube = self.get_authenticated_service()
+                if not self.youtube:
+                    print(f"Xác thực với google không thành công. Hãy đảm bảo bạn đã đăng ký api trước đó.")
+                    return
             if not self.download_thread or not self.download_thread.is_alive():
                 self.is_stop_download = False
                 if save_download_settings():
@@ -577,13 +581,13 @@ class YouTubeManager():
         self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu video", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
         self.download_folder_var.insert(0, self.youtube_config['download_folder'])
         self.download_by_video_url = create_frame_button_and_input(self.root,text="Tải video từ URL", command=start_download_by_video_url, width=self.width, left=0.4, right=0.6)
-        self.download_by_channel_id = create_frame_button_and_input(self.root,text="Tải từ ID kênh", command=start_download_by_channel_id, width=self.width, left=0.4, right=0.6)
+        self.download_by_channel_id = create_frame_button_and_input(self.root,text="Tải từ ID kênh (Phải đăng ký api trước)", command=start_download_by_channel_id, width=self.width, left=0.4, right=0.6)
         self.filter_by_views_var = self.create_settings_input("Lọc theo số lượt xem", "filter_by_views", is_data_in_template=False, values=["100000", "200000", "300000", "500000", "1000000"], left=0.4, right=0.6)
         self.filter_by_like_var = self.create_settings_input("Lọc theo số lượt thích", "filter_by_like", is_data_in_template= False, values=["10000", "20000", "30000", "50000", "100000"], left=0.4, right=0.6)
         create_button(self.root, text="Lùi lại", command=self.get_start_youtube, width=self.width)
 
     def choose_folder_to_save(self):
-        download_folder = filedialog.askdirectory()
+        download_folder = choose_folder()
         if download_folder:
             self.download_folder_var.delete(0, ctk.END)
             self.download_folder_var.insert(0, download_folder)
@@ -593,6 +597,11 @@ class YouTubeManager():
         self.open_upload_video_window()
 
     def open_upload_video_by_API_window(self):
+        if not self.youtube:
+            self.youtube = self.get_authenticated_service()
+            if not self.youtube:
+                print(f"Xác thực với google không thành công. Hãy đảm bảo bạn đã đăng ký api trước đó.")
+                return
         self.is_use_cookies = False
         self.open_upload_video_window()
 
@@ -636,10 +645,10 @@ class YouTubeManager():
                 self.thumbnail_var.delete(0, ctk.END)
                 self.thumbnail_var.insert(0, template.get("thumbnail", ""))
                 try:
-                    self.playlist_var.set(template.get("playlist", ""))
+                    self.playlist_var.set(template.get("curent_playlist", ""))
                 except:
                     self.playlist_var.delete(0, ctk.END)
-                    self.playlist_var.insert(0, template.get("playlist", ""))
+                    self.playlist_var.insert(0, template.get("curent_playlist", ""))
                 self.altered_content_var.set(convert_boolean_to_Yes_No(template.get("altered_content", False)))
             self.upload_folder_var.insert(0, template.get("upload_folder", ""))
             self.is_delete_after_upload_var.set(convert_boolean_to_Yes_No(self.youtube_config['template'][self.channel_name]['is_delete_after_upload']))
@@ -691,7 +700,8 @@ class YouTubeManager():
             if self.is_use_cookies:
                 playlist_name = self.playlist_var.get()
                 self.youtube_config['template'][self.channel_name]["curent_playlist"] = playlist_name
-                self.youtube_config['template'][self.channel_name]["playlist"].append(playlist_name)
+                if playlist_name not in self.youtube_config['template'][self.channel_name]["playlist"]:
+                    self.youtube_config['template'][self.channel_name]["playlist"].append(playlist_name)
                 self.youtube_config['template'][self.channel_name]['altered_content'] = self.altered_content_var.get() == 'Yes'
                 self.youtube_config['template'][self.channel_name]["thumbnail"] = self.thumbnail_var.get()
                 self.youtube_config['show_browser'] = self.show_browser_var.get() == 'Yes'
@@ -769,21 +779,23 @@ class YouTubeManager():
 
     def get_authenticated_service(self):
         try:
-            self.load_secret_info()
-            if not self.oauth_path:
-                notification(self.root, "Tài khoản gmail này chưa đăng ký hoặc đã hết hạn.")
-                return
-            try:
-                flow = flow_from_clientsecrets(self.oauth_path, scope=SCOPES, message="xác minh thất bại")
-                self.curent_oath_path = f"{sys.argv[0]}-{self.gmail}-{self.channel_name}.json"
-                storage = Storage(self.curent_oath_path)
-                credentials = storage.get()
-            except:
-                getlog()
-                credentials = None
-            if credentials is None or credentials.invalid:
-                credentials = run_flow(flow, storage, None)
-            return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, http=credentials.authorize(httplib2.Http()))
+            if self.load_secret_info():
+                if not self.oauth_path:
+                    notification(self.root, "Tài khoản gmail này chưa đăng ký hoặc đã hết hạn.")
+                    return
+                try:
+                    flow = flow_from_clientsecrets(self.oauth_path, scope=SCOPES, message="xác minh thất bại")
+                    self.curent_oath_path = f"{sys.argv[0]}-{self.gmail}-{self.channel_name}.json"
+                    storage = Storage(self.curent_oath_path)
+                    credentials = storage.get()
+                except:
+                    getlog()
+                    credentials = None
+                if credentials is None or credentials.invalid:
+                    credentials = run_flow(flow, storage, None)
+                return build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, http=credentials.authorize(httplib2.Http()))
+            else:
+                return None
         except Exception as e:
             error_message(f"Xác minh thất bại. Hãy đảm bảo gmail {self.gmail} đăng đăng nhập trong trình duyệt xác minh")
             getlog()
@@ -915,6 +927,7 @@ class YouTubeManager():
                         notification(self.root, f"Chiều dài tối đa của tiêu đề là 100 ký tự:\n{self.full_title}: có tổng {len(self.full_title)} ký tự")
                     continue
                 video_path = os.path.join(videos_folder, video_file)
+                print(f'--> Bắt đầu đăng video: {video_file}')
                 if upload_count > 0:
                     self.driver.get("https://www.youtube.com/")
                     sleep(4)
@@ -950,6 +963,7 @@ class YouTubeManager():
                         self.youtube_config['template'][self.channel_name]['upload_date'] = upload_date_str
                         self.save_youtube_config()
                     remove_or_move_after_upload(video_path, self.youtube_config['template'][self.channel_name]['is_delete_after_upload'], finish_folder_name='youtube_upload_finished')
+                    print(f'--> Đăng thành công video: {video_file}')
                     if (upload_count) % len(publish_times) == 0:
                         upload_date_str = add_date_into_string(upload_date_str, day_gap)
                         date_cnt += 1
@@ -962,6 +976,7 @@ class YouTubeManager():
                     self.click_public_now()
                     upload_count += 1
                     remove_or_move_after_upload(video_path, self.youtube_config['template'][self.channel_name]['is_delete_after_upload'], finish_folder_name='youtube_upload_finished')
+                    print(f'--> Đăng thành công video: {video_file}')
                     break
                 
  
@@ -1122,6 +1137,8 @@ class YouTubeManager():
         return []
     
     def get_video_details(self, video_ids, check_status=False):
+        if not video_ids:
+            print("Không tìm thấy video nào.")
         # Chia nhóm video ID để yêu cầu thông tin chi tiết
         chunk_size = 50  # Số lượng video ID trong mỗi nhóm (giới hạn của API)
         for i in range(0, len(video_ids), chunk_size):
@@ -1159,10 +1176,6 @@ class YouTubeManager():
         self.get_video_details(video_ids)
         if len(self.list_videos_detail) > 0:
             self.get_download_info()
-            if not self.download_info:
-                self.download_info = {}
-            if 'downloaded_urls' not in self.download_info:
-                self.download_info['downloaded_urls'] = []
 
             for videos_detail in self.list_videos_detail:
                 self.check_videos_and_dowload(videos_detail)
@@ -1184,13 +1197,7 @@ class YouTubeManager():
                     print(f"video này đã tải trước đây rồi: {video_url}")
                     continue
                 print(f"bắt đầu tải video: {video_url} với {like_count} lượt thích và {view_count} lượt xem")
-                title = self.video_info[video_id]['title']
-                download_folder = self.youtube_config['download_folder']
-                file_name = f"{convert_sang_tieng_viet_khong_dau(title)}.mp4"
-                video_file_path = f'{download_folder}\\{file_name}'
-                if not os.path.exists(video_file_path):
-                    self.list_waiting_dowload_videos.append(video_url)
-                    self.download_video_youtube_by_url(video_url)
+                self.download_video_youtube_by_url(video_url)
 
     def get_download_info(self):
         self.download_info = get_json_data(download_info_path)
