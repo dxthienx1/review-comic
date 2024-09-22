@@ -12,6 +12,11 @@ mac_registered = {
         "ngayhethan":"2025-09-19",
         "bank":""
     },
+    "Z530FFSL":{
+        "password":"123456",
+        "ngayhethan":"2025-09-19",
+        "bank":""
+    },
     "82DD95ED-93E8-451C-A6A2-B0F478F7A36E":{
         "password":"123456",
         "ngayhethan":"2024-10-15",
@@ -21,7 +26,7 @@ mac_registered = {
 is_registed_mac_address = False
 list_mac_registered = [mac for mac in mac_registered.keys()]
 
-mac_address = get_disk_serial()
+mac_address = get_disk_serial().strip()
 if mac_address in list_mac_registered:
     ngayhethan_str = mac_registered[mac_address]['ngayhethan']
     if is_date_greater_than_current_day(ngayhethan_str):
@@ -84,6 +89,7 @@ class MainApp:
             self.is_other_window = False
             self.is_other_download_window = False
             self.is_download_douyin_video_window = False
+            self.is_download_douyin_channel = False
 
 
             self.is_text_to_mp3_window = False
@@ -106,6 +112,7 @@ class MainApp:
             self.pre_time_check_auto_upload_tiktok = 0
             self.is_stop_edit = False
             self.is_stop_download = False
+            self.driver = None
             # self.start_main_check_thread()
 
             if is_registed_mac_address:
@@ -286,24 +293,178 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
 
-        def start_download_douyin_video_by_url():
-            url = self.download_by_video_url.get()
-            pass
+        
+        def start_thread_download_douyin_video_by_url():
+            if not self.download_thread or not self.download_thread.is_alive():
+                self.is_download_douyin_channel = False
+                self.download_thread = threading.Thread(target=start_download_douyin_video)
+                self.download_thread.start()
+            else:
+                self.noti("Đang tải video ở một luồng khác.")
 
-        def start_download_douyin_channel():
-            channel_link = self.download_by_channel_link.get()
-            if not channel_link:
-                self.noti("Hãy nhập link kênh muốn tải video trước.")
-                return
-            driver = get_driver()
-            driver.get(channel_link)
 
-        self.download_by_video_url = create_frame_button_and_input(self.root, text="Tải video từ link video", command=start_download_douyin_video_by_url, width=self.width, left=0.4, right=0.6)
-        self.download_by_channel_link = create_frame_button_and_input(self.root, text="Tải hàng loạt video từ link kênh", command=start_download_douyin_channel, width=self.width, left=0.4, right=0.6)
+        def start_thread_download_douyin_channel():
+            if not self.download_thread or not self.download_thread.is_alive():
+                self.is_download_douyin_channel = True
+                self.download_thread = threading.Thread(target=start_download_douyin_video)
+                self.download_thread.start()
+            else:
+                self.noti("Đang tải video ở một luồng khác.")
+
+        def start_download_douyin_video():
+            def check_quang_cao():
+                xpath = get_xpath_by_multi_attribute('div', ['id="dismiss-button"'])
+                ele = get_element_by_xpath(self.driver, xpath)
+                if ele:
+                    ele.click()
+
+            def download_douyin_video_by_tikvideoapp(url):
+                try:
+                    file_name = f"{url.split('/')[-1]}.mp4"
+                    output_path = os.path.join(self.config['download_folder'], file_name)
+                    self.driver.get('https://tikvideo.app/vi/download-douyin-video')
+                    sleep(2)
+                    check_quang_cao()
+                    input_xpath = get_xpath_by_multi_attribute('input', ['id="s_input"'])
+                    input_ele = get_element_by_xpath(self.driver, input_xpath)
+                    if input_ele:
+                        input_ele.send_keys(url)
+                        input_ele.send_keys(Keys.ENTER)
+                        check_quang_cao()
+                        video_link_xpath = "//a[contains(text(),'Tải xuống MP4 HD')]"
+                        video_link_ele = get_element_by_xpath(self.driver, video_link_xpath)
+                        if video_link_ele:
+                            url = video_link_ele.get_attribute('href')
+                            response = requests.get(url, stream=True)
+
+                            # Lưu video vào file
+                            with open(output_path, 'wb') as file:
+                                for chunk in response.iter_content(chunk_size=1024):
+                                    if chunk:
+                                        file.write(chunk)
+                            if not os.path.exists(output_path):
+                                if download_douyin_video_by_snaptikapp(url):
+                                    return True
+                                else:
+                                    return False
+                            else:
+                                return True
+                    return False
+                except:
+                    return False
+
+            def download_douyin_video_by_snaptikapp(url):
+                try:
+                    file_name = f"{url.split('/')[-1]}.mp4"
+                    output_path = os.path.join(self.config['download_folder'], file_name)
+                    self.driver.get('https://snaptik.app/vn/douyin-downloader')
+                    sleep(2)
+                    check_quang_cao()
+                    input_xpath = get_xpath_by_multi_attribute('input', ['id="url"', 'name="url"'])
+                    input_ele = get_element_by_xpath(self.driver, input_xpath)
+                    if input_ele:
+                        input_ele.send_keys(url)
+                        ele.send_keys(Keys.ENTER)
+                        check_quang_cao()
+                        video_link_xpath = "//a[contains(text(),'Tải xuống MP4 HD')]"
+                        video_link_ele = get_element_by_xpath(self.driver, video_link_xpath)
+                        if video_link_ele:
+                            url = video_link_ele.get_attribute('href')
+                            response = requests.get(url, stream=True)
+                            with open(output_path, 'wb') as file:
+                                for chunk in response.iter_content(chunk_size=1024):
+                                    if chunk:
+                                        file.write(chunk)
+                            if os.path.exists(output_path):
+                                return True
+                    return False
+                except:
+                    return False
+
+            video_urls = []
+            cnt_download = 0
+            if self.is_download_douyin_channel:
+                cnt_search = 0
+                channel_link = self.download_by_channel_link.get()
+                if not channel_link:
+                    self.noti("Hãy nhập link kênh muốn tải video trước.")
+                    return
+                self.driver = get_driver()
+                self.driver.get(channel_link)
+                self.check_noti_login_douyin(self.driver)
+                if self.is_stop_download:
+                    self.close()
+                    return
+                last_height = self.driver.execute_script("return document.body.scrollHeight")
+                k = False
+                print(f"Bắt đầu quét video trong kênh theo link {channel_link} ...")
+                while True:
+                    if self.is_stop_download:
+                        self.close()
+                        return
+                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);") # Cuộn xuống cuối trang
+                    sleep(2)
+                    new_height = self.driver.execute_script("return document.body.scrollHeight") # Tính chiều cao mới của trang
+                    if new_height == last_height: # Kiểm tra nếu không có thêm nội dung mới
+                        if k:
+                            break
+                        else:
+                            k = True
+                            sleep(2)
+                            continue
+                    k = False
+                    last_height = new_height
+                    cnt_search += 1
+                    if cnt_search > 100:
+                        break
+
+                xpath = get_xpath('a', 'uz1VJwFY TyuBARdT IdxE71f8')
+                eles = self.driver.find_elements(By.XPATH, xpath)
+                if len(eles) > 0:
+                    for ele in eles:
+                        video_link = ele.get_attribute('href')
+                        if video_link not in video_urls:
+                            video_urls.append(video_link)
+                else:
+                    xpath = "//div[starts-with(@id, 'waterfall_item_')]"
+                    eles = self.driver.find_elements(By.XPATH, xpath)
+                    if eles:
+                        for ele in eles:
+                                ele_id = ele.get_attribute('id')
+                                video_id = ele_id.split('waterfall_item_')[-1]
+                                video_link = f'https://www.douyin.com/video/{video_id}'
+                                if video_link not in video_urls:
+                                    video_urls.append(video_link)
+            else:
+                video_url = self.download_by_video_url.get().strip()
+                video_urls.append(video_url)
+            if len(video_urls) > 0:
+                print(f'Đã tìm thấy {len(video_urls)} video')
+                print("Bắt đầu tải video ...")
+                for url in video_urls:
+                    print(f'Bắt đầu tải video {url}')
+                    if download_douyin_video_by_tikvideoapp(url):
+                        print(f"Tải thành công video {url}")
+                        cnt_download += 1
+                    else:
+                        print(f"Tải video không thành công --> {url}!!!")
+            if cnt_download > 0:
+                self.noti(f'Đã tải thành công {cnt_download} video')
+
+
+        self.download_by_video_url = create_frame_button_and_input(self.root, text="Tải video từ link video", command=start_thread_download_douyin_video_by_url, width=self.width, left=0.4, right=0.6)
+        self.download_by_channel_link = create_frame_button_and_input(self.root, text="Tải hàng loạt video từ link kênh", command=start_thread_download_douyin_channel, width=self.width, left=0.4, right=0.6)
         create_button(self.root, text="Lùi lại", command=self.open_other_download_video_window, width=self.width)
 
-    def check_noti_login_douyin(self):
-        xpath = get_xpath()
+
+
+        
+
+    def check_noti_login_douyin(self, driver):
+        xpath = get_xpath('div', 'douyin-login__close dy-account-close')
+        ele = get_element_by_xpath(driver, xpath)
+        if ele:
+            ele.click()
         
     def open_edit_audio_window(self):
         self.reset()
@@ -492,7 +653,12 @@ class MainApp:
                     return
                 self.get_youtube_config()
                 if channel_name in self.tiktok_config['template'].keys():
-                    removed_channel = self.tiktok_config['template'].pop(channel_name, None)
+                    self.tiktok_config['template'].pop(channel_name, None)
+                    if channel_name in self.tiktok_config['registered_account']:
+                        self.tiktok_config['registered_account'].remove(channel_name)
+                    if self.config['current_tiktok_account'] == channel_name:
+                        self.config['current_tiktok_account'] = ""
+                        self.save_config()
                     self.save_tiktok_config()
                     self.noti(f'Xóa kênh [{channel_name}] thành công.')
                     self.remove_tiktok_channel_window()
@@ -526,6 +692,7 @@ class MainApp:
             self.tiktok_config['template'][self.tiktok_account]['password'] = self.tiktok_password
             self.tiktok_config['template'][self.tiktok_account]['upload_folder'] = ""
             self.tiktok_config['template'][self.tiktok_account]['description'] = ""
+            self.tiktok_config['template'][self.tiktok_account]['location'] = ""
             self.tiktok_config['template'][self.tiktok_account]['publish_times'] = ""
             self.tiktok_config['template'][self.tiktok_account]['title'] = ""
             self.tiktok_config['template'][self.tiktok_account]['is_title_plus_video_name'] = False
@@ -534,6 +701,7 @@ class MainApp:
             self.tiktok_config['template'][self.tiktok_account]['waiting_verify'] = False
             self.tiktok_config['template'][self.tiktok_account]['number_of_days'] = "1"
             self.tiktok_config['template'][self.tiktok_account]['day_gap'] = "1"
+            self.tiktok_config['template'][self.tiktok_account]['first_login'] = True
             if self.tiktok_account not in self.tiktok_config['registered_account']:
                 self.tiktok_config['registered_account'].append(self.tiktok_account)
             save_to_json_file(self.tiktok_config, tiktok_config_path)
@@ -1550,6 +1718,7 @@ class MainApp:
             getlog()
 
     def stop_download(self):
+        self.is_stop_download = True
         if self.youtube:
             self.youtube.is_stop_download = True
         if self.facebook:
@@ -1606,6 +1775,10 @@ class MainApp:
     def on_close(self):
         self.save_config()
         self.hide_window()
+    
+    def close(self):
+        if self.driver:
+            self.driver.close()
 #----------------------------------Setting Window--------------------------------------------------------
     def setting_screen_position(self):
         try:
@@ -1804,10 +1977,10 @@ class MainApp:
             create_button(frame=self.root, text="Đổi thông tin ngay", command= change_mac_address_now, width=self.width)
             create_button(self.root, text="Lùi lại", command=self.open_register_mac_addres_window, width=self.width)
 
-        self.get_mac_address_var = create_frame_button_and_input(self.root, text="Lấy mã máy", command=self.get_mac_address_now, width=self.width, left=0.4, right=0.6)
+        self.app_account_var = create_frame_label_and_input(self.root, label_text="Tên người dùng",  width=self.width, left=0.4, right=0.6)
         self.pass_mac_var = create_frame_label_and_input(self.root, label_text="Tạo mật mã xác nhận (6 số)", width=self.width, left=0.4, right=0.6)
         self.deadline_var = create_frame_label_and_input(self.root, label_text="Nhập số tháng đã đăng ký", width=self.width, left=0.4, right=0.6)
-        self.bank_account_var = create_frame_label_and_input(self.root, label_text="Số tài khoản ngân hàng đã chuyển tiền",  width=self.width, left=0.4, right=0.6)
+        self.get_mac_address_var = create_frame_button_and_input(self.root, text="Lấy mã máy", command=self.get_mac_address_now, width=self.width, left=0.4, right=0.6)
         create_button(frame=self.root, text="Gửi đăng ký và chờ duyệt (duyệt trong vòng 24h)", command= sign_up_mac_address, width=self.width)
         if is_registed_mac_address:
             create_button(frame=self.root, text="Đổi thông tin", command= change_mac_address_window, width=self.width)

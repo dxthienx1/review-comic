@@ -139,9 +139,39 @@ def get_driver(show=True):
         print("Lỗi trong quá trình khởi tạo chromedriver.")
         return None
 
+def get_element_by_xpath(driver, xpath, key=None):
+    kq = []
+    cnt=0
+    while(len(kq)==0):
+        cnt+=1
+        elements = driver.find_elements(By.XPATH, xpath)
+        if key:
+            key = key.lower()
+            for ele in elements:
+                if key in ele.accessible_name.lower() or key in ele.text.lower() or key in ele.tag_name.lower() or key in ele.aria_role.lower():
+                    kq.append(ele)
+                    break
+            if len(kq) > 0:
+                return kq[0]
+            else:
+                return None
+        else:
+            if len(elements) > 0:
+                ele = elements[0]
+                return ele
+        sleep(1)
+        cnt += 1
+        if cnt > 3:
+            print(f"Không tìm thấy: {key}: {xpath}")
+            return None
+
 def is_date_greater_than_current_day(date_str, day_delta=0):
-    input_date = datetime.strptime(date_str, '%Y-%m-%d')
-    current_date = datetime.now()
+    try:
+        input_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        print(f"Định dạng ngày {date_str} không hợp lệ ...")
+        return False
+    current_date = datetime.now().date()
     target_date = current_date + timedelta(days=day_delta)
     return input_date > target_date
        
@@ -669,7 +699,7 @@ def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None, co
             xpath = f"//{maintag}[@class=\"{class_name}\"]"
     return xpath
 
-def get_xpath_by_multi_attribute(maintag, attributes): #'class="style-scope yt-icon-button"'
+def get_xpath_by_multi_attribute(maintag, attributes): #attributes = ['name="postSchedule"', ...]
     if len(attributes) > 1:
         attribute = " and @".join(attributes)
     else:
@@ -760,6 +790,14 @@ def remove_or_move_file(input_video_path, is_delete=False, is_move=True):
             print(f"Xóa không thành công file: {input_video_path}")
         else:
             print(f"Di chuyển không thành công file: {input_video_path}")
+
+def check_datetime_input(date_str, time_str):
+    input_time = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    current_time_plus_30 = datetime.now() + timedelta(minutes=30)
+    if input_time <= current_time_plus_30:
+        print(f'Thời gian muốn đăng vào là {time_str} ngày {date_str} không hợp lệ --> Phải đăng sau 30 phút so với thời điểm hiện tại. Lưu ý phút hợp lệ là 00, 15, 30, 45')
+        return False
+    return True
 
 def get_upload_date(upload_date, next_day=False):
     current_date = datetime.now().date()

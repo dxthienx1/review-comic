@@ -356,18 +356,32 @@ class FacebookManager:
 
 #-----------------------------------Thao tác trên facebook--------------------------------------------  
 
-    def click_page_list(self):
+    def try_click_page_list(self):
+        xpath = get_xpath('span', "x193iq5w xeuugli x13faqbe x1vvkbs x1xmvt09 x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x xudqn12 x3x7a5m x6prxxf xvq8zen xk50ysn x1qq9wsj")
         if self.en_language:
-            xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "See all profiles")
+            page_list_ele = self.get_element_by_xpath(xpath, 'See all profiles')
         else:
-            xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Xem tất cả trang cá nhân")
-        page_list_ele = self.get_element_by_xpath(xpath)
+            page_list_ele = self.get_element_by_xpath(xpath, 'Xem tất cả trang cá nhân')
         if page_list_ele:
             page_list_ele.click()
             sleep(1)
         else:
             print("Dừng đăng video vì không tìm thấy danh sách trang!")
             self.is_stop_upload = True
+
+    def click_page_list(self):
+        if self.en_language:
+            xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "See all profiles")
+        else:
+            xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Xem tất cả trang cá nhân")
+        page_list_ele = self.get_element_by_xpath(xpath, 'See all profiles')
+        if page_list_ele:
+            page_list_ele.click()
+            sleep(1)
+        else:
+            # print("Dừng đăng video vì không tìm thấy danh sách trang!")
+            # self.is_stop_upload = True
+            self.try_click_page_list()
 
     def get_profile_element(self):
         profile_xpath = get_xpath("div", "x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x1q0g3np x87ps6o x1lku1pv x1a2a7pz xzsf02u x1rg5ohu")
@@ -683,6 +697,7 @@ class FacebookManager:
             page_element.click()
             print(f'Đã chuyển sang trang {self.page_name}')
             sleep(4)
+            press_esc_key(2, self.driver)
             return True
         except:
             return False
@@ -885,15 +900,19 @@ class FacebookManager:
                         self.driver.get("https://www.facebook.com/reels/create/?surface=ADDL_PROFILE_PLUS")
                         sleep(1)
                         self.input_video_on_facebook(video_path)
+                        press_esc_key(2, self.driver)
                         self.click_next_button_if_short_video()
                         self.input_describe_short_video(description)
+                        press_esc_key(1, self.driver)
                         if self.is_stop_upload:
                             break
                         self.click_public_short_video()
                     else:
                         self.click_upload_video_icon()
                         self.input_video_on_facebook(video_path)
+                        press_esc_key(1, self.driver)
                         self.input_title(description)
+                        press_esc_key(1, self.driver)
                         self.check_status_upload_video()
                         if self.is_stop_upload:
                             break

@@ -45,28 +45,32 @@ class TikTokManager:
                 return False
             self.load_session()
             self.driver.refresh()
-            sleep(6)
-            upload_link = self.get_upload_button()
+            if not self.tiktok_config['template'][self.account]['first_login']:
+                sleep(6)
+                upload_link = self.get_upload_button()
+            else:
+                upload_link = None
             if not upload_link:
-                if "TikTok" in self.driver.title:
-                    print("Đang đăng nhập bằng email và password...")
-                    email_xpath = '//input[@name="username"]'
-                    email_input = self.get_element_by_xpath(email_xpath)
-                    if email_input:
-                        email_input.send_keys(self.account)
-                        sleep(0.3)
-                    pass_xpath = get_xpath_by_multi_attribute("input", ["type='password'", "placeholder='Password'"])
-                    password_input = self.get_element_by_xpath(pass_xpath, "password")
-                    if password_input:
-                        password_input.send_keys(self.password)
-                        sleep(0.3)
-                        password_input.send_keys(Keys.RETURN)
-                    press_esc_key(2, self.driver)
-                    self.waiting_for_capcha_verify()
-                    upload_link = self.get_upload_button()
+                print("Đang đăng nhập bằng email và password...")
+                email_xpath = '//input[@name="username"]'
+                email_input = self.get_element_by_xpath(email_xpath)
+                if email_input:
+                    email_input.send_keys(self.account)
+                    sleep(0.3)
+                pass_xpath = get_xpath_by_multi_attribute("input", ["type='password'", "placeholder='Password'"])
+                password_input = self.get_element_by_xpath(pass_xpath, "password")
+                if password_input:
+                    password_input.send_keys(self.password)
+                    sleep(0.3)
+                    password_input.send_keys(Keys.RETURN)
+                press_esc_key(2, self.driver)
+                self.waiting_for_capcha_verify()
+                upload_link = self.get_upload_button()
             if upload_link:
                 upload_link.click()
                 self.waiting_for_capcha_verify()
+                self.tiktok_config['template'][self.account]['first_login'] = False
+                self.save_tiktok_config()
                 return True
             else:
                 print("Đăng nhập thất bại, hãy kiểm tra lại thông tin đăng nhập đã đúng chưa!")
@@ -80,17 +84,18 @@ class TikTokManager:
         xpath = get_xpath('a', 'e14l9ebt5 css-12zznuq-StyledLink-StyledTmpLink er1vbsz0', 'data-e2e', 'nav-upload')
         upload_link = self.get_element_by_xpath(xpath)
         if not upload_link:
+            sleep(2)
             xpath = get_xpath('a', 'e18d3d942 css-2gvzau-ALink-StyledLink er1vbsz1', 'aria-label', 'Upload a video')
             upload_link = self.get_element_by_xpath(xpath)
-            if upload_link:
-                self.upload_button_at_left = False
-
-        else:
-            self.upload_button_at_left = True
+        #     if upload_link:
+        #         self.upload_button_at_left = False
+        # else:
+        #     self.upload_button_at_left = True
         return upload_link
 
     def load_session(self, url="https://www.tiktok.com/login/phone-or-email/email"):
         self.driver.get(url)
+        print("Đang thử đăng nhập bằng cookies ... !")
         sleep(1.5)
         try:
             cookies_info = get_pickle_data(tiktok_cookies_path)
@@ -103,6 +108,7 @@ class TikTokManager:
                 sleep(2)
         except:
             getlog()
+            return False
         
     def save_session(self):
         try:
@@ -127,23 +133,23 @@ class TikTokManager:
                 self.scroll_into_view(element)
                 if int(element.text) == int(hh):
                     element.click()
-                    print(f"đã chọn {element.text} giờ")
+                    # print(f"đã chọn {hh} giờ")
                     break
-            # sleep(1)
-            # time_ele.click()
-            sleep(1)
+            sleep(0.5)
             xpath_mm = get_xpath('span', "tiktok-timepicker-option-text tiktok-timepicker-right")
             mm_elements = self.driver.find_elements(By.XPATH, xpath_mm)
             for element in mm_elements:
                 self.scroll_into_view(element)
                 if int(element.text) == int(mm):
                     element.click()
-                    print(f"đã chọn {element.text} phút")
+                    # print(f"đã chọn {mm} phút")
                     break
-            sleep(2)
-
+            sleep(0.3)
+            time_ele.click()
 
     def select_date(self, date_string):
+        if not is_date_greater_than_current_day(date_str=date_string):
+            return
         year, month, day = date_string.strip().split("-")
         xpath1 = get_xpath('input', "TUXTextInputCore-input", "type", "text")
         xpath2 = get_xpath('span', "jsx-2986588792 day valid")
@@ -151,9 +157,10 @@ class TikTokManager:
         date_time_ele = self.driver.find_elements(By.XPATH, xpath1)
         date_ele = date_time_ele[1]
         if date_ele:
+            date_ele.click()
+            sleep(1)
+            cnt = 0
             while True:
-                date_ele.click()
-                sleep(1)
                 date_elements = self.driver.find_elements(By.XPATH, xpath2)
                 for ele in date_elements:
                     date = ele.text
@@ -161,11 +168,15 @@ class TikTokManager:
                         kq.append(ele)
                         break
                 if len(kq) == 0:
-                    print(f"Không tìm thấy ngày {date_string}")
+                    cnt += 1
+                    if cnt == 2:
+                        print(f"Không tìm thấy ngày {date_string}")
+                        date_ele.click()
+                        break
                 else:
                     ele = kq[0]
                     ele.click()
-                    print(f"đã chọn ngày {date}")
+                    # print(f"đã chọn ngày {date}")
                     break
         sleep(1)
             
@@ -196,13 +207,21 @@ class TikTokManager:
         xpath = get_xpath_by_multi_attribute("div", ["class='notranslate public-DraftEditor-content'", "contenteditable='true'", "role='combobox'"])
         ele = self.get_element_by_xpath(xpath)
         if ele:
-            ele.clear()
+            # ele.clear()
             ele.send_keys(description)
             sleep(1)
+    def input_location(self, location):
+        xpath = get_xpath_by_multi_attribute('input', ['id="poi"'])
+        ele = self.get_element_by_xpath(xpath)
+        if ele:
+            ele.send_keys(location)
+            sleep(1)
+            ele.send_keys(Keys.ARROW_DOWN)
+            ele.send_keys(Keys.ENTER)
 
     def click_schedule_button(self):
-        xpath = get_xpath('input', "TUXRadioStandalone-input", attribute="name", attribute_value="postSchedule")
-        ele = self.get_element_by_xpath(xpath, "Schedule")
+        xpath = get_xpath_by_multi_attribute('input', ['name="postSchedule"', 'value="schedule"'])
+        ele = self.get_element_by_xpath(xpath)
         if ele:
             ele.click()
             print(f"clicked schedule_button")
@@ -219,20 +238,24 @@ class TikTokManager:
             pass
 
     def check_status_copyright_check(self):
+        print("Bắt đầu kiểm tra bản quyền video ...")
         while True:
             try:
+                xpath = "//span[contains(text(), 'Run a copyright check')]"
+                ele = self.get_element_by_xpath(xpath)
+                if not ele:
+                    print("Không phát hiện nút check bản quyền --> Tiếp tục đăng video ...")
+                    return True
                 if self.is_stop_upload:
                     return False
-                xpath = "//img[contains(@class, 'check-icon')]"
-                ele = self.get_element_by_xpath(xpath)
-                if ele:
-                    src = ele.get_attribute('src')
-                    if src == "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICAgIDxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8yMjI3XzQ5MTM3KSI+CiAgICAgICAgPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiCiAgICAgICAgICAgIGQ9Ik05Ljk5OTkyIDE5LjE2NjhDMTUuMDYyNSAxOS4xNjY4IDE5LjE2NjYgMTUuMDYyOCAxOS4xNjY2IDEwLjAwMDJDMTkuMTY2NiA0LjkzNzU1IDE1LjA2MjUgMC44MzM0OTYgOS45OTk5MiAwLjgzMzQ5NkM0LjkzNzMxIDAuODMzNDk2IDAuODMzMjUyIDQuOTM3NTUgMC44MzMyNTIgMTAuMDAwMkMwLjgzMzI1MiAxNS4wNjI4IDQuOTM3MzEgMTkuMTY2OCA5Ljk5OTkyIDE5LjE2NjhaTTE0LjMzMTYgNi4zODg3MkwxMy40NDIgNS44Mjk2OUMxMy4xOTQxIDUuNjc5IDEyLjg2ODQgNS43NTE5MSAxMi43MTc3IDUuOTk5ODNMOC44ODcxMSAxMi4xMjk3TDYuNzYyODEgOS43MDRDNi41NjgzNiA5LjQ4NTI1IDYuMjM3ODEgOS40NjA5NCA2LjAyMzkyIDkuNjUwNTNMNS4yMjY2OSAxMC4zNDU3QzUuMDA3OTUgMTAuNTM1MiA0Ljk4MzY0IDEwLjg3NTUgNS4xNzgwOCAxMS4wODk0TDguMjM1NzIgMTQuNTg0NkM4LjQ1NDQ3IDE0LjgzNzMgOC43NzUzMSAxNC45Njg2IDkuMTA1ODYgMTQuOTM5NEM5LjQ0MTI4IDE0LjkxNTEgOS43Mzc4MSAxNC43MzA0IDkuOTE3NjcgMTQuNDQzNkwxNC41MDE3IDcuMTE3ODlDMTQuNjUyNCA2Ljg2OTk3IDE0LjU3OTUgNi41NDQyOCAxNC4zMzE2IDYuMzg4NzJaIgogICAgICAgICAgICBmaWxsPSIjMDBDMzlCIiAvPgogICAgPC9nPgogICAgPGRlZnM+CiAgICAgICAgPGNsaXBQYXRoIGlkPSJjbGlwMF8yMjI3XzQ5MTM3Ij4KICAgICAgICAgICAgPHJlY3Qgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiBmaWxsPSJ3aGl0ZSIgLz4KICAgICAgICA8L2NsaXBQYXRoPgogICAgPC9kZWZzPgo8L3N2Zz4KICAgIA==":
+                issues_xpath = "//div[contains(@class, 'copyright')]//span[contains(text(), 'ssues')]"
+                issues_ele = self.get_element_by_xpath(issues_xpath)
+                if issues_ele:
+                    if 'no issues detected'in  issues_ele.text.lower():
                         return True
-                    elif src == "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkuMDM3NzIgMi4yMjYyMkM5LjQ2MTkzIDEuNDc5OTMgMTAuNTM3OSAxLjQ3OTkzIDEwLjk2MjEgMi4yMjYyMkwxOS4wMjA1IDE2LjQwMjhDMTkuNDM5NyAxNy4xNDAyIDE4LjkwNjggMTguMDU1NCAxOC4wNTgzIDE4LjA1NTRIMS45NDE1NEMxLjA5MzAyIDE4LjA1NTQgMC41NjAxNyAxNy4xNDAyIDAuOTc5MzQ2IDE2LjQwMjhMOS4wMzc3MiAyLjIyNjIyWiIgZmlsbD0iI0ZGNEMzQSIvPgo8cGF0aCBkPSJNOS4xNjY0NSA2LjkzMTY2QzkuMTY2NDUgNi43ODUyMiA5LjI5MDgyIDYuNjY2NSA5LjQ0NDIzIDYuNjY2NUgxMC41NTUzQzEwLjcwODggNi42NjY1IDEwLjgzMzEgNi43ODUyMiAxMC44MzMxIDYuOTMxNjZWMTIuMjM0N0MxMC44MzMxIDEyLjM4MTEgMTAuNzA4OCAxMi40OTk4IDEwLjU1NTMgMTIuNDk5OEg5LjQ0NDIzQzkuMjkwODIgMTIuNDk5OCA5LjE2NjQ1IDEyLjM4MTEgOS4xNjY0NSAxMi4yMzQ3VjYuOTMxNjZaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTEuMTEwOSAxNC43MjIxQzExLjExMDkgMTUuMzM1NyAxMC42MTM0IDE1LjgzMzIgOS45OTk3OCAxNS44MzMyQzkuMzg2MTMgMTUuODMzMiA4Ljg4ODY3IDE1LjMzNTcgOC44ODg2NyAxNC43MjIxQzguODg4NjcgMTQuMTA4NCA5LjM4NjEzIDEzLjYxMDkgOS45OTk3OCAxMy42MTA5QzEwLjYxMzQgMTMuNjEwOSAxMS4xMTA5IDE0LjEwODQgMTEuMTEwOSAxNC43MjIxWiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg==":
+                    else:
                         return False
-                else:
-                    return True
+                sleep(1)
             except:
                 return True
 
@@ -293,9 +316,9 @@ class TikTokManager:
             print("không thấy upload more video button")
     
     def waiting_for_capcha_verify(self):
-        sleep(2)
+        sleep(3)
         if self.tiktok_config['template'][self.account]['waiting_verify']:
-            sleep(18)
+            sleep(17)
         self.save_session()
 
     def get_element_by_xpath(self, xpath, key=None):
@@ -350,21 +373,23 @@ class TikTokManager:
         self.setting_window_size()
 
         def load_template():
-            # template = 
+            load_template = self.load_template_var.get().strip()
             self.description_var.delete("1.0", ctk.END)
-            self.description_var.insert(ctk.END, self.tiktok_config['template'][self.account]['description'])
+            self.description_var.insert(ctk.END, self.tiktok_config['template'][load_template]['description'])
             self.upload_date_var.delete(0, ctk.END)
-            self.upload_date_var.insert(0, self.tiktok_config['template'][self.account]['upload_date'])
+            self.upload_date_var.insert(0, self.tiktok_config['template'][load_template]['upload_date'])
             self.publish_times_var.delete(0, ctk.END)
-            self.publish_times_var.insert(0, self.tiktok_config['template'][self.account]['publish_times'])
+            self.publish_times_var.insert(0, self.tiktok_config['template'][load_template]['publish_times'])
             self.upload_folder_var.delete(0, ctk.END)
-            self.upload_folder_var.insert(0, self.tiktok_config['template'][self.account]['upload_folder'])
+            self.upload_folder_var.insert(0, self.tiktok_config['template'][load_template]['upload_folder'])
             self.number_of_days_var.delete(0, ctk.END)
-            self.number_of_days_var.insert(0, self.tiktok_config['template'][self.account]['number_of_days'])
+            self.number_of_days_var.insert(0, self.tiktok_config['template'][load_template]['number_of_days'])
+            self.location_var.delete(0, ctk.END)
+            self.location_var.insert(0, self.tiktok_config['template'][load_template]['location'])
             self.day_gap_var.delete(0, ctk.END)
-            self.day_gap_var.insert(0, self.tiktok_config['template'][self.account]['day_gap'])
+            self.day_gap_var.insert(0, self.tiktok_config['template'][load_template]['day_gap'])
             self.show_browser_var.set(convert_boolean_to_Yes_No(self.tiktok_config['show_browser']))
-            self.is_delete_after_upload_var.set(convert_boolean_to_Yes_No(self.tiktok_config['template'][self.account]['is_delete_after_upload']))
+            self.is_delete_after_upload_var.set(convert_boolean_to_Yes_No(self.tiktok_config['template'][load_template]['is_delete_after_upload']))
 
         def choose_folder_upload():
             folder = choose_folder()
@@ -377,6 +402,7 @@ class TikTokManager:
         self.waiting_verify_var = self.create_settings_input(label_text="Thêm giời gian chờ xác minh capcha", config_key="waiting_verify", config=self.tiktok_config['template'][self.account], values=['Yes', 'No'], left=0.3, right=0.7)
         self.number_of_days_var = self.create_settings_input("Số ngày muốn đăng", config_key="number_of_days", config=self.tiktok_config['template'][self.account], left=0.3, right=0.7)
         self.day_gap_var = self.create_settings_input("Khoảng cách giữa các ngày đăng", "day_gap", config=self.tiktok_config['template'][self.account], left=0.3, right=0.7)
+        self.location_var = self.create_settings_input("Vị trí muốn đăng(vd: New York)", "location", config=self.tiktok_config['template'][self.account], left=0.3, right=0.7)
         self.is_delete_after_upload_var = self.create_settings_input("Xóa video sau khi đăng", "is_delete_after_upload", config=self.tiktok_config['template'][self.account], values=["Yes", "No"], left=0.3, right=0.7)
         self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", config=self.tiktok_config, values=['Yes', 'No'], left=0.3, right=0.7)
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa video", command=choose_folder_upload, width=self.width, left=0.3, right=0.7)
@@ -410,6 +436,7 @@ class TikTokManager:
                 notification(self.root, message)
                 return False
             self.tiktok_config['template'][self.account]["description"] = self.description_var.get("1.0", ctk.END).strip()
+            self.tiktok_config['template'][self.account]["location"] = self.location_var.get().strip()
             self.tiktok_config['template'][self.account]["upload_date"] = upload_date
             self.tiktok_config['template'][self.account]["publish_times"] = self.publish_times_var.get()
             self.tiktok_config['template'][self.account]["upload_folder"] = self.upload_folder_var.get()
@@ -458,10 +485,8 @@ class TikTokManager:
                     number_of_days = 10
                     upload_date = add_date_into_string(upload_date_str, day_gap)
                     self.tiktok_config['show_browser'] = True
-                upload_date = get_upload_date(upload_date_str, next_day=True)
+                upload_date = get_upload_date(upload_date_str)
                 upload_date = convert_datetime_to_string(upload_date)
-                if not is_date_greater_than_current_day(upload_date_str):
-                    print(f"Ngày lên lịch đăng phải lớn hơn ngày hiện tại. Sẽ lấy ngày bắt đầu dăng là {upload_date}")
                 # Xác định thời gian đăng cho video
                 publish_times_str = self.tiktok_config['template'][self.account]['publish_times']
                 publish_times = publish_times_str.split(',')   
@@ -476,8 +501,9 @@ class TikTokManager:
                         print(f'Có lỗi trong quá trình đăng nhập. Hãy kiểm tra xem tài khoản có cần phải xác minh capcha không.')
                         return
                 video_name = os.path.splitext(video_file)[0] #lấy tên
+                location = self.tiktok_config['template'][self.account]['location']
                 description = self.tiktok_config['template'][self.account]['description']
-                description = f"{video_name}\n{description}"
+                description = f"\n{description}"
                 video_path = os.path.join(videos_folder, video_file)
                 print(f'--> Bắt đầu đăng video {video_file}')
                 if upload_count > 0:
@@ -491,6 +517,7 @@ class TikTokManager:
                     break
                 self.click_copyright_check()
                 self.input_description(description)
+                self.input_location(location)
                 if self.is_stop_upload:
                     break
                 if self.is_schedule:
@@ -498,6 +525,9 @@ class TikTokManager:
                     publish_time = get_pushlish_time_hh_mm(publish_time)
                     if not publish_time:
                         return False
+                    if not check_datetime_input(upload_date, publish_time):
+                        return False
+                    
                     self.click_schedule_button()
                     self.select_date(upload_date)
                     if self.is_stop_upload:
@@ -820,7 +850,7 @@ class TikTokManager:
         elif self.is_upload_video_window:
             self.root.title(f"Upload video Tiktok: {self.account}")
             self.width = 800
-            self.height_window = 730
+            self.height_window = 778
             self.is_upload_video_window = False
         elif self.is_download_window:
             self.root.title("Download videos Tiktok")
