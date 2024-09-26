@@ -27,6 +27,7 @@ import portalocker
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -39,9 +40,7 @@ import ffmpeg
 import pickle
 import uuid
 import wmi
-def get_mac_address():
-    mac = uuid.getnode()
-    return ':'.join(('%012X' % mac)[i:i+2] for i in range(0, 12, 2))
+import platform
 
 def get_disk_serial():
     c = wmi.WMI()
@@ -55,28 +54,34 @@ is_dev_enviroment = True
 def get_current_dir():
     """Lấy thư mục đang chạy tệp thực thi"""
     if getattr(sys, 'frozen', False):
-        # Đang chạy từ tệp thực thi đóng gói
         current_dir = os.path.dirname(sys.executable)
         is_dev_enviroment = False
-        # print("Đang chạy từ tệp thực thi đóng gói")
     else:
-        # Đang chạy trong môi trường phát triển
         current_dir = os.path.dirname(os.path.abspath(__file__))
         is_dev_enviroment = True
-        # print("Đang chạy trong môi trường phát triển")
     return current_dir
+
+def get_chrome_profile_folder():
+    if platform.system() == "Windows":
+        profile_folder = os.path.join(os.environ['LOCALAPPDATA'], "Google", "Chrome", "User Data")
+    elif platform.system() == "Darwin":
+        profile_folder = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Google", "Chrome")
+    elif platform.system() == "Linux":
+        profile_folder = os.path.join(os.path.expanduser("~"), ".config", "google-chrome")
+    else:
+        raise Exception("Hệ điều hành không được hỗ trợ.")
+    return profile_folder
+
+profile_folder = get_chrome_profile_folder()
 current_dir = get_current_dir()
-print(current_dir)
-# current_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 sys.path.append(current_dir)
-icon_path = os.path.join(current_dir, 'icon.png')
 config_path = os.path.join(current_dir, 'config.json')
 chromedriver_path = os.path.join(current_dir, 'import\\chromedriver.exe')
-secret_path = os.path.join(current_dir, 'secret.json')
+secret_path = os.path.join(current_dir, 'oauth', 'secret.json')
 download_info_path = os.path.join(current_dir, 'download_info.json')
 youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
-download_folder = f'{current_dir}\\download_folder'
-os.makedirs(download_folder, exist_ok=True)
+# download_folder = f'{current_dir}\\download_folder'
+# os.makedirs(download_folder, exist_ok=True)
 test_folder = f'{current_dir}\\test'
 local_storage_path = os.path.join(current_dir, 'local_storage.json')
 facebook_cookies_path = os.path.join(current_dir, 'facebook_cookies.json')
@@ -104,19 +109,19 @@ def load_ffmpeg():
     if not is_ffmpeg_available():
         ffmpeg_dir = get_ffmpeg_dir()
         os.environ["PATH"] += os.pathsep + ffmpeg_dir
-        # print(ffmpeg_dir)
-#load ffmpeg
 load_ffmpeg()
 
 def get_driver(show=True):
     try:
         service = Service(chromedriver_path)
+        # service = Service(ChromeDriverManager().install())
         options = webdriver.ChromeOptions()
         if not show:
             options.add_argument('--headless')  # Chạy ở chế độ không giao diện
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
         options.add_argument('--disable-gpu')
         options.add_argument('--disable-blink-features=AutomationControlled')
-        # options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
         options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36")
         options.add_argument("--log-level=3")  # Suppress most logs
         options.add_argument("--disable-logging")  # Disable logging
@@ -133,13 +138,59 @@ def get_driver(show=True):
                 renderer="Intel Iris OpenGL Engine",
                 fix_hairline=True
                 )
+        sleep(1)
         return driver
     except:
         getlog()
         print("Lỗi trong quá trình khởi tạo chromedriver.")
         return None
+    
+def get_driver_with_profile(target_gmail, show=True):
+    def get_profile_name_by_gmail():
+        def check_gmail_in_profile(profile_path):
+            preferences_file = os.path.join(profile_path, "Preferences")
+            
+            if os.path.exists(preferences_file):
+                with open(preferences_file, 'r', encoding='utf-8') as f:
+                    try:
+                        preferences = json.load(f)
+                        if 'profile' in preferences:
+                            for account in preferences['account_info']:
+                                if 'email' in account and account['email'] == target_gmail:
+                                    return True
+                    except json.JSONDecodeError:
+                        print(f"Không thể đọc file Preferences trong profile {profile_path}.")
+            return False
+        
+        profiles = [name for name in os.listdir(profile_folder) if os.path.isdir(os.path.join(profile_folder, name)) and name.startswith("Profile")]
+        if "Default" in os.listdir(profile_folder):
+            profiles.append("Default")
 
-def get_element_by_xpath(driver, xpath, key=None):
+        for profile_name in profiles:
+            profile_path = os.path.join(profile_folder, profile_name)
+            if os.path.exists(profile_path):
+                if check_gmail_in_profile(profile_path):
+                    return profile_name
+        return None
+    
+    profile_name = get_profile_name_by_gmail()
+    if profile_name:
+        profile_path = os.path.join(profile_folder, profile_name)
+        print(profile_path)
+        options = webdriver.ChromeOptions()
+        options.add_argument(f"user-data-dir={profile_folder}")
+        options.add_argument(f"profile-directory={profile_name}")
+        if not show:
+            options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        driver = webdriver.Chrome(options=options)
+        return driver
+    else:
+        print(f'Không tìm thấy profile cho tài khoản google {target_gmail}')
+        return get_driver(show=show)
+
+def get_element_by_xpath(driver, xpath, key=None, index=0):
     kq = []
     cnt=0
     while(len(kq)==0):
@@ -157,13 +208,38 @@ def get_element_by_xpath(driver, xpath, key=None):
                 return None
         else:
             if len(elements) > 0:
-                ele = elements[0]
+                ele = elements[index]
                 return ele
         sleep(1)
         cnt += 1
         if cnt > 3:
-            print(f"Không tìm thấy: {key}: {xpath}")
+            # print(f"Không tìm thấy: {key}: {xpath}")
             return None
+
+def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None, contain=False):
+    if contain:
+        if class_name:
+            class_list = class_name.split()
+            class_condition = " and ".join([f"contains(@class, '{cls}')" for cls in class_list])
+        if attribute and attribute_value:
+            xpath = f"//{maintag}[{class_condition} and @{attribute}=\"{attribute_value}\"]"
+        else:
+            xpath = f"//{maintag}[{class_condition}]"
+    else:
+        if attribute and attribute_value:
+            xpath = f"//{maintag}[@class=\"{class_name}\" and @{attribute}=\"{attribute_value}\"]"
+        else:
+            xpath = f"//{maintag}[@class=\"{class_name}\"]"
+    return xpath
+
+def get_xpath_by_multi_attribute(maintag, attributes): #attributes = ['name="postSchedule"', ...]
+    if len(attributes) > 1:
+        attribute = " and @".join(attributes)
+    else:
+        attribute = attributes[0]
+    attribute = f"@{attribute}"
+    xpath = f"//{maintag}[{attribute}]"
+    return xpath
 
 def is_date_greater_than_current_day(date_str, day_delta=0):
     try:
@@ -297,19 +373,14 @@ def add_date_into_string(date_str, day_gap):
         return date.strftime("%Y-%m-%d")
     return None
 
-def get_time_remaining_until_quota_reset():
-    # Giờ PST (Pacific Standard Time) có UTC offset là -8 giờ
-    pst_timezone = timezone(timedelta(hours=-8))
-    # Lấy thời gian hiện tại theo giờ UTC
-    now_utc = datetime.now(timezone.utc)
-    # Chuyển đổi thời gian hiện tại sang giờ PST
-    now_pst = now_utc.astimezone(pst_timezone)
-    # Lấy thời điểm reset hạn mức (00:00 giờ PST hôm sau)
-    reset_time_pst = now_pst.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-    # Tính toán thời gian còn lại đến khi reset
-    time_remaining = reset_time_pst - now_pst
-    total_seconds = time_remaining.total_seconds()
-    return total_seconds
+# def get_time_remaining_until_quota_reset():
+#     pst_timezone = timezone(timedelta(hours=-8))
+#     now_utc = datetime.now(timezone.utc)
+#     now_pst = now_utc.astimezone(pst_timezone)
+#     reset_time_pst = now_pst.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+#     time_remaining = reset_time_pst - now_pst
+#     total_seconds = time_remaining.total_seconds()
+#     return total_seconds
  
 def get_file_path(file_name=None):
     """Lấy đường dẫn tới tệp config trong cùng thư mục với file thực thi (exe)"""
@@ -323,7 +394,7 @@ def get_file_path(file_name=None):
         return os.path.join(file_parent_path, file_name)
     else:
         return file_parent_path
-# Hàm để thêm ứng dụng vào danh sách khởi động cùng Windows
+
 def set_autostart():
     try:
         # Lấy đường dẫn tới file app.py
@@ -396,9 +467,9 @@ def get_json_data(file_name):
 def save_to_json_file(data, filename):
     try:
         with open(filename, "w", encoding="utf-8") as f:
-            portalocker.lock(f, portalocker.LOCK_EX)  # Khóa độc quyền (exclusive lock) để ghi
+            portalocker.lock(f, portalocker.LOCK_EX)
             json.dump(data, f, indent=3)
-            portalocker.unlock(f)  # Giải phóng khóa
+            portalocker.unlock(f)
     except Exception as e:
         print(f"ERROR: can not save data to {filename}: {e}")
         getlog()
@@ -406,10 +477,10 @@ def save_to_json_file(data, filename):
 def get_pickle_data(file_path):
     if os.path.exists(file_path):
         try:
-            with open(file_path, "rb") as file:  # Mở file ở chế độ nhị phân
-                portalocker.lock(file, portalocker.LOCK_SH)  # Khóa chia sẻ (shared lock) để đọc
+            with open(file_path, "rb") as file:
+                portalocker.lock(file, portalocker.LOCK_SH)
                 data = pickle.load(file)
-                portalocker.unlock(file)  # Giải phóng khóa
+                portalocker.unlock(file)
                 return data
         except:
             getlog()
@@ -418,10 +489,10 @@ def get_pickle_data(file_path):
 
 def save_to_pickle_file(data, file_path):
     try:
-        with open(file_path, "wb") as file:  # Mở file ở chế độ nhị phân
-            portalocker.lock(file, portalocker.LOCK_EX)  # Khóa độc quyền (exclusive lock) để ghi
+        with open(file_path, "wb") as file:
+            portalocker.lock(file, portalocker.LOCK_EX)
             pickle.dump(data, file)
-            portalocker.unlock(file)  # Giải phóng khóa
+            portalocker.unlock(file)
     except:
         getlog()
 
@@ -446,7 +517,6 @@ def get_json_data_from_url(url):
         print("Failed to fetch the secret file.")
     return data
 
-# Ghi lỗi vào file log.txt
 def getlog(lock=None):
     try:
         print(traceback.print_exc())
@@ -467,7 +537,6 @@ def get_audio_clip_from_video(video_path=None, is_get_video=False):
     try:
         video_clip = VideoFileClip(video_path)
         audio_clip = video_clip.audio
-        # Tạo video mới không có phần audio và lưu lại
         if is_get_video:
             output_folder, output_video_path, file_name = get_output_folder(video_path, output_folder_name='output_audio')
             video_clip_without_audio = video_clip.without_audio()
@@ -487,7 +556,6 @@ def get_output_folder(input_video_path, output_folder_name='output_folder'):
     output_file_path = f'{output_folder}/{file_name}'
     return output_folder, output_file_path, file_name
 
-#Áp dụng cho tất cả url
 def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=3, return_file_path=False):
     t = time()
     if not url:
@@ -570,8 +638,8 @@ def get_info_by_url(url, download_folder=None, is_download=False):
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
-            'writesubtitles': True,  # Cho phép viết phụ đề
-            'allsubtitles': True,  # Tải tất cả các phụ đề có sẵn
+            'writesubtitles': True,
+            'allsubtitles': True,
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
             'outtmpl': f'{download_folder}/%(title)s.%(ext)s',
             'addmetadata': False,
@@ -591,7 +659,6 @@ def get_info_by_url(url, download_folder=None, is_download=False):
         getlog()
         return None
 
-#chỉ tiktok
 def download_video_no_watermark_from_tiktok(video_url, download_folder=None):
         url = "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/index"
         headers = {
@@ -617,96 +684,6 @@ def download_video_no_watermark_from_tiktok(video_url, download_folder=None):
         except:
             getlog()
             return False
-
-def download_videos_form_playhh3dhay_by_txt_file(id_file_txt, download_folder=download_folder):
-    def download_video_by_url(url, output_path):
-        try:
-            headers = {
-                'Referer': 'https://playhh3dhay.xyz',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            
-            response = requests.get(url, headers=headers, stream=True)
-            
-            if response.status_code == 200:
-                with open(output_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=1024):
-                        if chunk:
-                            f.write(chunk)
-                print(f"Video downloaded successfully to {output_path}")
-                return True
-            else:
-                print(f"Failed to download video. Status code: {response.status_code}")
-                return False
-        except:
-            return False
-        
-    file_data = get_txt_data(id_file_txt)
-    if file_data is None:
-        print(f"File {id_file_txt} không tồn tại.")
-        return
-    lines = file_data.splitlines()
-    index = 1938
-    temp_list_file = f"{download_folder}\\temp_list.txt"
-    remove_file(temp_list_file)
-    for line in lines:
-        no_video_downloaded = False
-        line = line.split(',')
-        if len(line) == 1:
-            server, video_id, end_url = 's1', line[0], '1080p/1080p_003.html'
-        elif len(line) == 2:
-            server, video_id, end_url = line[0], line[1], '1080p/1080p_003.html'
-        else:
-            server, video_id, end_url = line[0], line[1], line[2] #dạng s1,81ff33517ddda537c8858780626cfc12,1080p/1080p_003.html
-        resolution = end_url.split('_')[0]
-        exp = end_url.split('_')[1].split('.')[-1]
-        print("-----------------------------------------")
-        print(f"Bắt đầu tải tập phim với id {video_id} - Độ phân giải {resolution}")
-        output_folder = os.path.join(download_folder, video_id)
-        os.makedirs(output_folder, exist_ok=True)
-        for j in range(1, 2000):
-            if no_video_downloaded:
-                break
-            if j < 1000:
-                j_str = f"{j:03}"
-            else:
-                j_str = f"{j:04}"
-            for i in range(1, 6):
-                video_url = f"https://{server}.playhh3dhay{i}.com/cdn/down/{video_id}/Video/{resolution}_{j_str}.{exp}"
-                segment_path = os.path.join(output_folder, f"video_{index}.mp4")
-                
-                if download_video_by_url(video_url, segment_path):
-                    no_video_downloaded = False  # Đặt lại cờ vì đã tải được video
-                    index += 1
-                    break
-            else:
-                no_video_downloaded = True
-
-
-def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None, contain=False):
-    if contain:
-        if class_name:
-            class_list = class_name.split()
-            class_condition = " and ".join([f"contains(@class, '{cls}')" for cls in class_list])
-        if attribute and attribute_value:
-            xpath = f"//{maintag}[{class_condition} and @{attribute}=\"{attribute_value}\"]"
-        else:
-            xpath = f"//{maintag}[{class_condition}]"
-    else:
-        if attribute and attribute_value:
-            xpath = f"//{maintag}[@class=\"{class_name}\" and @{attribute}=\"{attribute_value}\"]"
-        else:
-            xpath = f"//{maintag}[@class=\"{class_name}\"]"
-    return xpath
-
-def get_xpath_by_multi_attribute(maintag, attributes): #attributes = ['name="postSchedule"', ...]
-    if len(attributes) > 1:
-        attribute = " and @".join(attributes)
-    else:
-        attribute = attributes[0]
-    attribute = f"@{attribute}"
-    xpath = f"//{maintag}[{attribute}]"
-    return xpath
 
 def rename_files_by_index(folder_path, base_name="", extension=None, start_index=1):
     if not extension:

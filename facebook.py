@@ -359,9 +359,9 @@ class FacebookManager:
     def try_click_page_list(self):
         xpath = get_xpath('span', "x193iq5w xeuugli x13faqbe x1vvkbs x1xmvt09 x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x xudqn12 x3x7a5m x6prxxf xvq8zen xk50ysn x1qq9wsj")
         if self.en_language:
-            page_list_ele = self.get_element_by_xpath(xpath, 'See all profiles')
+            page_list_ele = get_element_by_xpath(self.driver, xpath, 'See all profiles')
         else:
-            page_list_ele = self.get_element_by_xpath(xpath, 'Xem tất cả trang cá nhân')
+            page_list_ele = get_element_by_xpath(self.driver, xpath, 'Xem tất cả trang cá nhân')
         if page_list_ele:
             page_list_ele.click()
             sleep(1)
@@ -374,22 +374,20 @@ class FacebookManager:
             xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "See all profiles")
         else:
             xpath = get_xpath('div', "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Xem tất cả trang cá nhân")
-        page_list_ele = self.get_element_by_xpath(xpath, 'See all profiles')
+        page_list_ele = get_element_by_xpath(self.driver, xpath, 'See all profiles')
         if page_list_ele:
             page_list_ele.click()
             sleep(1)
         else:
-            # print("Dừng đăng video vì không tìm thấy danh sách trang!")
-            # self.is_stop_upload = True
             self.try_click_page_list()
 
     def get_profile_element(self):
         profile_xpath = get_xpath("div", "x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x1q0g3np x87ps6o x1lku1pv x1a2a7pz xzsf02u x1rg5ohu")
-        profile_element = self.get_element_by_xpath(profile_xpath, "Your profile")
+        profile_element = get_element_by_xpath(self.driver, profile_xpath, "Your profile")
         if profile_element:
             return profile_element, 'en'
         else:
-            profile_element = self.get_element_by_xpath(profile_xpath, "Trang cá nhân của bạn")
+            profile_element = get_element_by_xpath(self.driver, profile_xpath, "Trang cá nhân của bạn")
             if profile_element:
                 return profile_element, 'vi'
             else:
@@ -401,32 +399,6 @@ class FacebookManager:
     def scroll_into_view(self, element):
         self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
         sleep(1)
-
-    def get_element_by_xpath(self, xpath, key=None):
-        kq = []
-        cnt=0
-        while(len(kq)==0):
-            cnt+=1
-            elements = self.driver.find_elements(By.XPATH, xpath)
-            if key:
-                key = key.lower()
-                for ele in elements:
-                    if key in ele.accessible_name.lower() or key in ele.text.lower() or key in ele.tag_name.lower() or key in ele.aria_role.lower():
-                        kq.append(ele)
-                        break
-                if len(kq) > 0:
-                    return kq[0]
-                else:
-                    return None
-            else:
-                if len(elements) > 0:
-                    ele = elements[0]
-                    return ele
-            sleep(1)
-            cnt += 1
-            if cnt > 3:
-                print(f"Không tìm thấy: {key}: {xpath}")
-                return None
             
     def get_element_by_class(self, class_name, key=None):
         elements = self.driver.find_elements(By.CLASS_NAME, class_name)
@@ -458,40 +430,44 @@ class FacebookManager:
 
     def click_schedule_link(self):
         xpath  = get_xpath_by_multi_attribute("a", ["role='link'"])
-        ele = self.get_element_by_xpath(xpath, "Meta Business Suite")
+        ele = get_element_by_xpath(self.driver, xpath, "Meta Business Suite")
         if ele:
             link = ele.get_attribute('href')
             self.driver.get(link) 
             sleep(4)
-            # Chuyển qua tab mới
-            # for handle in self.driver.window_handles:
-            #     if handle != original_window:
-            #         self.driver.switch_to.window(handle)
-            #         break
+
     def get_meta_business_suite(self):
-        xpath = get_xpath('span', 'x1lliihq x6ikm8r x10wlt62 x1n2onr6')
-        ele = self.get_element_by_xpath(xpath, 'Meta Business Suite')
-        if ele:
-            try:
-                press_esc_key(2, self.driver)
-                ele.click()
-            except:
-                pass
+        def click_page_name():
+            xpath = get_xpath('div', 'x1xqt7ti xsuwoey x63nzvj xbsr9hj xuxw1ft x6ikm8r x10wlt62 xlyipyv x1mzt3pk x1vvkbs x13faqbe x1fcty0u xeuugli')
+            ele = get_element_by_xpath(self.driver, xpath, self.page_name)
+            if ele:
+                if ele.text == self.page_name:
+                    ele.click()
+                    return True
+            return False
+    
+        def check_meta_bussiness_name():
+            xpath = get_xpath('div', 'xmi5d70 x1fvot60 xxio538 xbsr9hj xuxw1ft x6ikm8r x10wlt62 xlyipyv x1h4wwuj x1fcty0u')
+            ele = get_element_by_xpath(self.driver, xpath)
+            if ele:
+                page = ele.text
+                if page != self.page_name:
+                    ele.click()
+                    if not click_page_name():
+                        print(f'Có lỗi trong quá trình chuyển trang {self.page_name} trên Meta Bussiness Suite')
+                        self.is_stop_upload = True
+                        
+        self.driver.get("https://business.facebook.com/latest/home?")
+        sleep(3)
+        check_meta_bussiness_name()
         self.driver.get("https://www.facebook.com/latest/content_calendar?")
-        sleep(4)
-        # xpath = get_xpath('div', 'xmi5d70 x1fvot60 xxio538 xbsr9hj xuxw1ft x6ikm8r x10wlt62 xlyipyv x1h4wwuj x1fcty0u')
-        # ele = self.get_element_by_xpath(xpath)
-        # if ele:
-        #     if ele.text == self.page_name:
-        #         sleep(2)
-        #     else:
-        #         self.scroll_into_view(ele)
+        sleep(3)
 
     def click_option_menu(self):
         att1 = "class='x3nfvp2 x120ccyz x1heor9g x2lah0s x1c4vz4f x1gryazu'"
         att2 = "role='presentation'"
         xpath = get_xpath_by_multi_attribute("div", [att1, att2])
-        ele = self.get_element_by_xpath(xpath)
+        ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.click()
             sleep(2)
@@ -504,7 +480,7 @@ class FacebookManager:
             att2 = "placeholder='dd/mm/yyyy'"
             upload_date = convert_date_format_yyyymmdd_to_mmddyyyy(date, vi_date=True)
         xpath = get_xpath_by_multi_attribute("input", [att1, att2])
-        ele = self.get_element_by_xpath(xpath)
+        ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.send_keys(Keys.CONTROL + "a")
             ele.send_keys(upload_date)
@@ -514,7 +490,7 @@ class FacebookManager:
             xpath = get_xpath('input', 'x972fbf xcfux6l x1qhh985 xm0m39n x5yr21d xg01cxk xexx8yu x4uap5 x18d9i69 xkhd6sd x10l6tqk x17qophe x13vifvy xuxw1ft xh8yej3', 'aria-label', 'hours')
         else:
             xpath = get_xpath('input', 'x972fbf xcfux6l x1qhh985 xm0m39n x5yr21d xg01cxk xexx8yu x4uap5 x18d9i69 xkhd6sd x10l6tqk x17qophe x13vifvy xuxw1ft xh8yej3', 'aria-label', 'giờ')
-        ele = self.get_element_by_xpath(xpath)
+        ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.send_keys(hour)
             sleep(1)
@@ -523,7 +499,7 @@ class FacebookManager:
             xpath = get_xpath('input', 'x972fbf xcfux6l x1qhh985 xm0m39n x5yr21d xg01cxk xexx8yu x4uap5 x18d9i69 xkhd6sd x10l6tqk x17qophe x13vifvy xuxw1ft xh8yej3', 'aria-label', 'minutes')
         else:
             xpath = get_xpath('input', 'x972fbf xcfux6l x1qhh985 xm0m39n x5yr21d xg01cxk xexx8yu x4uap5 x18d9i69 xkhd6sd x10l6tqk x17qophe x13vifvy xuxw1ft xh8yej3', 'aria-label', 'phút')
-        ele = self.get_element_by_xpath(xpath)
+        ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.send_keys(minute)
             sleep(1)
@@ -532,34 +508,34 @@ class FacebookManager:
         att1 = "class='x972fbf xcfux6l x1qhh985 xm0m39n x5yr21d xg01cxk xexx8yu x4uap5 x18d9i69 xkhd6sd x10l6tqk x17qophe x13vifvy xuxw1ft xh8yej3'"
         att2 = "aria-label='meridiem'"
         xpath = get_xpath_by_multi_attribute("input", [att1, att2])
-        ele = self.get_element_by_xpath(xpath)
+        ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.send_keys(meridiem)
             sleep(2)
     def click_update_schedule_button(self):
         xpath = get_xpath('div', "x1xqt7ti x1fvot60 xk50ysn xxio538 x1heor9g xuxw1ft x6ikm8r x10wlt62 xlyipyv x1h4wwuj xeuugli")
         if self.en_language:
-            ele = self.get_element_by_xpath(xpath, "Update")
+            ele = get_element_by_xpath(self.driver, xpath, "Update")
         else:
-            ele = self.get_element_by_xpath(xpath, "Cập nhật")
+            ele = get_element_by_xpath(self.driver, xpath, "Cập nhật")
         if ele:
             ele.click()
             sleep(1)
     def click_public_schedule_button(self):
         xpath = get_xpath('div', "x1xqt7ti x1fvot60 xk50ysn xxio538 x1heor9g xuxw1ft x6ikm8r x10wlt62 xlyipyv x1h4wwuj xeuugli")
         if self.en_language:
-            ele = self.get_element_by_xpath(xpath, "Publish")
+            ele = get_element_by_xpath(self.driver, xpath, "Publish")
         else:
-            ele = self.get_element_by_xpath(xpath, "Đăng")
+            ele = get_element_by_xpath(self.driver, xpath, "Đăng")
         if ele:
             ele.click()
             sleep(5)
     def click_schedule_option(self):
         xpath = get_xpath('div', "x1xqt7ti x1fvot60 xk50ysn xxio538 x1heor9g xuxw1ft x6ikm8r x10wlt62 xlyipyv x1h4wwuj xeuugli")
         if self.en_language:
-            ele = self.get_element_by_xpath(xpath, "Schedule")
+            ele = get_element_by_xpath(self.driver, xpath, "Schedule")
         else:
-            ele = self.get_element_by_xpath(xpath, "Lên lịch")
+            ele = get_element_by_xpath(self.driver, xpath, "Lên lịch")
         if ele:
             ele.click()
             sleep(1)
@@ -568,14 +544,14 @@ class FacebookManager:
         xpath = get_xpath("div", "xmi5d70 x1fvot60 xo1l8bm xxio538 xbsr9hj xq9mrsl x1mzt3pk x1vvkbs x13faqbe xeuugli x1iyjqo2")
         if self.en_language:
             if self.is_reel_video:
-                ele = self.get_element_by_xpath(xpath, "Bulk upload reels")
+                ele = get_element_by_xpath(self.driver, xpath, "Bulk upload reels")
             else:
-                ele = self.get_element_by_xpath(xpath, "Bulk upload videos")
+                ele = get_element_by_xpath(self.driver, xpath, "Bulk upload videos")
         else:
             if self.is_reel_video:
-                ele = self.get_element_by_xpath(xpath, "Tải hàng loạt thước phim lên")
+                ele = get_element_by_xpath(self.driver, xpath, "Tải hàng loạt thước phim lên")
             else:
-                ele = self.get_element_by_xpath(xpath, "Tải video lên hàng loạt")
+                ele = get_element_by_xpath(self.driver, xpath, "Tải video lên hàng loạt")
         if ele:
             ele.click()
             sleep(5)
@@ -584,10 +560,10 @@ class FacebookManager:
         att1 = "accept='video/*'"
         att2 = "class='_44hf'"
         xpath = get_xpath_by_multi_attribute("input", [att1, att2])
-        ele = self.get_element_by_xpath(xpath, )
+        ele = get_element_by_xpath(self.driver, xpath, )
         if ele:
             ele.send_keys(video_path)
-            sleep(1)
+            sleep(2)
         else:
             self.is_stop_upload = True
 
@@ -595,14 +571,14 @@ class FacebookManager:
         xpath_photo_video = "//div[@class=\"x1i10hfl xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1q0g3np x87ps6o x1lku1pv x1a2a7pz x6s0dn4 x1lq5wgf xgqcy7u x30kzoy x9jhf4c x78zum5 x1r8uery x1iyjqo2 xs83m0k xl56j7k x1pshirs x1y1aw1k x1sxyh0 xwib8y2 xurb0ha\"]"
         if self.en_language:
             if self.is_reel_video:
-                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "Reel")
+                photo_video_button = get_element_by_xpath(self.driver, xpath_photo_video, "Reel")
             else:
-                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "photo/video")
+                photo_video_button = get_element_by_xpath(self.driver, xpath_photo_video, "photo/video")
         else:
             if self.is_reel_video:
-                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "Thước phim")
+                photo_video_button = get_element_by_xpath(self.driver, xpath_photo_video, "Thước phim")
             else:
-                photo_video_button = self.get_element_by_xpath(xpath_photo_video, "Ảnh/video")
+                photo_video_button = get_element_by_xpath(self.driver, xpath_photo_video, "Ảnh/video")
         if photo_video_button:
             photo_video_button.click()
             sleep(1.5)
@@ -612,17 +588,17 @@ class FacebookManager:
             xpath = get_xpath('input', 'x1s85apg', 'accept', 'video/*,video/mp4,video/x-m4v,video/x-matroska,.mkv')
         else:
             xpath = "//input[@accept='image/*,image/heif,image/heic,video/*,video/mp4,video/x-m4v,video/x-matroska,.mkv' and @class='x1s85apg']"
-        upload_input = self.get_element_by_xpath(xpath)
+        upload_input = get_element_by_xpath(self.driver, xpath)
         if upload_input:
             upload_input.send_keys(video_path)
-            sleep(1)
+            sleep(2)
 
     def input_title(self, title):
         title_xpath = get_xpath("div", "xzsf02u x1a2a7pz x1n2onr6 x14wi4xw x9f619 x1lliihq x5yr21d xh8yej3 notranslate")
         if self.en_language:
-            title_element = self.get_element_by_xpath(title_xpath, "What's on your mind")
+            title_element = get_element_by_xpath(self.driver, title_xpath, "What's on your mind")
         else:
-            title_element = self.get_element_by_xpath(title_xpath, "bạn đang nghĩ gì thế?")
+            title_element = get_element_by_xpath(self.driver, title_xpath, "bạn đang nghĩ gì thế?")
         if title_element:
             title_element.send_keys(title)
             sleep(2)
@@ -638,7 +614,7 @@ class FacebookManager:
             if self.is_stop_upload:
                 break
             try:
-                status_xpath_element = self.get_element_by_xpath(status_xpath)
+                status_xpath_element = get_element_by_xpath(self.driver, status_xpath)
                 v = status_xpath_element.text
                 if v != pre_v:
                     print(v)
@@ -659,7 +635,7 @@ class FacebookManager:
             if self.is_stop_upload:
                 break
             try:
-                status_xpath_element = self.get_element_by_xpath(status_xpath)
+                status_xpath_element = get_element_by_xpath(self.driver, status_xpath)
                 v = status_xpath_element.text
                 if v != pre_v:
                     sys.stdout.write(f'\rĐã tải lên được {v} ...')
@@ -680,7 +656,7 @@ class FacebookManager:
                 xpath = get_xpath('div', "notranslate _5rpu", attribute="aria-label", attribute_value="Write into the dialogue box to include text with your post.")
             else:
                 xpath = get_xpath('div', "notranslate _5rpu", attribute="aria-label", attribute_value="Hãy viết vào ô hộp thoại để thêm văn bản vào bài viết.")
-            ele = self.get_element_by_xpath(xpath)
+            ele = get_element_by_xpath(self.driver, xpath)
             if ele:
                 ele.send_keys(description)
         except:
@@ -693,7 +669,7 @@ class FacebookManager:
             sleep(1)
             self.click_page_list()
             page_xpath = f"//div[span[text()='{self.page_name}']]"
-            page_element = self.get_element_by_xpath(page_xpath, self.page_name)
+            page_element = get_element_by_xpath(self.driver, page_xpath, self.page_name)
             page_element.click()
             print(f'Đã chuyển sang trang {self.page_name}')
             sleep(4)
@@ -704,7 +680,7 @@ class FacebookManager:
 
     def check_switch_button(self):
         xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3")
-        element = self.get_element_by_xpath(xpath, "Switch Now")
+        element = get_element_by_xpath(self.driver, xpath, "Switch Now")
         if element:
             element.click()
             sleep(4)
@@ -715,7 +691,7 @@ class FacebookManager:
                 xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Next")
             else:
                 xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3", "aria-label", "Tiếp")
-            element = self.get_element_by_xpath(xpath)
+            element = get_element_by_xpath(self.driver, xpath)
             if element:
                 element.click()
                 sleep(1)
@@ -725,7 +701,7 @@ class FacebookManager:
             xpath = get_xpath("div", "xzsf02u x1a2a7pz x1n2onr6 x14wi4xw x9f619 x1lliihq x5yr21d xh8yej3 notranslate", "aria-label", "Describe your reel...")
         else:
             xpath = get_xpath("div", "xzsf02u x1a2a7pz x1n2onr6 x14wi4xw x9f619 x1lliihq x5yr21d xh8yej3 notranslate", "aria-label", "Mô tả thước phim của bạn...")
-        element = self.get_element_by_xpath(xpath)
+        element = get_element_by_xpath(self.driver, xpath)
         if element:
             element.send_keys(text)
             sleep(1)
@@ -738,9 +714,9 @@ class FacebookManager:
                 if self.is_stop_upload:
                     break
                 if self.en_language:
-                    element = self.get_element_by_xpath(xpath, "Publish")
+                    element = get_element_by_xpath(self.driver, xpath, "Publish")
                 else:
-                    element = self.get_element_by_xpath(xpath, "Đăng")
+                    element = get_element_by_xpath(self.driver, xpath, "Đăng")
                 if element:
                     element.click()
                     sleep(3)
@@ -759,28 +735,13 @@ class FacebookManager:
             xpath = get_xpath('div', 'x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3', 'aria-label', 'Post')
         else:
             xpath = get_xpath('div', 'x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3', 'aria-label', 'Đăng')
-        element = self.get_element_by_xpath(xpath)
+        element = get_element_by_xpath(self.driver, xpath)
         if element:
             element.click()
             print("Đang tiến hành đăng video...")
             sleep(5)
         else:
             print("không tìm thấy post_button")
-    
-    # def choose_public(self):
-    #     # chọn public
-    #     xpath_audience = get_xpath("div", "x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x3nfvp2 x1q0g3np x87ps6o x1lku1pv x1a2a7pz")
-    #     xpath_audience_element = self.get_element_by_xpath(xpath_audience, "Edit privacy")
-    #     xpath_audience_element.click()
-    #     sleep(2)
-    #     public_xpath = get_xpath("div", "x6s0dn4 xkh2ocl x1q0q8m5 x1qhh985 xu3j5b3 xcfux6l x26u7qi xm0m39n x13fuv20 x972fbf x9f619 x78zum5 x1q0g3np x1iyjqo2 xs83m0k x1qughib xat24cr x11i5rnm x1mh8g0r xdj266r x2lwn1j xeuugli x18d9i69 x4uap5 xkhd6sd xexx8yu x1n2onr6 x1ja2u2z")
-    #     public_xpath_element = self.get_element_by_xpath(public_xpath, "Public\n")
-    #     public_xpath_element.click()
-    #     sleep(1)
-    #     done_xpath = get_xpath("div", "x1i10hfl xjbqb8w x1ejq31n xd10rxx x1sy0etr x17r0tee x972fbf xcfux6l x1qhh985 xm0m39n x1ypdohk xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r xexx8yu x4uap5 x18d9i69 xkhd6sd x16tdsg8 x1hl2dhg xggy1nq x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x87ps6o x1lku1pv x1a2a7pz x9f619 x3nfvp2 xdt5ytf xl56j7k x1n2onr6 xh8yej3")
-    #     done_xpath_element = self.get_element_by_xpath(done_xpath, "done")
-    #     done_xpath_element.click()
-    #     sleep(2)
 
     def upload_video(self):
         try:

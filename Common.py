@@ -97,7 +97,7 @@ youtube_category = {
 }
 
 youtube_config = {
-   "registered_account":[],
+   "registered_account":['dxthien2@gmail.com'],
    "current_youtube_account": "",
    "current_channel": "",
    "download_folder": "",

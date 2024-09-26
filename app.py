@@ -1,11 +1,13 @@
 from common_function_edit_video import *
 from Common import *
-from PIL import Image, ImageDraw, ImageTk
+from PIL import Image, ImageDraw
 import pystray
 from pystray import MenuItem as item
 from tiktok import TikTokManager
 from facebook import FacebookManager
 from youtube import YouTubeManager
+icon_path = os.path.join(current_dir, 'import' , 'icon.png')
+ico_path = os.path.join(current_dir, 'import' , 'icon.ico')
 mac_registered = {
     "0025_38D2_1104_730B.":{
         "password":"123456",
@@ -39,13 +41,12 @@ class MainApp:
         try:
             self.root = ctk.CTk()
             self.root.title("Super App")
-
-            ico_path = os.path.join(current_dir, 'icon.ico')
             if not os.path.exists(ico_path):
                 if os.path.exists(icon_path):
                     image = Image.open(icon_path)
                     image.save(ico_path, format='ICO')
                     image.close()
+            
             if os.path.exists(ico_path):
                 self.root.iconbitmap(ico_path)
 
@@ -70,9 +71,9 @@ class MainApp:
             self.voices = []
             self.all_voice_index = {}
             remove_file("log.txt")
-            #kiem tra quota
-            time_remaining = get_time_remaining_until_quota_reset()
-            self.next_time_check_quocta = time() + time_remaining
+
+            # time_remaining = get_time_remaining_until_quota_reset()
+            # self.next_time_check_quocta = time() + time_remaining
             self.thread_main = None
             self.icon = None
             self.translator=None
@@ -132,7 +133,7 @@ class MainApp:
 #------------------------------------------------main thread----------------------------------------------------
     def start_main_check_thread(self):
             self.thread_main = threading.Thread(target=self.main_check_thread)
-            self.thread_main.daemon = True  # Để thread kết thúc khi chương trình chính kết thúc
+            self.thread_main.daemon = True
             self.thread_main.start()
 
     def main_check_thread(self):
@@ -217,20 +218,8 @@ class MainApp:
                             getlog()
                             print(f"Có lỗi trong quá trình đăng video cho tài khoản tiktok {account}. Hãy thử đăng thủ công và chọn hiển thị trình duyệt để xem có vấn đề gì không.")
                         sleep(2)
-
         except:
             getlog()
-                
-            
-    # def check_quota_reset(self):
-    #     if time() - self.next_time_check_quocta >= 0:
-    #         self.is_auto_upload_youtube = True
-    #         for gmail in self.youtube_config['registered_account']:
-    #             if self.youtube:
-    #                 if self.youtube.gmail:
-    #                     self.youtube.is_quotaExceeded = False
-    #                     self.youtube_config['cnt_request_upload'][gmail] = 0
-    #         self.save_youtube_config()
 #-------------------------------------------Điều hướng window--------------------------------------------
 
     def get_start_window(self):
@@ -312,148 +301,156 @@ class MainApp:
                 self.noti("Đang tải video ở một luồng khác.")
 
         def start_download_douyin_video():
-            def check_quang_cao():
-                xpath = get_xpath_by_multi_attribute('div', ['id="dismiss-button"'])
-                ele = get_element_by_xpath(self.driver, xpath)
-                if ele:
-                    ele.click()
+            try:
+                def check_quang_cao():
+                    xpath = get_xpath_by_multi_attribute('div', ['id="dismiss-button"'])
+                    ele = get_element_by_xpath(self.driver, xpath)
+                    if ele:
+                        ele.click()
 
-            def download_douyin_video_by_tikvideoapp(url):
-                try:
-                    file_name = f"{url.split('/')[-1]}.mp4"
-                    output_path = os.path.join(self.config['download_folder'], file_name)
-                    self.driver.get('https://tikvideo.app/vi/download-douyin-video')
-                    sleep(2)
-                    check_quang_cao()
-                    input_xpath = get_xpath_by_multi_attribute('input', ['id="s_input"'])
-                    input_ele = get_element_by_xpath(self.driver, input_xpath)
-                    if input_ele:
-                        input_ele.send_keys(url)
-                        input_ele.send_keys(Keys.ENTER)
+                def download_douyin_video_by_tikvideoapp(url):
+                    try:
+                        file_name = f"{url.split('/')[-1]}.mp4"
+                        output_path = os.path.join(self.config['download_folder'], file_name)
+                        self.driver.get('https://tikvideo.app/vi/download-douyin-video')
+                        sleep(2)
                         check_quang_cao()
-                        video_link_xpath = "//a[contains(text(),'Tải xuống MP4 HD')]"
-                        video_link_ele = get_element_by_xpath(self.driver, video_link_xpath)
-                        if video_link_ele:
-                            url = video_link_ele.get_attribute('href')
-                            response = requests.get(url, stream=True)
+                        input_xpath = get_xpath_by_multi_attribute('input', ['id="s_input"'])
+                        input_ele = get_element_by_xpath(self.driver, input_xpath)
+                        if input_ele:
+                            input_ele.send_keys(url)
+                            input_ele.send_keys(Keys.ENTER)
+                            check_quang_cao()
+                            video_link_xpath = "//a[contains(text(),'Tải xuống MP4 HD')]"
+                            video_link_ele = get_element_by_xpath(self.driver, video_link_xpath)
+                            if video_link_ele:
+                                url = video_link_ele.get_attribute('href')
+                                response = requests.get(url, stream=True)
 
-                            # Lưu video vào file
-                            with open(output_path, 'wb') as file:
-                                for chunk in response.iter_content(chunk_size=1024):
-                                    if chunk:
-                                        file.write(chunk)
-                            if not os.path.exists(output_path):
-                                if download_douyin_video_by_snaptikapp(url):
-                                    return True
+                                # Lưu video vào file
+                                with open(output_path, 'wb') as file:
+                                    for chunk in response.iter_content(chunk_size=1024):
+                                        if chunk:
+                                            file.write(chunk)
+                                if not os.path.exists(output_path):
+                                    if download_douyin_video_by_snaptikapp(url):
+                                        return True
+                                    else:
+                                        return False
                                 else:
-                                    return False
-                            else:
-                                return True
-                    return False
-                except:
-                    return False
+                                    return True
+                        return False
+                    except:
+                        return False
 
-            def download_douyin_video_by_snaptikapp(url):
-                try:
-                    file_name = f"{url.split('/')[-1]}.mp4"
-                    output_path = os.path.join(self.config['download_folder'], file_name)
-                    self.driver.get('https://snaptik.app/vn/douyin-downloader')
-                    sleep(2)
-                    check_quang_cao()
-                    input_xpath = get_xpath_by_multi_attribute('input', ['id="url"', 'name="url"'])
-                    input_ele = get_element_by_xpath(self.driver, input_xpath)
-                    if input_ele:
-                        input_ele.send_keys(url)
-                        ele.send_keys(Keys.ENTER)
+                def download_douyin_video_by_snaptikapp(url):
+                    try:
+                        file_name = f"{url.split('/')[-1]}.mp4"
+                        output_path = os.path.join(self.config['download_folder'], file_name)
+                        self.driver.get('https://snaptik.app/vn/douyin-downloader')
+                        sleep(2)
                         check_quang_cao()
-                        video_link_xpath = "//a[contains(text(),'Tải xuống MP4 HD')]"
-                        video_link_ele = get_element_by_xpath(self.driver, video_link_xpath)
-                        if video_link_ele:
-                            url = video_link_ele.get_attribute('href')
-                            response = requests.get(url, stream=True)
-                            with open(output_path, 'wb') as file:
-                                for chunk in response.iter_content(chunk_size=1024):
-                                    if chunk:
-                                        file.write(chunk)
-                            if os.path.exists(output_path):
-                                return True
-                    return False
-                except:
-                    return False
+                        input_xpath = get_xpath_by_multi_attribute('input', ['id="url"', 'name="url"'])
+                        input_ele = get_element_by_xpath(self.driver, input_xpath)
+                        if input_ele:
+                            input_ele.send_keys(url)
+                            ele.send_keys(Keys.ENTER)
+                            check_quang_cao()
+                            video_link_xpath = "//a[contains(text(),'Tải xuống MP4 HD')]"
+                            video_link_ele = get_element_by_xpath(self.driver, video_link_xpath)
+                            if video_link_ele:
+                                url = video_link_ele.get_attribute('href')
+                                response = requests.get(url, stream=True)
+                                with open(output_path, 'wb') as file:
+                                    for chunk in response.iter_content(chunk_size=1024):
+                                        if chunk:
+                                            file.write(chunk)
+                                if os.path.exists(output_path):
+                                    return True
+                        return False
+                    except:
+                        return False
 
-            video_urls = []
-            cnt_download = 0
-            if self.is_download_douyin_channel:
-                cnt_search = 0
-                channel_link = self.download_by_channel_link.get()
-                if not channel_link:
-                    self.noti("Hãy nhập link kênh muốn tải video trước.")
-                    return
-                self.driver = get_driver()
-                self.driver.get(channel_link)
-                self.check_noti_login_douyin(self.driver)
-                if self.is_stop_download:
-                    self.close()
-                    return
-                last_height = self.driver.execute_script("return document.body.scrollHeight")
-                k = False
-                print(f"Bắt đầu quét video trong kênh theo link {channel_link} ...")
-                while True:
-                    if self.is_stop_download:
-                        self.close()
+                video_urls = []
+                cnt_download = 0
+                if self.is_download_douyin_channel:
+                    cnt_search = 0
+                    channel_link = self.download_by_channel_link.get()
+                    if not channel_link:
+                        self.noti("Hãy nhập link kênh muốn tải video trước.")
                         return
-                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);") # Cuộn xuống cuối trang
-                    sleep(2)
-                    new_height = self.driver.execute_script("return document.body.scrollHeight") # Tính chiều cao mới của trang
-                    if new_height == last_height: # Kiểm tra nếu không có thêm nội dung mới
-                        if k:
-                            break
-                        else:
-                            k = True
-                            sleep(2)
-                            continue
+                    self.driver = get_driver()
+                    self.driver.get(channel_link)
+                    self.check_noti_login_douyin(self.driver)
+                    if self.is_stop_download:
+                        return
+                    last_height = self.driver.execute_script("return document.body.scrollHeight")
                     k = False
-                    last_height = new_height
-                    cnt_search += 1
-                    if cnt_search > 100:
-                        break
+                    print(f"Bắt đầu quét video trong kênh theo link {channel_link} ...")
+                    while True:
+                        if self.is_stop_download:
+                            return
+                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);") # Cuộn xuống cuối trang
+                        sleep(2)
+                        new_height = self.driver.execute_script("return document.body.scrollHeight") # Tính chiều cao mới của trang
+                        if new_height == last_height: # Kiểm tra nếu không có thêm nội dung mới
+                            if k:
+                                break
+                            else:
+                                k = True
+                                sleep(2)
+                                continue
+                        k = False
+                        last_height = new_height
+                        cnt_search += 1
+                        if cnt_search > 100:
+                            break
 
-                xpath = get_xpath('a', 'uz1VJwFY TyuBARdT IdxE71f8')
-                eles = self.driver.find_elements(By.XPATH, xpath)
-                if len(eles) > 0:
-                    for ele in eles:
-                        video_link = ele.get_attribute('href')
-                        if video_link not in video_urls:
-                            video_urls.append(video_link)
-                else:
-                    xpath = "//div[starts-with(@id, 'waterfall_item_')]"
+                    xpath = get_xpath('a', 'uz1VJwFY TyuBARdT IdxE71f8')
                     eles = self.driver.find_elements(By.XPATH, xpath)
-                    if eles:
+                    if len(eles) > 0:
                         for ele in eles:
+                            if self.is_stop_download:
+                                return
+                            video_link = ele.get_attribute('href')
+                            if video_link not in video_urls:
+                                video_urls.append(video_link)
+                    else:
+                        xpath = "//div[starts-with(@id, 'waterfall_item_')]"
+                        eles = self.driver.find_elements(By.XPATH, xpath)
+                        if eles:
+                            for ele in eles:
+                                if self.is_stop_download:
+                                    return
                                 ele_id = ele.get_attribute('id')
                                 video_id = ele_id.split('waterfall_item_')[-1]
                                 video_link = f'https://www.douyin.com/video/{video_id}'
                                 if video_link not in video_urls:
                                     video_urls.append(video_link)
-            else:
-                video_url = self.download_by_video_url.get().strip()
-                video_urls.append(video_url)
-            if len(video_urls) > 0:
-                print(f'Đã tìm thấy {len(video_urls)} video')
-                print("Bắt đầu tải video ...")
-                for url in video_urls:
-                    print(f'Bắt đầu tải video {url}')
-                    if download_douyin_video_by_tikvideoapp(url):
-                        print(f"Tải thành công video {url}")
-                        cnt_download += 1
-                    else:
-                        print(f"Tải video không thành công --> {url}!!!")
-            if cnt_download > 0:
-                self.noti(f'Đã tải thành công {cnt_download} video')
+                else:
+                    video_url = self.download_by_video_url.get().strip()
+                    video_urls.append(video_url)
+                if len(video_urls) > 0:
+                    print(f'Đã tìm thấy {len(video_urls)} video')
+                    print("Bắt đầu tải video ...")
+                    for url in video_urls:
+                        if self.is_stop_download:
+                            break
+                        print(f'Bắt đầu tải video {url}')
+                        if download_douyin_video_by_tikvideoapp(url):
+                            print(f"Tải thành công video {url}")
+                            cnt_download += 1
+                        else:
+                            print(f"Tải video không thành công --> {url}!!!")
+                if cnt_download > 0:
+                    self.noti(f'Đã tải thành công {cnt_download} video')
+            except:
+                print("Có lỗi trong quá trình tải video từ douyin")
+            finally:
+                self.close()
 
-
-        self.download_by_video_url = create_frame_button_and_input(self.root, text="Tải video từ link video", command=start_thread_download_douyin_video_by_url, width=self.width, left=0.4, right=0.6)
-        self.download_by_channel_link = create_frame_button_and_input(self.root, text="Tải hàng loạt video từ link kênh", command=start_thread_download_douyin_channel, width=self.width, left=0.4, right=0.6)
+        self.download_by_video_url = create_frame_button_and_input(self.root, text="Tải video từ link video", command=start_thread_download_douyin_video_by_url, width=self.width, left=0.45, right=0.55)
+        self.download_by_channel_link = create_frame_button_and_input(self.root, text="Tải video từ link kênh/ link tìm kiếm", command=start_thread_download_douyin_channel, width=self.width, left=0.45, right=0.55)
         create_button(self.root, text="Lùi lại", command=self.open_other_download_video_window, width=self.width)
 
 
@@ -530,7 +527,7 @@ class MainApp:
         current_youtube_account = self.input_gmail.get()
         channels_of_gmail = [k for k,v in self.youtube_config['template'].items() if v.get('gmail') == current_youtube_account]
         if len(channels_of_gmail) == 0:
-            self.noti("Gmail này chưa đăng ký hoặc hết hạn.")
+            self.noti(f"Gmail {current_youtube_account} chưa được đăng ký hoặc hết hạn.")
             return
         self.input_current_channel_name.configure(values=channels_of_gmail)
         self.input_current_channel_name.set(channels_of_gmail[0])
@@ -617,10 +614,10 @@ class MainApp:
                 self.noti("Hãy nhập đủ thông tin!")
                 return
             if channel_name not in self.youtube_config['template'].keys():
-                self.noti("kênh này chưa đăng ký!")
+                self.noti(f"kênh {channel_name} chưa được đăng ký!")
                 return
             if gmail not in self.youtube_config['registered_account']: 
-                self.noti("Gmail này chưa đăng ký!")
+                self.noti(f"tài khoản gmail {gmail} chưa được đăng ký!")
                 return
         self.youtube = YouTubeManager(gmail, channel_name, is_auto_upload=False, download_thread=self.download_thread, upload_thread=self.upload_thread)
         self.reset()
@@ -716,7 +713,7 @@ class MainApp:
         self.tiktok_account = self.tiktok_account_var.get()
         if not self.is_sign_up_tiktok:
             if self.tiktok_account not in self.tiktok_config['registered_account'] or self.tiktok_account not in self.tiktok_config['template']:
-                self.noti("Account này chưa đăng ký")
+                self.noti(f"tài khoản {self.tiktok_account} chưa được đăng ký")
                 return
         self.config['current_tiktok_account'] = self.tiktok_account
         self.tiktok_password = self.tiktok_config['template'][self.tiktok_account]['password']
@@ -815,10 +812,10 @@ class MainApp:
                 self.noti("Hãy nhập đầy đủ thông tin!")
                 return
             if self.facebook_page_name not in self.facebook_config['template']:
-                self.noti(f"Trang {self.facebook_page_name} chưa đăng ký!")
+                self.noti(f"Trang {self.facebook_page_name} chưa được đăng ký!")
                 return
             if self.facebook_account != self.facebook_config['template'][self.facebook_page_name]['account']:
-                self.noti(f"Tài khoản {self.facebook_account} chưa đăng ký!")
+                self.noti(f"Tài khoản {self.facebook_account} chưa được đăng ký!")
                 return
         self.config['current_facebook_account'] = self.facebook_account
         self.config['current_page'] = self.facebook_page_name
@@ -1441,7 +1438,7 @@ class MainApp:
                         '-map', '2:a',  # Âm thanh mới
                         '-filter:a:0', f'volume={audio_volume},atempo={speed_up}',  # Chỉnh âm lượng âm thanh mới
                     ])
-                else: #trường hợp này bị lỗi
+                else:
                     command.extend([
                         '-map', '[video]',
                         '-map', '2:a',  # Âm thanh mới kết hợp từ file âm thanh kết hợp
@@ -1483,7 +1480,6 @@ class MainApp:
             output_folder, output_file_path, file_name = get_output_folder(input_video_path, output_folder_name='edited_videos')
             if not self.index_file_name:
                 file_name = file_name.split('.mp4')[0]
-                # file_name = convert_sang_tieng_viet_khong_dau(file_name)
             else:
                 file_name = self.index_file_name.replace("<index>", str(index))
             output_file = os.path.join(output_folder, f"{file_name}.mp4")
@@ -1698,7 +1694,7 @@ class MainApp:
         
     def create_icon(self):
         try:
-            icon_path = os.path.join(current_dir, 'icon.png')
+            icon_path = os.path.join(current_dir, 'import' , 'icon.png')
             if not os.path.exists(icon_path):
                 icon_path = None
             image = self.create_image(icon_path)
@@ -1921,7 +1917,7 @@ class MainApp:
             elif self.is_download_douyin_video_window:
                 self.root.title("Download Douyin Video")
                 self.width = 500
-                self.height_window = 263
+                self.height_window = 215
                 self.is_download_douyin_video_window = False
 
         self.setting_screen_position()
@@ -2085,56 +2081,6 @@ class MainApp:
                 if os.path.isfile(temp_wav_file):
                     os.remove(temp_wav_file)
         self.convert_multiple_record =False
-
-    # def load_translate(self):
-    #     from_language = self.config["from_language"]
-    #     to_language = self.config["to_language"]
-    #     self.translator = Translator(from_lang=from_language,to_lang=to_language)
-    #     self.selected_translate_from = ctk.StringVar(value=self.languages[from_language])
-    #     self.selected_translate_to = ctk.StringVar(value=self.languages[to_language])
-    #     if not self.engine:
-    #         self.engine = pyttsx3.init()
-    #     self.voices = self.engine.getProperty('voices')
-    #     self.get_voice()
-
-    # def load_data_with_new_config(self):
-    #     self.load_translate()
-
-    # def get_voice(self):
-    #     voice_from_language_code = self.config["from_language"]
-    #     voice_to_language_code = self.config["to_language"]
-    #     voice_name_from_language_config = self.config["supported_languages"][voice_from_language_code]
-    #     voice_name_to_language_config = self.config["supported_languages"][voice_to_language_code]
-
-    #     if '(' in voice_name_from_language_config:
-    #         vv = voice_name_from_language_config.split('(')[0].strip().lower()
-    #     else:
-    #         vv = voice_name_from_language_config.strip().lower()
-
-    #     if '(' in voice_name_to_language_config:
-    #         v = voice_name_to_language_config.split('(')[0].strip().lower()
-    #     else:
-    #         v = voice_name_to_language_config.strip().lower()
-
-    #     self.all_voice_index = {}
-
-    #     for voice in self.voices:
-    #         voice_name_engine = voice.name.lower()
-    #         if voice_name_to_language_config.lower() in voice_name_engine or v in voice_name_engine:
-    #             index = self.voices.index(voice)
-    #             self.all_voice_index[voice_to_language_code] = index
-    #         if voice_from_language_code.lower() in voice_name_engine or vv in voice_name_engine:
-    #             index = self.voices.index(voice)
-    #             self.all_voice_index[voice_from_language_code] = index
-
-    #     if voice_from_language_code not in self.all_voice_index:
-    #         print("Warning", f"Hãy cài giọng nói {voice_name_from_language_config} cho window trước\nSetting --> Time & Language --> Language & Region --> Add a language")
-    #         return
-    #     if voice_to_language_code not in self.all_voice_index:
-    #         print("Warning", f"Hãy cài giọng nói {voice_name_to_language_config} cho window trước\nSetting --> Time & Language --> Language & Region --> Add a language")
-    #         return
-    #     self.voice_to_language = self.all_voice_index[self.config["to_language"]]
-    #     self.voice_from_language = self.all_voice_index[self.config["from_language"]]
 
 app = MainApp()
 try:
