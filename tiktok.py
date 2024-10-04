@@ -1,16 +1,6 @@
 from common_function import *
 from common_function_CTK import *
 
-def load_download_info():
-    download_info = {
-         "downloaded_urls": []
-      }
-    if os.path.exists(download_info_path):
-        download_if = get_json_data(download_info_path)
-    else:
-        download_if = download_info
-    save_to_json_file(download_if, download_info_path)
-    return download_if
 class TikTokManager:
     def __init__(self, account, password, upload_thread=None, download_thread=None, is_auto_upload=False):
         self.upload_thread = upload_thread
@@ -190,7 +180,7 @@ class TikTokManager:
                 ele = get_element_by_xpath(self.driver, xpath)
                 if ele:
                     ele.send_keys(video_path)
-                    sleep(2)
+                    sleep(3)
                     return True
                 else:
                     cnt += 1
@@ -206,17 +196,47 @@ class TikTokManager:
         xpath = get_xpath_by_multi_attribute("div", ["class='notranslate public-DraftEditor-content'", "contenteditable='true'", "role='combobox'"])
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
-            # ele.clear()
             ele.send_keys(description)
             sleep(1)
+
+    def input_thumbnail(self, thumbnail_path):
+        def click_upload_image_tab():
+            xpath = get_xpath('div', 'cover-edit-tab', contain=True)
+            ele = get_element_by_xpath(self.driver, xpath, key='Upload cover')
+            if ele:
+                ele.click()
+                sleep(0.5)
+        xpath = get_xpath('div', 'cover-container', contain=True)
+        ele = get_element_by_xpath(self.driver, xpath)
+        if ele:
+            ele.click()
+            sleep(1)
+            click_upload_image_tab()
+            input_xpath = get_xpath_by_multi_attribute('input', ['accept="image/png, image/jpeg, image/jpg"'])
+            input_ele = get_element_by_xpath(self.driver, input_xpath)
+            if input_ele:
+                input_ele.send_keys(thumbnail_path)
+                sleep(1)
+                confirm_xpath = get_xpath('div', 'TUXButton-label')
+                confirm_ele = get_element_by_xpath(self.driver, confirm_xpath, key="Confirm")
+                if confirm_ele:
+                    confirm_ele.click()
+                    sleep(1)
+
     def input_location(self, location):
         xpath = get_xpath_by_multi_attribute('input', ['id="poi"'])
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.send_keys(location)
-            sleep(1)
-            ele.send_keys(Keys.ARROW_DOWN)
-            ele.send_keys(Keys.ENTER)
+            sleep(3)
+            # ele.send_keys(Keys.ARROW_DOWN)
+            # sleep(0.3)
+            # ele.send_keys(Keys.ENTER)
+            choose_xpath = get_xpath('div', 'jsx-3605006656 poi-search-item-address')
+            choose_ele = get_element_by_xpath(self.driver, choose_xpath)
+            if choose_ele:
+                choose_ele.click()
+                sleep(1)
 
     def click_schedule_button(self):
         xpath = get_xpath_by_multi_attribute('input', ['name="postSchedule"', 'value="schedule"'])
@@ -342,6 +362,12 @@ class TikTokManager:
         self.show_window()
         self.setting_window_size()
 
+        def set_thumbnail_folder():
+            folder_path = filedialog.askdirectory()
+            if folder_path:
+                self.thumbnail_folder_var.delete(0, ctk.END)
+                self.thumbnail_folder_var.insert(0, folder_path)
+
         def load_template():
             load_template = self.load_template_var.get().strip()
             self.description_var.delete("1.0", ctk.END)
@@ -352,6 +378,8 @@ class TikTokManager:
             self.publish_times_var.insert(0, self.tiktok_config['template'][load_template]['publish_times'])
             self.upload_folder_var.delete(0, ctk.END)
             self.upload_folder_var.insert(0, self.tiktok_config['template'][load_template]['upload_folder'])
+            self.thumbnail_folder_var.delete(0, ctk.END)
+            self.thumbnail_folder_var.insert(0, self.tiktok_config['template'][load_template]['thumbnail_folder'])
             self.number_of_days_var.delete(0, ctk.END)
             self.number_of_days_var.insert(0, self.tiktok_config['template'][load_template]['number_of_days'])
             self.location_var.delete(0, ctk.END)
@@ -375,6 +403,8 @@ class TikTokManager:
         self.location_var = self.create_settings_input("Vị trí muốn đăng(vd: New York)", "location", config=self.tiktok_config['template'][self.account], left=0.3, right=0.7)
         self.is_delete_after_upload_var = self.create_settings_input("Xóa video sau khi đăng", "is_delete_after_upload", config=self.tiktok_config['template'][self.account], values=["Yes", "No"], left=0.3, right=0.7)
         self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", config=self.tiktok_config, values=['Yes', 'No'], left=0.3, right=0.7)
+        self.thumbnail_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa thumbnail", command=set_thumbnail_folder, width=self.width)
+        self.thumbnail_folder_var.insert(0, self.tiktok_config['template'][self.account]['thumbnail_folder'])
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa video", command=choose_folder_upload, width=self.width, left=0.3, right=0.7)
         self.upload_folder_var.insert(0, self.tiktok_config['template'][self.account]['upload_folder'])
         self.load_template_var = create_frame_button_and_combobox(self.root, "Tải mẫu có sẵn", command=load_template, values=[key for key in self.tiktok_config['template'].keys()], width=self.width, left=0.3, right=0.7)
@@ -382,6 +412,7 @@ class TikTokManager:
         create_frame_button_and_button(self.root, text1="Đăng video ngay", text2="Lên lịch đăng video", command1=self.upload_video_now, command2=self.schedule_upload, width=self.width, left=0.5, right=0.5)
         create_button(self.root, text="Lùi lại", command=self.get_start_tiktok, width=self.width)
     
+
     def schedule_upload(self):
         if not self.save_upload_setting():
             return
@@ -410,6 +441,7 @@ class TikTokManager:
             self.tiktok_config['template'][self.account]["upload_date"] = upload_date
             self.tiktok_config['template'][self.account]["publish_times"] = self.publish_times_var.get()
             self.tiktok_config['template'][self.account]["upload_folder"] = self.upload_folder_var.get()
+            self.tiktok_config['template'][self.account]["thumbnail_folder"] = self.thumbnail_folder_var.get()
             self.tiktok_config['template'][self.account]["waiting_verify"] = self.waiting_verify_var.get() == 'Yes'
             self.tiktok_config["show_browser"] = self.show_browser_var.get() == 'Yes'
             self.tiktok_config["is_delete_after_upload"] = self.is_delete_after_upload_var.get() == 'Yes'
@@ -430,6 +462,7 @@ class TikTokManager:
     def upload_video(self):
         try:
             videos_folder = self.tiktok_config['template'][self.account]['upload_folder']
+            thumbnail_folder = self.tiktok_config['template'][self.account]['thumbnail_folder']
             if not videos_folder:
                 if not self.is_auto_upload:
                     notification(self.root, "Hãy chọn thư mục chứa video muốn đăng")
@@ -439,7 +472,7 @@ class TikTokManager:
                     notification(self.root, f"Thư mục {videos_folder} không tồn tại")
                 return
             videos = os.listdir(videos_folder)
-            videos = [k for k in videos if '.mp4' in k]      
+            videos = [k for k in videos if k.endswith('.mp4')]      
             if len(videos) == 0:
                 return
             videos = natsorted(videos)
@@ -471,6 +504,8 @@ class TikTokManager:
                         print(f'Có lỗi trong quá trình đăng nhập. Hãy kiểm tra xem tài khoản có cần phải xác minh capcha không.')
                         return
                 video_name = os.path.splitext(video_file)[0] #lấy tên
+                thumbnail_path = os.path.join(thumbnail_folder, f'{video_name}.png')
+    
                 location = self.tiktok_config['template'][self.account]['location']
                 description = self.tiktok_config['template'][self.account]['description']
                 description = f"\n{description}"
@@ -487,6 +522,8 @@ class TikTokManager:
                     break
                 self.click_copyright_check()
                 self.input_description(description)
+                if os.path.exists(thumbnail_path):
+                    self.input_thumbnail(thumbnail_path)
                 self.input_location(location)
                 if self.is_stop_upload:
                     break
@@ -612,16 +649,6 @@ class TikTokManager:
         self.download_folder_var.delete(0, ctk.END)
         self.download_folder_var.insert(0, self.download_folder)
 
-    # def download_videos_by_video_url(self):
-    #     video_url = self.download_by_video_url_var.get()
-    #     if not video_url:
-    #         notification(self.root, "Hãy nhập link tải video.")
-    #         return
-    #     if download_video_by_url(video_url, self.tiktok_config['download_folder']):
-    #         notification(self.root, f"Tải video từ link {video_url} thành công.")
-    #     else:
-    #         notification(self.root, "Tải video không thành công. Đảm bảo URL bạn nhập thuộc về tiktok.")
-
     def download_videos_by_channel_url(self):
         if self.is_download_by_search_url:
             url = self.download_by_search_url_var.get()
@@ -631,7 +658,7 @@ class TikTokManager:
 
     def get_tiktok_videos_by_channel_url(self, url, view_cnt="0"):
         t = time()
-        cnt_downlaod = 0
+        cnt_download = 0
         cnt_search = 0
         try:
             view_cnt = int(view_cnt)
@@ -691,17 +718,7 @@ class TikTokManager:
                     try:
                         views_element = video_div.find_element(By.XPATH, './/strong[contains(@class, "css-ws4x78-StrongVideoCount")]')
                         if views_element:
-                            view_count = views_element.text
-                        if view_count:
-                            if 'M' in view_count:
-                                view_count = float(view_count.replace('M', '')) * 1000000
-                            elif 'K' in view_count:
-                                view_count = float(view_count.replace('K', '')) * 1000
-                            else:
-                                try:
-                                    view_count = int(view_count)
-                                except:
-                                    continue
+                            view_count = get_view_count(views_element.text)
                         if view_count >= view_cnt:
                             try:
                                 link_video = video_div.find_element(By.XPATH, './/a[contains(@href, "/video/")]')
@@ -729,18 +746,9 @@ class TikTokManager:
                         view_count = item.text
                         if '\n' in view_count:
                             view_count = view_count.split('\n')[0]
-                        if view_count:
-                            if 'M' in view_count:
-                                view_count = float(view_count.replace('M', '')) * 1000000
-                            elif 'K' in view_count:
-                                view_count = float(view_count.replace('K', '')) * 1000
-                            else:
-                                try:
-                                    view_count = int(view_count)
-                                except:
-                                    continue
-                            if view_count >= view_cnt:
-                                video_urls.append(url)
+                        view_count = get_view_count(view_count)
+                        if view_count >= view_cnt:
+                            video_urls.append(url)
             self.close()
             print(f"--> Tổng thời gian tìm video là {int((time() - t)/60)} phút {int(time() - t)%60} giây")
             if video_urls:
@@ -755,18 +763,18 @@ class TikTokManager:
                     print(f'--> Bắt đầu tải video: {url}')
                     if download_video_by_url(url, download_folder=self.download_folder):
                         print(f"--> Tải thành công video: {url}")
-                        cnt_downlaod += 1
+                        cnt_download += 1
                         video_urls.remove(url)
                         if url not in self.download_info['downloaded_urls']:
                             self.download_info['downloaded_urls'].append(url)
-                        self.save_download_info()
+                        save_download_info(self.download_info)
                     else:
                         print(f"!!! Tải không thành công video {url} !!!")
                 except:
                     getlog()
                     print(f"Tải không thành công {url}")
-            if cnt_downlaod > 0:
-                notification(self.root, f"Đã tải thành công {cnt_downlaod} video.")
+            if cnt_download > 0:
+                notification(self.root, f"Đã tải thành công {cnt_download} video.")
         except:
             getlog()
             notification(self.root, "!!! Gặp lỗi trong quá trình tìm quét video --> có thể tiktok yêu cầu xác minh capcha !!!")
@@ -795,7 +803,7 @@ class TikTokManager:
         elif self.is_upload_video_window:
             self.root.title(f"Upload video Tiktok: {self.account}")
             self.width = 800
-            self.height_window = 778
+            self.height_window = 825
             self.is_upload_video_window = False
         elif self.is_download_window:
             self.root.title("Download videos Tiktok")
@@ -806,8 +814,6 @@ class TikTokManager:
 
     def save_tiktok_config(self):
         save_to_json_file(self.tiktok_config, tiktok_config_path)
-    def save_download_info(self):
-        save_to_json_file(self.download_info, download_info_path)
 
     def exit_app(self):
         self.reset()

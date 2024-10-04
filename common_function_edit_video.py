@@ -33,23 +33,6 @@ def run_command_with_progress(command, duration):
 
     process.wait()  # Đợi tiến trình hoàn tất
 
-def convert_time_to_seconds(time_str):
-    try:
-        list_time = time_str.split(':')
-        cnt = len(list_time)
-        if cnt == 3:
-            return float(list_time[0]) * 3600 + float(list_time[1]) * 60 + float(list_time[2])
-        elif cnt == 2:
-            return float(list_time[0]) * 60 + float(list_time[1])
-        elif cnt == 1:
-            return float(list_time[0])
-        else:
-            print("Định dạng thời gian không hợp lệ")
-            return None
-    except:
-        print("Định dạng thời gian không hợp lệ")
-        return None
-
 def get_video_info(input_file):
     try:
         cmd = [
@@ -456,9 +439,41 @@ def apply_zoom(clip, zoom_factor, vertical_position, horizontal_position):
         return None
     return zoom_and_crop(clip, zoom_factor, vertical_position, horizontal_position)
 
+# def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center', horizontal_position='center'):
+#     min_time_to_change_zoom = 3
+#     max_time_to_change_zoom = 5
+#     max_zoom_size = float(max_zoom_size)
+#     min_time_to_change_zoom = int(min_time_to_change_zoom)
+#     max_time_to_change_zoom = int(max_time_to_change_zoom)
+#     if max_time_to_change_zoom > clip.duration:
+#         max_time_to_change_zoom = clip.duration
+#     start_times = []
+#     current_time = 0
+#     while current_time < clip.duration:
+#         start_times.append(current_time)
+#         current_time += random.uniform(min_time_to_change_zoom, max_time_to_change_zoom)
+
+#     if start_times[-1] < clip.duration:
+#         start_times.append(clip.duration)
+
+#     zoom_factors = [round(random.uniform(1.01, max_zoom_size), 2) for _ in range(len(start_times) - 1)]
+    
+#     zoomed_clips = []
+#     try:
+#         for i, start_time in enumerate(start_times[:-1]):
+#             end_time = start_times[i + 1]
+#             sub_clip = clip.subclip(start_time, end_time)
+#             zoomed_clip = apply_zoom(sub_clip, zoom_factors[i], vertical_position, horizontal_position)
+#             zoomed_clips.append(zoomed_clip)
+    
+#         final_zoom_clip = concatenate_videoclips(zoomed_clips, method="compose")
+#         return final_zoom_clip
+#     except:
+#         getlog()
+
 def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center', horizontal_position='center'):
-    min_time_to_change_zoom = 4
-    max_time_to_change_zoom = 8
+    min_time_to_change_zoom = 3
+    max_time_to_change_zoom = 6
     max_zoom_size = float(max_zoom_size)
     min_time_to_change_zoom = int(min_time_to_change_zoom)
     max_time_to_change_zoom = int(max_time_to_change_zoom)
@@ -469,12 +484,17 @@ def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center',
     while current_time < clip.duration:
         start_times.append(current_time)
         current_time += random.uniform(min_time_to_change_zoom, max_time_to_change_zoom)
-
     if start_times[-1] < clip.duration:
         start_times.append(clip.duration)
-
-    zoom_factors = [round(random.uniform(1.01, max_zoom_size), 2) for _ in range(len(start_times) - 1)]
-    
+    zoom_factors = []
+    last_zoom_factor = None
+    for _ in range(len(start_times) - 1):
+        while True:
+            new_zoom = round(random.uniform(1.01, max_zoom_size), 2)
+            if new_zoom != last_zoom_factor:
+                zoom_factors.append(new_zoom)
+                last_zoom_factor = new_zoom
+                break
     zoomed_clips = []
     try:
         for i, start_time in enumerate(start_times[:-1]):
@@ -485,8 +505,9 @@ def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center',
     
         final_zoom_clip = concatenate_videoclips(zoomed_clips, method="compose")
         return final_zoom_clip
-    except:
+    except Exception as e:
         getlog()
+        return None
 
 def speed_up_clip(clip, speed):
     speed = float(speed)
@@ -743,50 +764,90 @@ def get_and_adjust_resolution_from_clip(clip, scale_factor=0.997):
     resized_video = clip.resize((width, height))
     return resized_video
 
-def edit_audio(audio_path=None, video_path=None, video_url=None, speed="1", first_cut_audio="0", end_cut_audio="0", download_folder=None):
-    
+def edit_audio(audio_path=None, video_path=None, video_url=None, speed="1", segments=None, download_folder=None):
     speed = float(speed)
-    first_cut_audio = int(first_cut_audio)
-    end_cut_audio = int(end_cut_audio)
-    
-    if audio_path:
-        target_path = audio_path
-    elif video_path:
-        target_path = video_path
-    elif video_url:
-        video_path = download_video_by_url(video_url, download_folder, return_file_path=True)
-        target_path = video_path
-    else:
-        warning_message("Vui lòng chọn nguồn để edit video")
-        return
-    if '.mp3' in target_path:
-        audio_clip = AudioFileClip(target_path)
-    else:
-        video_clip = VideoFileClip(video_path)
-        audio_clip = video_clip.audio
-    try:
-        if int(end_cut_audio) > 0 or int(first_cut_audio) > 0:
-            audio_clip = audio_clip.subclip(first_cut_audio, audio_clip.duration - end_cut_audio)
-        # Thay đổi tốc độ âm thanh
-        if speed != 1:
-            audio_clip = audio_clip.fx(speedx, speed)
-        output_folder, output_file_path, file_name = get_output_folder(target_path, output_folder_name='edited_audio')
-        if check_vietnamese_characters(file_name):
-            file_name = convert_sang_tieng_viet_khong_dau(file_name)
-        audio_name = file_name.split('.')[0]
-        output_audio_path = f'{output_folder}/{audio_name}.mp3'
-
+    if segments:
         try:
-            audio_clip.write_audiofile(output_audio_path, codec='mp3')
+            segments = segments.split(',')
         except:
-            output_audio_path = f'{output_folder}/audio.mp3'
-            audio_clip.write_audiofile(output_audio_path, codec='mp3')
-        audio_clip.close()
-        if video_clip:
-            video_clip.close()
-    except Exception as e:
-        getlog()
+            print("Định dạng thời gian cắt là start-end với start,end là hh:mm:ss hoặc mm:ss hoặc ss")
+            return None, "Có lỗi khi tách audio"
+        cnt_cut = 0
+        for segment in segments:
+            cnt_cut += 1
+            segment = segment.strip()
+            start, end = segment.split('-')
 
+            # Chuyển đổi thời gian bắt đầu
+            list_start = start.split(':')
+            cnt = len(list_start)
+            if cnt == 3:
+                start = int(list_start[0]) * 3600 + int(list_start[1]) * 60 + int(list_start[2])
+            elif cnt == 2:
+                start = int(list_start[0]) * 60 + int(list_start[1])
+            elif cnt == 1:
+                start = int(list_start[0])
+            else:
+                message = "Định dạng thời gian cắt ở đầu video không đúng. Định dạng đúng là hh:mm:ss-hh:mm:ss hoặc mm:ss-mm:ss hoặc ss-ss"
+                return False, message
+
+            # Chuyển đổi thời gian kết thúc
+            list_end = end.split(':')
+            cnt = len(list_end)
+            if cnt == 3:
+                end = int(list_end[0]) * 3600 + int(list_end[1]) * 60 + int(list_end[2])
+            elif cnt == 2:
+                end = int(list_end[0]) * 60 + int(list_end[1])
+            elif cnt == 1:
+                end = int(list_end[0])
+            else:
+                message = "Định dạng thời gian cắt ở đầu video không đúng. Định dạng đúng là hh:mm:ss-hh:mm:ss hoặc mm:ss-mm:ss hoặc ss-ss"
+                return False, message
+            
+            if audio_path:
+                target_path = audio_path
+            elif video_path:
+                target_path = video_path
+            elif video_url:
+                video_path = download_video_by_url(video_url, download_folder, return_file_path=True)
+                target_path = video_path
+            else:
+                warning_message("Vui lòng chọn nguồn để edit video")
+                return
+            if '.mp3' in target_path:
+                audio_clip = AudioFileClip(target_path)
+            else:
+                video_clip = VideoFileClip(video_path)
+                audio_clip = video_clip.audio
+            duration = audio_clip.duration
+            if end > duration:
+                end = duration
+            try:
+                if int(start) > 0 or int(end) > 0:
+                    audio_clip = audio_clip.subclip(start, end)
+                if speed != 1:
+                    audio_clip = audio_clip.fx(speedx, speed)
+                output_folder, output_file_path, file_name = get_output_folder(target_path, output_folder_name='edited_audio')
+                if check_vietnamese_characters(file_name):
+                    file_name = convert_sang_tieng_viet_khong_dau(file_name)
+                if len(segments) == 1:
+                    audio_name = file_name.split('.')[0]
+                else:
+                    audio_name = f"{file_name.split('.')[0]}_{cnt_cut}"
+                output_audio_path = f'{output_folder}/{audio_name}.mp3'
+
+                try:
+                    audio_clip.write_audiofile(output_audio_path, codec='mp3')
+                except:
+                    output_audio_path = f'{output_folder}/audio.mp3'
+                    audio_clip.write_audiofile(output_audio_path, codec='mp3')
+                audio_clip.close()
+                if video_clip:
+                    video_clip.close()
+            except Exception as e:
+                getlog()
+        if video_url:
+            remove_file(video_path)
 def check_vietnamese_characters(filename):
     # Dải ký tự Unicode tiếng Việt bao gồm các ký tự có dấu
     vietnamese_pattern = re.compile(

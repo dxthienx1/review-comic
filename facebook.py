@@ -563,7 +563,7 @@ class FacebookManager:
         ele = get_element_by_xpath(self.driver, xpath, )
         if ele:
             ele.send_keys(video_path)
-            sleep(2)
+            sleep(3)
         else:
             self.is_stop_upload = True
 
@@ -750,7 +750,7 @@ class FacebookManager:
             if not check_folder(videos_folder):
                 return False
             all_file = os.listdir(videos_folder)
-            videos = [k for k in all_file if '.mp4' in k]
+            videos = [k for k in all_file if k.endswith('.mp4')]
             if len(videos) == 0:
                 if self.is_auto_upload:
                     print(f"Thư mục {videos_folder} không chứa video(loại \n.mp4\n).")

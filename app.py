@@ -9,32 +9,29 @@ from youtube import YouTubeManager
 icon_path = os.path.join(current_dir, 'import' , 'icon.png')
 ico_path = os.path.join(current_dir, 'import' , 'icon.ico')
 mac_registered = {
-    "0025_38D2_1104_730B.":{
+    "0025_38D2_1104_730B.":{ #máy chính
+        "telegram_user_name":"0915714682",
         "password":"123456",
-        "ngayhethan":"2025-09-19",
-        "bank":""
+        "expiration_date":"2025-09-19",
+        "referral":""
     },
-    "Z530FFSL":{
+    "Z530FFSL":{ #cơ quan Hằng
+        "telegram_user_name":"0367272579",
         "password":"123456",
-        "ngayhethan":"2025-09-19",
-        "bank":""
-    },
-    "82DD95ED-93E8-451C-A6A2-B0F478F7A36E":{
-        "password":"123456",
-        "ngayhethan":"2024-10-15",
-        "bank":""
-    },
+        "expiration_date":"2025-09-19",
+        "referral":""
+    }
 }
 is_registed_mac_address = False
 list_mac_registered = [mac for mac in mac_registered.keys()]
 
 mac_address = get_disk_serial().strip()
 if mac_address in list_mac_registered:
-    ngayhethan_str = mac_registered[mac_address]['ngayhethan']
-    if is_date_greater_than_current_day(ngayhethan_str):
+    expiration_date_str = mac_registered[mac_address]['expiration_date']
+    if is_date_greater_than_current_day(expiration_date_str):
         is_registed_mac_address = True
-        if is_date_greater_than_current_day(ngayhethan_str, day_delta=-5):
-            print(f'Tài khoản của bạn sẽ hết hạn vào ngày {ngayhethan_str} lúc 00:00:00')
+        if is_date_greater_than_current_day(expiration_date_str, day_delta=-5):
+            print(f'Tài khoản của bạn sẽ hết hạn vào ngày {expiration_date_str} lúc 00:00:00')
 
 class MainApp:
     def __init__(self):
@@ -71,9 +68,6 @@ class MainApp:
             self.voices = []
             self.all_voice_index = {}
             remove_file("log.txt")
-
-            # time_remaining = get_time_remaining_until_quota_reset()
-            # self.next_time_check_quocta = time() + time_remaining
             self.thread_main = None
             self.icon = None
             self.translator=None
@@ -101,6 +95,7 @@ class MainApp:
             self.is_rename_file_by_index_window = False
             self.is_remove_char_in_file_name_window = False
             self.is_open_register_mac_addres_window = False
+            self.is_extract_image_from_video_window = False
             self.is_editing_video = False
             self.is_auto_upload_youtube = False
             self.is_auto_upload_facebook = False
@@ -479,6 +474,7 @@ class MainApp:
         self.setting_window_size()
         create_button(self.root, text="Đặt tên file theo chỉ số", command=self.open_rename_file_by_index_window, width=self.width)
         create_button(self.root, text="Xóa ký tự trong file", command=self.open_remove_char_in_file_name_window, width=self.width)
+        create_button(self.root, text="Trích xuất ảnh từ video", command=self.extract_image_from_video_window, width=self.width)
         create_button(self.root, text="Đăng ký mã máy", command=self.open_register_mac_addres_window, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
@@ -585,23 +581,18 @@ class MainApp:
         self.youtube_config['template'][channel_name]['title'] = ""
         self.youtube_config['template'][channel_name]['is_title_plus_video_name'] = True
         self.youtube_config['template'][channel_name]['description'] = ""
-        self.youtube_config['template'][channel_name]['tags'] = ""
-        self.youtube_config['template'][channel_name]['category_id'] = ""
-        self.youtube_config['template'][channel_name]['thumbnail'] = ""
         self.youtube_config['template'][channel_name]['curent_playlist'] = ""
-        self.youtube_config['template'][channel_name]['playlist'] = []
+        self.youtube_config['template'][channel_name]['playlist'] = [" "]
         self.youtube_config['template'][channel_name]['altered_content'] = False
-        self.youtube_config['template'][channel_name]['privacy_status'] = "private"
-        self.youtube_config['template'][channel_name]['license'] = "creativeCommon"
         self.youtube_config['template'][channel_name]['upload_date'] = ""
         self.youtube_config['template'][channel_name]['publish_times'] = ""
+        self.youtube_config['template'][channel_name]['thumbnail_folder'] = ""
         self.youtube_config['template'][channel_name]['upload_folder'] = ""
         self.youtube_config['template'][channel_name]['is_delete_after_upload'] = False
         self.youtube_config['template'][channel_name]['number_of_days'] = "1"
         self.youtube_config['template'][channel_name]['day_gap'] = "1"
         self.youtube_config['template'][channel_name]['last_auto_upload_date'] = ""
         self.start_youtube_management(channel_name)
-
 
     def start_youtube_management(self, channel_name=None):
         if self.is_add_new_channel:
@@ -687,6 +678,7 @@ class MainApp:
                 self.tiktok_config['template'][self.tiktok_account] = {}
             self.tiktok_config['template'][self.tiktok_account]['account'] = self.tiktok_account
             self.tiktok_config['template'][self.tiktok_account]['password'] = self.tiktok_password
+            self.tiktok_config['template'][self.tiktok_account]['thumbnail_folder'] = ""
             self.tiktok_config['template'][self.tiktok_account]['upload_folder'] = ""
             self.tiktok_config['template'][self.tiktok_account]['description'] = ""
             self.tiktok_config['template'][self.tiktok_account]['location'] = ""
@@ -831,8 +823,7 @@ class MainApp:
         self.is_edit_audio_option = True
         self.setting_window_size()
         self.show_window()
-        self.first_cut_audio_var = self.create_settings_input("Cắt ở đầu", "first_cut_audio", values=["5", "10", "15"])
-        self.end_cut_audio_var = self.create_settings_input("Cắt ở cuối", "end_cut_audio", values=["5", "10", "15"])
+        self.segment_audio_var = create_frame_label_and_input(self.root, label_text="Thời gian bắt đầu-kết thúc", width=self.width, left=0.4, right=0.6)
         self.audio_speed_var = self.create_settings_input("Tốc độ phát", "audio_speed", values=["0.8", "0.9", "1", "1.1", "1.2"])
         self.video_get_audio_url = create_frame_label_and_input(self.root, label_text="Lấy audio từ Link", left=0.4, right=0.6)
         self.audio_edit_path = create_frame_button_and_input(self.root,text="Lấy audio từ file MP3", command= self.choose_audio_edit_file, left=0.4, right=0.6)
@@ -868,30 +859,34 @@ class MainApp:
         thread_edit_audio.start()
 
     def start_edit_audio(self):
-        download_folder = self.choose_folder_download_var.get()
-        if not os.path.exists(download_folder):
-            self.noti("hãy chọn thư mục lưu file tải về.")
-            return
-        audio_edit_path = self.audio_edit_path.get()
-        video_get_audio_path = self.video_get_audio_path.get()
-        video_get_audio_url = self.video_get_audio_url.get()
-        if not audio_edit_path and not video_get_audio_path and not video_get_audio_url:
-            self.noti("Hãy chọn 1 nguồn lấy audio")
-            return
-        if (audio_edit_path and video_get_audio_path) or (audio_edit_path and video_get_audio_url) or (video_get_audio_path and video_get_audio_url):
-            self.noti("Chỉ chọn 1 nguồn lấy audio.")
-            return
         def save_edit_audio_setting():
-            self.config['download_folder'] = download_folder
-            self.config['first_cut_audio'] = self.first_cut_audio_var.get()
-            self.config['end_cut_audio'] = self.end_cut_audio_var.get()
-            self.config['audio_speed'] = self.audio_speed_var.get()
-            self.config['audio_edit_path'] = audio_edit_path
-            self.config['video_get_audio_path'] = video_get_audio_path
-            self.config['video_get_audio_url'] = video_get_audio_url
-        save_edit_audio_setting()
-        self.save_config()
-        edit_audio(audio_path=self.config['audio_edit_path'], video_path=self.config['video_get_audio_path'], video_url=self.config['video_get_audio_url'], speed=self.config['audio_speed'], first_cut_audio=self.config['first_cut_audio'], end_cut_audio=self.config['end_cut_audio'], download_folder=self.config['download_folder'])
+            try:
+                download_folder = self.choose_folder_download_var.get()
+                if not os.path.exists(download_folder):
+                    self.noti("hãy chọn thư mục lưu file tải về.")
+                    return False
+                audio_edit_path = self.audio_edit_path.get()
+                video_get_audio_path = self.video_get_audio_path.get()
+                video_get_audio_url = self.video_get_audio_url.get()
+                if not audio_edit_path and not video_get_audio_path and not video_get_audio_url:
+                    self.noti("Hãy chọn 1 nguồn lấy audio")
+                    return False
+                if (audio_edit_path and video_get_audio_path) or (audio_edit_path and video_get_audio_url) or (video_get_audio_path and video_get_audio_url):
+                    self.noti("Chỉ chọn 1 nguồn lấy audio.")
+                    return False
+                self.config['download_folder'] = download_folder
+                self.config['audio_speed'] = self.audio_speed_var.get()
+                self.config['audio_edit_path'] = audio_edit_path
+                self.config['video_get_audio_path'] = video_get_audio_path
+                self.config['video_get_audio_url'] = video_get_audio_url
+                self.save_config()
+                return True
+            except:
+                return False
+        if save_edit_audio_setting():
+            segment_audio = self.segment_audio_var.get().strip()
+            if segment_audio:
+                edit_audio(audio_path=self.config['audio_edit_path'], video_path=self.config['video_get_audio_path'], video_url=self.config['video_get_audio_url'], speed=self.config['audio_speed'], segments=segment_audio, download_folder=self.config['download_folder'])
 
 #-------------------------------------------edit video-----------------------------------------------------
     def open_edit_video_menu(self):
@@ -1008,7 +1003,7 @@ class MainApp:
             output_folder = f'{videos_folder}\\merge_videos'
             os.makedirs(output_folder, exist_ok=True)
             edit_videos = os.listdir(videos_folder)
-            edit_videos = [k for k in edit_videos if '.mp4' in k]
+            edit_videos = [k for k in edit_videos if k.endswith('.mp4')]
             if len(edit_videos) == 0:
                 self.noti(f"Không tìm thấy video nào trong thư mục {videos_folder}")
                 return
@@ -1055,7 +1050,7 @@ class MainApp:
             output_folder = f'{videos_folder}\\merge_videos'
             os.makedirs(output_folder, exist_ok=True)
             edit_videos = os.listdir(videos_folder)
-            edit_videos = [k for k in edit_videos if '.mp4' in k]
+            edit_videos = [k for k in edit_videos if k.endswith('.mp4')]
             if len(edit_videos) <= 1:
                 warning_message("Phải có ít nhất 2 video trong videos folder")
                 return
@@ -1095,7 +1090,7 @@ class MainApp:
             output_folder = f'{videos_folder}\\increse_videos_quality'
             os.makedirs(output_folder, exist_ok=True)
             edit_videos = os.listdir(videos_folder)
-            edit_videos = [k for k in edit_videos if '.mp4' in k]
+            edit_videos = [k for k in edit_videos if k.endswith('.mp4')]
             edit_videos = natsorted(edit_videos)
             for i, video_file in enumerate(edit_videos):
                 if self.is_stop_edit:
@@ -1116,7 +1111,7 @@ class MainApp:
             self.config['videos_edit_folder'] = videos_folder
             self.save_config()
             edit_videos = os.listdir(videos_folder)
-            edit_videos = [k for k in edit_videos if '.mp4' in k]
+            edit_videos = [k for k in edit_videos if k.endswith('.mp4')]
             if len(edit_videos) == 0:
                 self.noti(f"Không tìm thấy video trong thư mục {videos_folder}")
                 return
@@ -1236,7 +1231,7 @@ class MainApp:
             index = 0
         list_edit_finished = []
         edit_videos = natsorted(os.listdir(videos_folder))
-        edit_videos = [k for k in edit_videos if '.mp4' in k]
+        edit_videos = [k for k in edit_videos if k.endswith('.mp4')]
         if len(edit_videos) == 0:
             self.noti(f"Không tìm thấy video trong thư mục {videos_folder}")
             return
@@ -1340,7 +1335,7 @@ class MainApp:
             if watermark:
                 if os.path.isfile(watermark):
                     watermark_x, watermark_y = add_watermark_by_ffmpeg(video_width, video_height, horizontal_watermark_position, vertical_watermark_position)
-                    if not watermark_x or not watermark_y:
+                    if watermark_x is None or watermark_y is None:
                         print("Có lỗi trong khi lấy vị trí watermark. Hãy đảm bảo thông số đầu vào chính xác!")
                         return
                 else:
@@ -1673,6 +1668,7 @@ class MainApp:
         self.is_rename_file_by_index_window = False
         self.is_remove_char_in_file_name_window = False
         self.is_open_register_mac_addres_window = False
+        self.is_extract_image_from_video_window = False
         self.is_other_window = False
         self.is_other_download_window = False
         self.is_download_douyin_video_window = False
@@ -1899,6 +1895,11 @@ class MainApp:
                 self.width = 500
                 self.height_window = 315
                 self.is_remove_char_in_file_name_window = False
+            elif self.is_extract_image_from_video_window:
+                self.root.title("Extract Image From Video")
+                self.width = 500
+                self.height_window = 315
+                self.is_extract_image_from_video_window = False
             elif self.is_open_register_mac_addres_window:
                 self.root.title("Change Mac Address")
                 self.width = 500
@@ -1934,6 +1935,16 @@ class MainApp:
         self.file_name_extension_var.insert(0, '.mp4')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         create_button(frame=self.root, text="Bắt Đầu Đổi Tên", command= self.rename_file_by_index)
+        create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
+        self.show_window()
+
+    def extract_image_from_video_window(self):
+        self.reset()
+        self.is_extract_image_from_video_window = True
+        self.setting_window_size()
+        self.image_position_var = create_frame_label_and_input(self.root, label_text="Chọn vị trí trích xuất ảnh", width=self.width, left=0.4, right=0.6, place_holder='Ví dụ: 00:40 hoặc 00:10:15')
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa Video", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        create_button(frame=self.root, text="Bắt Đầu Trích Xuất Ảnh", command= self.extract_image_from_video)
         create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
         self.show_window()
 
@@ -1973,9 +1984,10 @@ class MainApp:
             create_button(frame=self.root, text="Đổi thông tin ngay", command= change_mac_address_now, width=self.width)
             create_button(self.root, text="Lùi lại", command=self.open_register_mac_addres_window, width=self.width)
 
-        self.app_account_var = create_frame_label_and_input(self.root, label_text="Tên người dùng",  width=self.width, left=0.4, right=0.6)
-        self.pass_mac_var = create_frame_label_and_input(self.root, label_text="Tạo mật mã xác nhận (6 số)", width=self.width, left=0.4, right=0.6)
+        self.app_account_var = create_frame_label_and_input(self.root, label_text="Tài khoản telegram (user_name)",  width=self.width, left=0.4, right=0.6)
+        self.pass_mac_var = create_frame_label_and_input(self.root, label_text="Tạo mật mã xác nhận", width=self.width, left=0.4, right=0.6)
         self.deadline_var = create_frame_label_and_input(self.root, label_text="Nhập số tháng đã đăng ký", width=self.width, left=0.4, right=0.6)
+        self.deadline_var = create_frame_label_and_input(self.root, label_text="Nhập mã giới thiệu(user_name telegram)", width=self.width, left=0.4, right=0.6)
         self.get_mac_address_var = create_frame_button_and_input(self.root, text="Lấy mã máy", command=self.get_mac_address_now, width=self.width, left=0.4, right=0.6)
         create_button(frame=self.root, text="Gửi đăng ký và chờ duyệt (duyệt trong vòng 24h)", command= sign_up_mac_address, width=self.width)
         if is_registed_mac_address:
@@ -2004,6 +2016,15 @@ class MainApp:
             return
         if self.check_folder(videos_folder):
             remove_char_in_file_name(folder_path=videos_folder, chars_want_to_remove=chars_want_to_remove, extension=extension)
+
+    def extract_image_from_video(self):
+        position = self.image_position_var.get().strip()
+        videos_folder = self.videos_edit_folder_var.get()
+        if not position:
+            self.noti("Hãy nhập vị trí thời gian muốn trích xuất ảnh")
+            return
+        if self.check_folder(videos_folder):
+            get_image_from_video(videos_folder=videos_folder, position=position)
 
 
 #-------------------------------Convert MP3------------------------------------------------

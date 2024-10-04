@@ -111,10 +111,23 @@ def load_ffmpeg():
         os.environ["PATH"] += os.pathsep + ffmpeg_dir
 load_ffmpeg()
 
+def load_download_info():
+    download_info = {
+         "downloaded_urls": []
+      }
+    if os.path.exists(download_info_path):
+        download_if = get_json_data(download_info_path)
+    else:
+        download_if = download_info
+    save_to_json_file(download_if, download_info_path)
+    return download_if
+
+def save_download_info(data):
+    save_to_json_file(data, download_info_path)
+
 def get_driver(show=True):
     try:
         service = Service(chromedriver_path)
-        # service = Service(ChromeDriverManager().install())
         options = webdriver.ChromeOptions()
         if not show:
             options.add_argument('--headless')  # Chạy ở chế độ không giao diện
@@ -146,6 +159,11 @@ def get_driver(show=True):
         return None
     
 def get_driver_with_profile(target_gmail, show=True):
+    try:
+        os.system("taskkill /F /IM chrome.exe /T")
+    except:
+        pass
+    sleep(1)
     def get_profile_name_by_gmail():
         def check_gmail_in_profile(profile_path):
             preferences_file = os.path.join(profile_path, "Preferences")
@@ -188,14 +206,17 @@ def get_driver_with_profile(target_gmail, show=True):
         return driver
     else:
         print(f'Không tìm thấy profile cho tài khoản google {target_gmail}')
-        return get_driver(show=show)
+        print("--> Hãy dùng cookies để đăng nhập !")
+        return None
 
-def get_element_by_xpath(driver, xpath, key=None, index=0):
+def get_element_by_xpath(driver, xpath, key=None, index=0, multiple_ele=False):
     kq = []
     cnt=0
     while(len(kq)==0):
         cnt+=1
         elements = driver.find_elements(By.XPATH, xpath)
+        if multiple_ele:
+            return elements
         if key:
             key = key.lower()
             for ele in elements:
@@ -373,14 +394,22 @@ def add_date_into_string(date_str, day_gap):
         return date.strftime("%Y-%m-%d")
     return None
 
-# def get_time_remaining_until_quota_reset():
-#     pst_timezone = timezone(timedelta(hours=-8))
-#     now_utc = datetime.now(timezone.utc)
-#     now_pst = now_utc.astimezone(pst_timezone)
-#     reset_time_pst = now_pst.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-#     time_remaining = reset_time_pst - now_pst
-#     total_seconds = time_remaining.total_seconds()
-#     return total_seconds
+def convert_time_to_seconds(time_str):
+    try:
+        list_time = time_str.split(':')
+        cnt = len(list_time)
+        if cnt == 3:
+            return float(list_time[0]) * 3600 + float(list_time[1]) * 60 + float(list_time[2])
+        elif cnt == 2:
+            return float(list_time[0]) * 60 + float(list_time[1])
+        elif cnt == 1:
+            return float(list_time[0])
+        else:
+            print("Định dạng thời gian không hợp lệ")
+            return None
+    except:
+        print("Định dạng thời gian không hợp lệ")
+        return None
  
 def get_file_path(file_name=None):
     """Lấy đường dẫn tới tệp config trong cùng thư mục với file thực thi (exe)"""
@@ -822,3 +851,58 @@ def press_esc_key(cnt=1, driver=None):
             actions = ActionChains(driver)
             actions.send_keys(Keys.ESCAPE).perform()
             sleep(0.2)
+
+def get_view_count(view_count=""):
+    if view_count:
+        view_count = view_count.split('views')[0].strip()
+        if 'B' in view_count:
+            view_count = float(view_count.replace('B', '')) * 1000000000
+        elif 'M' in view_count:
+            view_count = float(view_count.replace('M', '')) * 1000000
+        elif 'K' in view_count:
+            view_count = float(view_count.replace('K', '')) * 1000
+        else:
+            try:
+                view_count = int(view_count)
+            except:
+                view_count = 0
+    return view_count
+
+def get_image_from_video(videos_folder, position=None):
+    try:
+        if position:
+            time_position = convert_time_to_seconds(position)
+        else:
+            print("Hãy chọn thời điểm trích xuất ảnh từ video.")
+            return
+    except:
+        print("Định dạng thời điểm trích xuất ảnh không hợp lệ.")
+        return
+    videos = os.listdir(videos_folder)
+    videos = [k for k in videos if k.endswith('.mp4')]      
+    if len(videos) == 0:
+        print(f"Không tìm thấy video trong thư mục {videos_folder}")
+        return
+    output_folder = os.path.join(videos_folder, 'images')
+    os.makedirs(output_folder, exist_ok=True)
+    cnt = 0
+    for i, video_file in enumerate(videos):
+        video_path = os.path.join(videos_folder, video_file)
+        video_name = os.path.splitext(video_file)[0] #lấy tên
+        image_path = os.path.join(output_folder, f'{video_name}.png')
+        video = VideoFileClip(video_path)
+        if ':' in position:
+            extraction_time = time_position
+        else:
+            extraction_time = video.duration - time_position
+        if extraction_time < 0 or extraction_time > video.duration:
+            print(f'Thời điểm trích xuất ảnh vượt quá thời lượng của video {video_file}. Lấy thời điểm trích xuất ở cuối video')
+            extraction_time = video.duration
+        frame = video.get_frame(extraction_time)
+        from imageio import imwrite
+        imwrite(image_path, frame)
+        video.close()
+        cnt += 1
+    if cnt > 0:
+        print(f'Đã trích xuất thành công {cnt} ảnh.')
+        print(f'Thư mục chứa ảnh là {output_folder}.')

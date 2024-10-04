@@ -44,8 +44,6 @@ def load_config():
             "top_bot_overlay": "2,2",
             "left_right_overlay": "2,2",
 
-            "first_cut_audio": "", 
-            "end_cut_audio": "", 
             "audio_speed": "", 
             "reversed_audio": False, 
             "audio_edit_path": "", 
@@ -101,10 +99,9 @@ youtube_config = {
    "current_youtube_account": "",
    "current_channel": "",
    "download_folder": "",
-   "download_by_video_url": "",
    "download_by_channel_id": "",
-   "filter_by_like": "",
-   "filter_by_views": "",
+   "filter_by_like": "0",
+   "filter_by_views": "0",
    "use_cookies": True,
    "show_browser": False,
    "template": {}
@@ -118,8 +115,8 @@ tiktok_config = {
    "download_folder": "",
    "is_move": False,
    "is_delete_after_upload": False,
-   "filter_by_like": "",
-   "filter_by_views": "",
+   "filter_by_like": "0",
+   "filter_by_views": "0",
    "template": {}
 }
 
