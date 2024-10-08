@@ -852,20 +852,30 @@ def press_esc_key(cnt=1, driver=None):
             actions.send_keys(Keys.ESCAPE).perform()
             sleep(0.2)
 
+def get_views_text(views_ele):
+    match = re.search(r'(\d+(?:\.\d+)?)([KMB]?)', views_ele)
+    if match:
+        number = float(match.group(1))
+        unit = match.group(2)
+        return f'{number}{unit}'
+    return None
 def get_view_count(view_count=""):
     if view_count:
-        view_count = view_count.split('views')[0].strip()
-        if 'B' in view_count:
-            view_count = float(view_count.replace('B', '')) * 1000000000
-        elif 'M' in view_count:
-            view_count = float(view_count.replace('M', '')) * 1000000
-        elif 'K' in view_count:
-            view_count = float(view_count.replace('K', '')) * 1000
-        else:
-            try:
-                view_count = int(view_count)
-            except:
+        try:
+            view_count = view_count.split('views')[0].strip()
+            if 'B' in view_count:
+                view_count = float(view_count.replace('B', '')) * 1000000000
+            elif 'M' in view_count:
+                view_count = float(view_count.replace('M', '')) * 1000000
+            elif 'K' in view_count:
+                view_count = float(view_count.replace('K', '')) * 1000
+            else:
+                view_count = int(float(view_count))
+        except:
+                getlog()
                 view_count = 0
+    else:
+        view_count = 0
     return view_count
 
 def get_image_from_video(videos_folder, position=None):
@@ -906,3 +916,42 @@ def get_image_from_video(videos_folder, position=None):
     if cnt > 0:
         print(f'Đã trích xuất thành công {cnt} ảnh.')
         print(f'Thư mục chứa ảnh là {output_folder}.')
+
+# def check_time_for_auto_upload(time_check_string):
+#     try:
+#         target_hour, target_minute = time_check_string.split(':')
+#         now = datetime.now()
+#         target_time = now.replace(hour=int(target_hour.strip()), minute=int(target_minute.strip()), second=0, microsecond=0)
+        
+#         # Nếu thời gian mục tiêu đã qua trong ngày, chuyển sang ngày hôm sau
+#         if target_time < now :
+#             target_time += timedelta(days=1)
+        
+#         time_to_wait = (target_time - now).total_seconds()
+        
+#         if time_to_wait <= 0:
+#             return True, None
+#         return False, time_to_wait
+#     except:
+#         return False, None
+
+def get_time_check_cycle(time_check_string):
+    try:
+        time_check = int(time_check_string)
+    except:
+        time_check = 0
+    return time_check * 60
+
+def check_folder(folder):
+    if not folder:
+        print("Hãy chọn thư mục lưu video.")
+        return False
+    if not os.path.exists(folder):
+        print(f"Thư mục {folder} không tồn tại.")
+        return False
+    return True
+
+def get_list_video_in_folder(folder):
+    all_file = os.listdir(folder)
+    videos = [k for k in all_file if k.endswith('.mp4')]
+    return videos

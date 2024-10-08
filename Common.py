@@ -6,13 +6,15 @@ def load_config():
     else:
         config = {
             "download_folder":"",
-            "output_folder":"",
-            "from_language": "en-us",
-            "to_language": "vi",
             "auto_start": False,
             "is_delete_video": False,
             "is_move": False,
             "show_browser": False,
+            "auto_upload_youtube": False,
+            "auto_upload_facebook": False,
+            "auto_upload_tiktok": False,
+            "time_check_auto_upload": "",
+            "time_check_status_video": "",
 
             "current_youtube_account": "",
             "current_tiktok_account": "",

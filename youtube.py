@@ -46,13 +46,14 @@ class YouTubeManager():
         self.is_first_start = True
         self.driver = None
         self.download_by_selenium = True
+        self.cookies_var = None
         
 
 #--------------------------------------Selenium--------------------------start
 
     def login(self):
         try:
-            if self.cookies_var.get().strip():
+            if self.cookies_var and self.cookies_var.get().strip():
                 self.driver = get_driver(show=self.youtube_config['show_browser'])
             else:
                 self.driver = get_driver_with_profile(target_gmail=self.gmail, show=self.youtube_config['show_browser'])
@@ -820,11 +821,6 @@ class YouTubeManager():
                 print(f"Không có video nào trong thư mục {videos_folder}")
                 return
             videos = natsorted(videos)
-            if not self.login():
-                print(f'Đăng nhập thất bại !!!')
-                return
-            else:
-                print(f'Đăng nhập thành công !!!')
 
             if self.is_schedule:
                 number_of_days = get_number_of_days(self.youtube_config['template'][self.channel_name]['number_of_days'])
@@ -835,12 +831,22 @@ class YouTubeManager():
                 publish_times = self.youtube_config['template'][self.channel_name]['publish_times'].split(',')
                 if not publish_times:
                     return
-                if self.is_auto_upload:
-                    number_of_days = 200
-                    upload_date_str = add_date_into_string(upload_date_str, day_gap)
                 upload_date = get_upload_date(upload_date_str, next_day=True)
                 upload_date_str = convert_datetime_to_string(upload_date)
                 tomorow_str = convert_datetime_to_string(datetime.now() + timedelta(days=1))
+                if self.is_auto_upload:
+                    number_of_days = 100
+                    upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                    self.youtube_config['show_browser'] = False
+                    if not is_date_greater_than_current_day(upload_date_str, day_delta=0):
+                        current_day = datetime.now().date()
+                        upload_date_str = add_date_into_string(current_day, day_gap=1)
+            if not self.login():
+                print(f'Đăng nhập thất bại !!!')
+                return
+            else:
+                print(f'Đăng nhập thành công !!!')
+
             upload_count = 0
             date_cnt = 0
             for i, video_file in enumerate(videos):
@@ -1014,6 +1020,14 @@ class YouTubeManager():
         try:
             self.download_info = load_download_info()
             video_urls = []
+            def get_views_from_video(div_content):
+                try:
+                    view_div = div_content.find_element(By.XPATH, ".//div[contains(@aria-label, 'views')]")
+                    views_text = view_div.get_attribute("aria-label").split(' ')[0].strip()
+                    view_count = get_view_count(views_text)
+                    return view_count
+                except:
+                    return 0
             def get_videos(view_cnt="", short=True):
                 try:
                     view_cnt = int(view_cnt)
@@ -1028,7 +1042,7 @@ class YouTubeManager():
                         url = link_video.get_attribute('href')
                         if url and url not in video_urls:
                             if url in self.download_info['downloaded_urls']:
-                                print(f"video {url} đã tải trước đó: {url}")
+                                print(f"video {url} đã tải trước đó ...")
                             else:
                                 video_urls.append(url)
                     
@@ -1036,9 +1050,7 @@ class YouTubeManager():
                 div_contents = get_element_by_xpath(self.driver, xpath, multiple_ele=True)
                 if div_contents:
                     for div_content in div_contents:
-                        texts = div_content.text.split('\n')
-                        vc = next((vc for vc in texts if 'views' in vc), None)
-                        view_count = get_view_count(vc)
+                        view_count = get_views_from_video(div_content)
                         if view_count >= view_cnt:
                             get_link_video(div_content)
 
@@ -1104,7 +1116,7 @@ class YouTubeManager():
 
     def scroll_page(self):      
         last_height = self.driver.execute_script("return document.documentElement.scrollHeight")
-        k = False
+        k = 0
         cnt_search = 0
         sleep(1)
         while True:
@@ -1115,15 +1127,20 @@ class YouTubeManager():
             sleep(2)
             new_height = self.driver.execute_script("return document.documentElement.scrollHeight")
             if new_height == last_height:
-                if k:
-                    break
-                else:
-                    k = True
+                if k < 2:
+                    k += 1
+                    self.driver.execute_script("window.scrollBy(0, -400);")
+                    sleep(1)
+                    self.driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
                     sleep(2)
-                    continue
-            k = False
+                else:
+                    break
+            else:
+                k = 0
             last_height = new_height
             cnt_search += 1
+            sys.stdout.write(f'\rCuộn trang lần thứ {cnt_search} ...')
+            sys.stdout.flush()
             if cnt_search > 200:
                 break
 

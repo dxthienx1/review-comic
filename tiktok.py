@@ -30,6 +30,8 @@ class TikTokManager:
     def login(self):
         try:
             self.is_stop_upload = False
+            if self.is_auto_upload:
+                self.tiktok_config['show_browser'] = False
             self.driver = get_driver(show=self.tiktok_config['show_browser'])
             if not self.driver:
                 return False
@@ -484,13 +486,16 @@ class TikTokManager:
                 upload_date_str = self.tiktok_config['template'][self.account]['upload_date']
                 if not upload_date_str:
                     return
-                if self.is_auto_upload:
-                    number_of_days = 10
-                    upload_date = add_date_into_string(upload_date_str, day_gap)
-                    self.tiktok_config['show_browser'] = True
                 upload_date = get_upload_date(upload_date_str)
                 upload_date = convert_datetime_to_string(upload_date)
-                # Xác định thời gian đăng cho video
+                if self.is_auto_upload:
+                    number_of_days = 100
+                    upload_date = add_date_into_string(upload_date_str, day_gap)
+                    self.tiktok_config['show_browser'] = False
+                    if not is_date_greater_than_current_day(upload_date, day_delta=0):
+                        current_day = datetime.now().date()
+                        upload_date = add_date_into_string(current_day, day_gap=1)
+
                 publish_times_str = self.tiktok_config['template'][self.account]['publish_times']
                 publish_times = publish_times_str.split(',')   
                 if not publish_times:
@@ -609,37 +614,44 @@ class TikTokManager:
             self.show_window()
 
             def save_download_settings():
-                self.download_folder = self.download_folder_var.get()
-                if not os.path.exists(self.download_folder):
-                    notification(self.root, "Please select the folder containing the downloaded file.")
-                    return
-                self.tiktok_config['download_folder'] = self.download_folder
-                self.tiktok_config['show_browser'] = self.show_browser_var.get() == "Yes"
-                self.tiktok_config['download_by_channel_url'] = self.download_by_channel_url_var.get()
-                self.tiktok_config['filter_by_views'] = self.filter_by_views_var.get()
-                self.save_tiktok_config()
+                try:
+                    self.download_folder = self.download_folder_var.get()
+                    if not self.download_folder:
+                        notification(self.root, "Vui lòng chọn thư mục chứa video tải về !!!")
+                        return False
+                    if not os.path.exists(self.download_folder):
+                        notification(self.root, f"Thư mục {self.download_folder} không tồn tại, hãy chọn lại !!!")
+                        return False
+                    self.tiktok_config['download_folder'] = self.download_folder
+                    self.tiktok_config['show_browser'] = self.show_browser_var.get() == "Yes"
+                    self.tiktok_config['download_by_channel_url'] = self.download_by_channel_url_var.get()
+                    self.tiktok_config['filter_by_views'] = self.filter_by_views_var.get()
+                    self.save_tiktok_config()
+                    return True
+                except:
+                    return False
 
             def start_download_by_search_url():
                 if not self.download_thread or not self.download_thread.is_alive():
                     self.is_download_by_search_url = True
-                    save_download_settings()
-                    self.download_thread = threading.Thread(target=self.download_videos_by_channel_url)
-                    self.download_thread.start()
+                    if save_download_settings():
+                        self.download_thread = threading.Thread(target=self.download_videos_by_channel_url)
+                        self.download_thread.start()
                 else:
                     notification(self.root, "Đang tải ở một luồng khác.")
 
             def start_download_by_channel_url():
                 if not self.download_thread or not self.download_thread.is_alive():
                     self.is_download_by_search_url = False
-                    save_download_settings()
-                    self.download_thread = threading.Thread(target=self.download_videos_by_channel_url)
-                    self.download_thread.start()
+                    if save_download_settings():
+                        self.download_thread = threading.Thread(target=self.download_videos_by_channel_url)
+                        self.download_thread.start()
                 else:
                     notification(self.root, "Đang tải ở một luồng khác.")
             self.download_by_search_url_var = create_frame_button_and_input(self.root, text="Tải video từ Link kết quả tìm kiếm", command=start_download_by_search_url, left=0.4, right=0.6, width=self.width)
             self.download_by_channel_url_var = create_frame_button_and_input(self.root, text="Tải video từ Link kênh tiktok", command=start_download_by_channel_url, left=0.4, right=0.6, width=self.width)
             self.filter_by_views_var = self.create_settings_input("Lọc theo số lượt xem", "filter_by_views", config=self.tiktok_config, values=["100000", "200000", "300000", "500000", "1000000"], left=0.4, right=0.6)
-            self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt (khi cần xác minh capcha)", config_key="show_browser", config=self.tiktok_config, values=['Yes', 'No'])
+            self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", config=self.tiktok_config, values=['Yes', 'No'])
             self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu video", command=self.choose_folder_to_save, left=0.4, right=0.6, width=self.width)
             self.download_folder_var.insert(0, self.tiktok_config['download_folder'])
             create_button(self.root, text="Back", command=self.get_start_tiktok, width=self.width)
@@ -684,32 +696,37 @@ class TikTokManager:
                 self.close()
                 return None
             last_height = self.driver.execute_script("return document.body.scrollHeight")
-            k = False
+            k = 0
             print(f"Bắt đầu quét video trong kênh {url} ...")
             while True:
                 if self.is_stop_download:
                     self.close()
                     return None
-                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);") # Cuộn xuống cuối trang
+                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 sleep(2)
-                new_height = self.driver.execute_script("return document.body.scrollHeight") # Tính chiều cao mới của trang
-                if new_height == last_height: # Kiểm tra nếu không có thêm nội dung mới
-                    if k:
-                        break
-                    else:
-                        k = True
+                new_height = self.driver.execute_script("return document.body.scrollHeight")
+                if new_height == last_height:
+                    if k < 3:
+                        k += 1
+                        self.driver.execute_script("window.scrollBy(0, -400);")
+                        sleep(1)
+                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                         sleep(2)
-                        continue
-                k = False
+                    else:
+                        break
+                else:
+                    k = 0
                 last_height = new_height
                 cnt_search += 1
+                sys.stdout.write(f'\rCuộn trang lần thứ {cnt_search} ...')
+                sys.stdout.flush()
                 if cnt_search > 200:
                     break
             
             self.download_info = load_download_info()
             video_urls = []
             if self.is_download_by_search_url:
-                xpath = get_xpath('div', "css-1soki6-DivItemContainerForSearch e19c29qe10")
+                xpath = get_xpath('div', "css-1soki6-DivItemContainerForSearch", contain=True)
                 video_divs = self.driver.find_elements(By.XPATH, xpath)
                 for video_div in video_divs:
                     if self.is_stop_download:
@@ -731,7 +748,6 @@ class TikTokManager:
                                 continue
                     except:
                         continue
-
             else:
                 video_elements = self.driver.find_elements(By.TAG_NAME, 'a')
                 for item in video_elements:
@@ -743,18 +759,17 @@ class TikTokManager:
                         if url in self.download_info['downloaded_urls']:
                             print(f"url này đã tải trước đó: {url}")
                             continue
-                        view_count = item.text
-                        if '\n' in view_count:
-                            view_count = view_count.split('\n')[0]
-                        view_count = get_view_count(view_count)
-                        if view_count >= view_cnt:
-                            video_urls.append(url)
+                        view_count_str = get_views_text(item.text)
+                        if view_count_str:
+                            view_count = get_view_count(view_count_str)
+                            if view_count >= view_cnt:
+                                video_urls.append(url)
             self.close()
             print(f"--> Tổng thời gian tìm video là {int((time() - t)/60)} phút {int(time() - t)%60} giây")
-            if video_urls:
+            if len(video_urls) > 0:
                 print(f"--> Tổng số video tìm được là {len(video_urls)}")
             else:
-                print(f'Có thể cần phải xác minh capcha --> Hãy chọn chế độ hiển thị trình duyệt để xác minh capcha thủ công!')
+                print(f'Không tìm thấy video nào. Có thể trình duyệt yêu cầu xác minh capcha !!!')
                 return
             for url in video_urls:
                 try:

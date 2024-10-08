@@ -186,51 +186,77 @@ class FacebookManager:
             try:
                 t = time()
                 video_urls = []
+                try:
+                    view_cnt = int(self.filter_by_views_var.get().strip())
+                except:
+                    view_cnt = 0
                 page_link = self.page_link_var.get()
                 if self.login(is_download=True):
                     self.driver.get(page_link)
                     press_esc_key(2, self.driver)
                     sleep(2)
-                    last_height = self.driver.execute_script("return document.body.scrollHeight") # Tự động cuộn trang
+                    last_height = self.driver.execute_script("return document.body.scrollHeight")
                     cnt_search = 0
-                    k = False
+                    k = 0
                     print(f"Bắt đầu quét video trong trang facebook theo link {page_link}...")
                     while True:
                         if self.is_stop_download:
                             break
-                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);") # Cuộn xuống cuối trang
+                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                         sleep(2)
-                        new_height = self.driver.execute_script("return document.body.scrollHeight") # Tính chiều cao mới của trang
-                        if new_height == last_height: # Kiểm tra nếu không có thêm nội dung mới
-                            if k:
-                                break
+                        new_height = self.driver.execute_script("return document.body.scrollHeight")
+                        if new_height == last_height:
+                            if k < 2:
+                                k += 1
+                                self.driver.execute_script("window.scrollBy(0, -400);")
+                                sleep(1)
+                                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                                sleep(2)
                             else:
-                                k = True
-                                sleep(6)
-                                continue
-                        k = False
+                                break
+                        else:
+                            k = 0
                         last_height = new_height
                         cnt_search += 1
+                        sys.stdout.write(f'\rCuộn trang lần thứ {cnt_search} ...')
+                        sys.stdout.flush()
                         if cnt_search > 250:
                             break
-
-                    # link_video_eles = self.driver.find_elements(By.XPATH, './/a[contains(@href, "/videos/")]')
                     link_video_eles = self.driver.find_elements(By.XPATH, './/a[contains(@href, "/videos/") and not(contains(@href, "?comment"))]')
                     if len(link_video_eles) > 0:
-                        for ele in link_video_eles:
+                        for video_ele in link_video_eles:
                             if self.is_stop_download:
                                     break
-                            url = ele.get_attribute('href') or None
-                            if url and url not in video_urls:
-                                video_urls.append(url)
+                            url = video_ele.get_attribute('href') or None
+                            if not url:
+                                continue
+                            view_count = 0
+                            if view_cnt > 0:
+                                try:
+                                    parent_div = video_ele.find_element(By.XPATH, './/ancestor::span[1]')
+                                except:
+                                    parent_div = None
+                                if parent_div:
+                                    try:
+                                        text = parent_div.text.split('·\n')[-1].strip()
+                                        view_text = text.split('\n')[0]
+                                        view_count_str = get_views_text(view_text)
+                                        view_count = get_view_count(view_count_str)
+                                    except:
+                                        view_count = 0
+
+                            if view_count >= view_cnt:
+                                if url not in video_urls:
+                                    video_urls.append(url)
+
                         t1 = int(time() - t)
-                        print(f'Thời gian quét video là {int(t1/60)} phút {t1%60} giây --> Tổng tìm thấy {len(link_video_eles)} video ...')
+                        print(f'\nThời gian quét video là {int(t1/60)} phút {t1%60} giây --> Tổng tìm thấy {len(video_urls)} video có số lượt xem lớn hơn {view_cnt} ...')
                     else:
                         print(f"Không tìm thấy video nào từ link {page_link}")
+                    cnt = 0
                     if len(video_urls) > 0:
                         print('Quá trình tải video bắt đầu ...')
                         download_info = get_json_data(download_info_path)
-                        cnt = 0
                         for url in video_urls:
                             if self.is_stop_download:
                                     break
@@ -262,6 +288,8 @@ class FacebookManager:
         self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu video", command=choose_folder_to_save, width=self.width, left=0.35, right=0.65)
         self.download_folder_var.insert(0, self.facebook_config['download_folder'])
         self.page_link_var = create_frame_button_and_input(self.root,text="Tải từ link trang facebook", command=start_thread_download_page_video, width=self.width, left=0.35, right=0.65)
+        self.filter_by_views_var = create_frame_label_and_input(self.root, label_text="Lọc theo số lượt xem", width=self.width, left=0.35, right=0.65)
+        self.filter_by_views_var.insert(0,'0')
         create_button(self.root, text="Lùi lại", command=self.get_start_facebook, width=self.width)
 
 #-----------------------------------Đăng Nhập FB--------------------------------------------
@@ -319,7 +347,7 @@ class FacebookManager:
     def login(self, is_download=False):
         try:
             if is_download:
-                self.driver = get_driver(show=False)
+                self.driver = get_driver(show=True)
             else:
                 self.driver = get_driver(show=self.facebook_config['show_browser'])
             self.load_session()
@@ -357,11 +385,11 @@ class FacebookManager:
 #-----------------------------------Thao tác trên facebook--------------------------------------------  
 
     def try_click_page_list(self):
-        xpath = get_xpath('span', "x193iq5w xeuugli x13faqbe x1vvkbs x1xmvt09 x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x xudqn12 x3x7a5m x6prxxf xvq8zen xk50ysn x1qq9wsj")
         if self.en_language:
-            page_list_ele = get_element_by_xpath(self.driver, xpath, 'See all profiles')
+            xpath = get_xpath_by_multi_attribute('div', ['aria-label="See all profiles"'])
         else:
-            page_list_ele = get_element_by_xpath(self.driver, xpath, 'Xem tất cả trang cá nhân')
+            xpath = get_xpath_by_multi_attribute('div', ['aria-label="Xem tất cả trang cá nhân"'])
+        page_list_ele = get_element_by_xpath(self.driver, xpath)
         if page_list_ele:
             page_list_ele.click()
             sleep(1)
@@ -749,13 +777,12 @@ class FacebookManager:
             self.is_reel_video = self.facebook_config['template'][self.page_name]['is_reel_video']
             if not check_folder(videos_folder):
                 return False
-            all_file = os.listdir(videos_folder)
-            videos = [k for k in all_file if k.endswith('.mp4')]
+            videos = get_list_video_in_folder(videos_folder)
             if len(videos) == 0:
                 if self.is_auto_upload:
-                    print(f"Thư mục {videos_folder} không chứa video(loại \n.mp4\n).")
+                    print(f"Thư mục {videos_folder} không chứa video")
                 else:
-                    notification(self.root, f"Thư mục {videos_folder} không chứa video(loại \n.mp4\n).")
+                    notification(self.root, f"Thư mục {videos_folder} không chứa video.")
                 return False
             videos = natsorted(videos)
             upload_count = 0
@@ -773,7 +800,12 @@ class FacebookManager:
                 publish_times = publish_times_str.split(',')
                 if self.is_auto_upload:
                     number_of_days = 100
+                    upload_date_yymmdd = add_date_into_string(upload_date_yymmdd, day_gap=day_gap)
                     self.facebook_config['show_browser'] = False
+                    if not is_date_greater_than_current_day(upload_date_yymmdd, day_delta=0):
+                        current_day = datetime.now().date()
+                        upload_date_yymmdd = add_date_into_string(current_day, day_gap=1)
+
 
             if not self.login():
                 return
@@ -920,8 +952,8 @@ class FacebookManager:
         elif self.is_download_video_window:
             self.root.title(f"Download Fanpage Videos")
             self.width = 500
-            self.height_window = 217
-            self.is_upload_video_window = False
+            self.height_window = 265
+            self.is_download_video_window = False
        
         self.setting_screen_position()
 

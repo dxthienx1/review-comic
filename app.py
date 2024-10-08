@@ -97,19 +97,16 @@ class MainApp:
             self.is_open_register_mac_addres_window = False
             self.is_extract_image_from_video_window = False
             self.is_editing_video = False
-            self.is_auto_upload_youtube = False
-            self.is_auto_upload_facebook = False
-            self.is_auto_upload_tiktok = False
             self.is_add_new_channel = False
             self.is_remove_channel = False
-            self.is_setting_auto_upload = False
             self.pre_time_check_auto_upload_youtube = 0
             self.pre_time_check_auto_upload_facebook = 0
             self.pre_time_check_auto_upload_tiktok = 0
             self.is_stop_edit = False
             self.is_stop_download = False
+            self.is_stop_upload = False
             self.driver = None
-            # self.start_main_check_thread()
+            self.start_main_check_thread()
 
             if is_registed_mac_address:
                 self.setting_window_size()
@@ -127,6 +124,9 @@ class MainApp:
 
 #------------------------------------------------main thread----------------------------------------------------
     def start_main_check_thread(self):
+            if self.is_start_app:
+                self.config['time_check_auto_upload'] = "0"
+                self.save_config()
             self.thread_main = threading.Thread(target=self.main_check_thread)
             self.thread_main.daemon = True
             self.thread_main.start()
@@ -134,41 +134,48 @@ class MainApp:
     def main_check_thread(self):
         while True:
             try:
-                self.auto_upload_youtube()
-                self.auto_upload_facebook()
-                self.auto_upload_tiktok()
+                if not self.upload_thread.is_alive() and not self.download_thread.is_alive() and not self.edit_thread.is_alive():
+                    self.auto_upload_youtube()
+                    self.auto_upload_facebook()
+                    self.auto_upload_tiktok()
                 sleep(30)
             except:
                 getlog()
                 sleep(500)
-    def check_process_status(self):
-        if self.youtube:
-            if self.youtube.is_stop_download:
-                self.youtube.download_thread.join()
+
+    def check_status_process(self):
+        status = False
+        if self.upload_thread.is_alive() or self.download_thread.is_alive() or self.edit_thread.is_alive():
+            return True
 
     def auto_upload_youtube(self):
         try:
-            if self.is_auto_upload_youtube:
-                if time() - self.pre_time_check_auto_upload_youtube >= 300:
+            time_check_cycle = get_time_check_cycle(self.config['time_check_auto_upload'])
+            if not time_check_cycle:
+                return
+            if self.config['auto_upload_youtube']:
+                if time() - self.pre_time_check_auto_upload_youtube >= time_check_cycle:
                     self.pre_time_check_auto_upload_youtube = time()
                     auto_channel_name = [channel for channel in self.youtube_config['template'].keys()]
                     for channel_name in auto_channel_name:
                         try:
+                            if self.is_stop_upload:
+                                return
                             self.get_youtube_config()
                             gmail = self.youtube_config['template'][channel_name].get('gmail', None)
-                            if is_dev_enviroment:
-                                oauth_path = f'app.py-{gmail}-{channel_name}.json'
-                            else:
-                                oauth_path = f'app.exe-{gmail}-{channel_name}.json'
-                            if os.path.isfile(oauth_path):
-                                print(f"đang thực hiện đăng video tự động cho channel {channel_name} ...")
-                                auto_youtube= YouTubeManager(gmail, channel_name, is_auto_upload=True, upload_thread=self.upload_thread, download_thread=self.download_thread)
-                                rp = auto_youtube.schedule_videos()
-                            else:
-                                print(f'Channel {channel_name} chưa xác thực với google. Hãy đăng thủ công để xác thực kênh trước.')
+                            videos_folder = self.youtube_config['template'][channel_name].get('upload_folder')
+                            videos = get_list_video_in_folder(videos_folder)
+                            if len(videos) == 0:
+                                return
+                            print(f"đang thực hiện đăng video tự động cho kênh {channel_name} ...")
+                            if self.is_stop_upload:
+                                return
+                            auto_youtube= YouTubeManager(gmail, channel_name, is_auto_upload=True, upload_thread=self.upload_thread, download_thread=self.download_thread)
+                            rp = auto_youtube.schedule_videos_by_selenium()
+
                         except:
                             getlog()
-                            print(f"Có lỗi trong quá trình đăng video cho kênh {channel_name}. Hãy thử đăng thủ công và chọn hiển thị trình duyệt để xem có vấn đề gì không.")
+                            print(f"Có lỗi trong quá trình đăng video tự động cho kênh {channel_name} !!!")
                         sleep(2)
 
         except:
@@ -176,21 +183,32 @@ class MainApp:
 
     def auto_upload_facebook(self):
         try:
-            if self.is_auto_upload_facebook:
-                if time() - self.pre_time_check_auto_upload_facebook >= 300:
+            time_check_cycle = get_time_check_cycle(self.config['time_check_auto_upload'])
+            if not time_check_cycle:
+                return
+            if self.config['auto_upload_facebook']:
+                if time() - self.pre_time_check_auto_upload_facebook >= time_check_cycle:
                     self.pre_time_check_auto_upload_facebook = time()
-                    self.get_facebook_config()
                     auto_page_name = [page for page in self.facebook_config['template'].keys()]
                     for page_name in auto_page_name:
                         try:
+                            if self.is_stop_upload:
+                                return
+                            self.get_facebook_config()
+                            videos_folder = self.facebook_config['template'][page_name].get('upload_folder')
+                            videos = get_list_video_in_folder(videos_folder)
+                            if len(videos) == 0:
+                                return
                             print(f"đang thực hiện đăng video tự động cho trang {page_name} ...")
                             facebook_account = self.facebook_config['template'][page_name].get('account')
                             facebook_password = self.facebook_config['template'][page_name].get('password')
+                            if self.is_stop_upload:
+                                return
                             auto_facebook= FacebookManager(facebook_account, facebook_password, page_name, self.download_thread, self.upload_thread, is_auto_upload=True)
                             auto_facebook.upload_video()
                         except:
                             getlog()
-                            print(f"Có lỗi trong quá trình đăng video cho trang {page_name}. Hãy thử đăng thủ công và chọn hiển thị trình duyệt để xem có vấn đề gì không.")
+                            print(f"Có lỗi trong quá trình đăng video tự động cho trang {page_name} !!!")
                         sleep(2)
 
         except:
@@ -198,20 +216,31 @@ class MainApp:
 
     def auto_upload_tiktok(self):
         try:
-            if self.is_auto_upload_tiktok:
-                if time() - self.pre_time_check_auto_upload_tiktok >= 300:
+            time_check_cycle = get_time_check_cycle(self.config['time_check_auto_upload'])
+            if not time_check_cycle:
+                return
+            if self.config['auto_upload_tiktok']:
+                if time() - self.pre_time_check_auto_upload_tiktok >= time_check_cycle:
                     self.pre_time_check_auto_upload_tiktok = time()
-                    self.get_tiktok_config()
                     auto_tiktok_acc = [acc for acc in self.tiktok_config['template'].keys()]
                     for account in auto_tiktok_acc:
                         try:
+                            if self.is_stop_upload:
+                                return
+                            self.get_tiktok_config()
+                            videos_folder = self.youtube_config['template'][account].get('upload_folder')
+                            videos = get_list_video_in_folder(videos_folder)
+                            if len(videos) == 0:
+                                return
                             print(f"đang thực hiện đăng video tự động cho tài khoản tiktok {account} ...")
                             tiktok_password = self.tiktok_config['template'][account].get('password')
+                            if self.is_stop_upload:
+                                return
                             auto_tiktok= TikTokManager(account, tiktok_password, self.download_thread, self.upload_thread, is_auto_upload=True)
                             auto_tiktok.upload_video()
                         except:
                             getlog()
-                            print(f"Có lỗi trong quá trình đăng video cho tài khoản tiktok {account}. Hãy thử đăng thủ công và chọn hiển thị trình duyệt để xem có vấn đề gì không.")
+                            print(f"Có lỗi trong quá trình đăng video tự động cho tài khoản tiktok {account} !!!")
                         sleep(2)
         except:
             getlog()
@@ -234,7 +263,6 @@ class MainApp:
         create_button(frame=self.root, text="Xử lý audio", command=self.open_edit_audio_window)
         create_button(frame=self.root, text="Tải video từ các nền tảng khác", command=self.open_other_download_video_window)
         create_button(frame=self.root, text="Chức năng khác", command=self.other_function)
-        create_button(frame=self.root, text="Cài đặt đăng video tự động", command=self.setting_auto_upload)
         create_button(frame=self.root, text="Cài đặt chung", command=self.open_common_settings)
     
     def open_other_download_video_window(self):
@@ -478,26 +506,6 @@ class MainApp:
         create_button(self.root, text="Đăng ký mã máy", command=self.open_register_mac_addres_window, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
-    def setting_auto_upload(self):
-        self.reset()
-        self.is_setting_auto_upload = True
-        self.setting_window_size()
-        self.show_window()
-        create_button(frame=self.root, text="Bắt đầu tự động đăng video Youtube", command=self.auto_upload_youtube_setting)
-        create_button(frame=self.root, text="Bắt đầu tự động đăng video Tiktok", command=self.auto_upload_tiktok_setting)
-        create_button(frame=self.root, text="Bắt đầu tự động đăng video Facebook", command=self.auto_upload_facebook_setting)
-        create_button(self.root, text="Back", command=self.get_start_window, width=self.width)
-
-    def auto_upload_youtube_setting(self):
-        self.is_auto_upload_youtube = True
-        print(f"Đã thiết lập tự động đăng video cho các kênh youtube")
-    def auto_upload_tiktok_setting(self):
-        self.is_auto_upload_tiktok= True
-        print(f"Đã thiết lập tự động đăng video cho các kênh tiktok")
-    def auto_upload_facebook_setting(self):
-        self.is_auto_upload_facebook = True
-        print(f"Đã thiết lập tự động đăng video cho các trang facebook")
-
     def open_youtube_window(self):
         self.reset()
         self.is_youtube_window = True
@@ -591,7 +599,7 @@ class MainApp:
         self.youtube_config['template'][channel_name]['is_delete_after_upload'] = False
         self.youtube_config['template'][channel_name]['number_of_days'] = "1"
         self.youtube_config['template'][channel_name]['day_gap'] = "1"
-        self.youtube_config['template'][channel_name]['last_auto_upload_date'] = ""
+        # self.youtube_config['template'][channel_name]['last_auto_upload_date'] = ""
         self.start_youtube_management(channel_name)
 
     def start_youtube_management(self, channel_name=None):
@@ -1558,6 +1566,11 @@ class MainApp:
     def open_common_settings(self):
         def save_common_config():
             self.config["auto_start"] = self.auto_start_var.get() == "Yes"
+            self.config["auto_upload_youtube"] = self.auto_upload_youtube_var.get() == "Yes"
+            self.config["auto_upload_facebook"] = self.auto_upload_facebook_var.get() == "Yes"
+            self.config["auto_upload_tiktok"] = self.auto_upload_tiktok_var.get() == "Yes"
+            self.config["time_check_auto_upload"] = self.time_check_auto_upload_var.get()
+            self.config["time_check_status_video"] = self.time_check_status_video_var.get()
             self.config["show_browser"] = self.show_browser_var.get() == "Yes"
             self.youtube_config['show_browser'] = self.config["show_browser"]
             self.tiktok_config['show_browser'] = self.config["show_browser"]
@@ -1574,6 +1587,11 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
         self.auto_start_var = self.create_settings_input("Khởi động cùng window", "auto_start", values=["Yes", "No"], left=0.4, right=0.6)
+        self.auto_upload_youtube_var = self.create_settings_input("Tự động đăng video youtube", "auto_upload_youtube", values=["Yes", "No"], left=0.4, right=0.6)
+        self.auto_upload_facebook_var = self.create_settings_input("Tự động đăng video facebook", "auto_upload_facebook", values=["Yes", "No"], left=0.4, right=0.6)
+        self.auto_upload_tiktok_var = self.create_settings_input("Tự động đăng video tiktok", "auto_upload_tiktok", values=["Yes", "No"], left=0.4, right=0.6)
+        self.time_check_auto_upload_var = self.create_settings_input("Thời điểm tự động đăng video (hh:mm)", "time_check_auto_upload", values=["00:00"], left=0.4, right=0.6)
+        self.time_check_status_video_var = self.create_settings_input("Khoảng cách mỗi lần kiểm tra trạng thái video (phút)", "time_check_status_video", values=["30", "60", "120", "180"], left=0.4, right=0.6)
         self.show_browser_var = self.create_settings_input("Hiển thị trình duyệt web khi upload hoặc download", "show_browser", values=["Yes", "No"], left=0.4, right=0.6)
         self.is_delete_video_var = self.create_settings_input("Xóa video gốc sau chỉnh sửa", "is_delete_video", values=["Yes", "No"], left=0.4, right=0.6)
         self.is_move_video_var = self.create_settings_input("Di chuyển video gốc sau chỉnh sửa", "is_move", values=["Yes", "No"], left=0.4, right=0.6)
@@ -1719,6 +1737,7 @@ class MainApp:
             self.tiktok.is_stop_download = True
         print("Đã dừng quá trình tải video (những file đang tải sẽ không hủy được, nếu muốn dừng thì phải khởi động lại chương trình)")
     def stop_upload(self):
+        self.is_stop_upload = True
         if self.youtube:
             self.youtube.is_stop_upload = True
         if self.facebook:
@@ -1734,9 +1753,9 @@ class MainApp:
         self.stop_download()
         self.stop_upload()
         self.stop_edit_videos()
-        self.is_auto_upload_youtube = False
-        self.is_auto_upload_facebook = False
-        self.is_auto_upload_tiktok = False
+        if self.config['time_check_auto_upload']:
+            self.config['time_check_auto_upload'] = "0"
+            self.save_config()
         print("Đã dừng tất cả các chương trình")
 
     def create_image(self, icon_path=None):
@@ -1784,7 +1803,7 @@ class MainApp:
     def setting_window_size(self):
         if self.is_start_app:
             self.width = 500
-            self.height_window = 480
+            self.height_window = 435
         else:
             if self.is_setting:
                 self.root.title("Setting")
@@ -1800,15 +1819,10 @@ class MainApp:
                 self.width = 500
                 self.height_window = 217
                 self.is_remove_channel = False
-            elif self.is_setting_auto_upload:
-                self.root.title("Setting Auto Upload")
-                self.width = 500
-                self.height_window = 260
-                self.is_setting_auto_upload = False
             elif self.is_open_common_setting:
                 self.root.title("Common Setting")
                 self.width = 500
-                self.height_window = 360
+                self.height_window = 602
                 self.is_open_common_setting = False
             elif self.is_edit_video_window:
                 self.root.title("Edit Videos")
