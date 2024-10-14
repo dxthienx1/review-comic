@@ -8,6 +8,7 @@ dist/
 build/
 hook/
 __pycache__/
+other_function.py
 secret.json
 cookies.json
 local_storage.json
@@ -21,3 +22,4 @@ ff.html
 download_info.json
 *.json
 *.txt
+*.pem

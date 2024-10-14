@@ -79,7 +79,7 @@ class YouTubeManager():
                 self.click_switch_account()
                 return True
             else:
-                print(f'Đăng nhập thất bại. Hãy nhập cookies mới nhất và thử đăng nhập lại !!!')
+                print(f'Đăng nhập thất bại. Hãy thử dùng cookies mới nhất để đăng nhập !!!')
                 return False
         except:
             getlog()
@@ -245,18 +245,22 @@ class YouTubeManager():
             if ele:
                 ele.click()
                 sleep(1)
-        xpath = get_xpath('ytcp-text-dropdown-trigger', 'dropdown style-scope ytcp-video-metadata-playlists')
-        dropdown = get_element_by_xpath(self.driver, xpath)
-        if dropdown:
-            self.scroll_into_view(dropdown)
-            dropdown.click()
-            sleep(1)
-            xpath = get_xpath('span', 'checkbox-label style-scope ytcp-checkbox-group')
-            ele = get_element_by_xpath(self.driver, xpath, playlist_name)
-            if ele:
-                ele.click()
+        try:
+            xpath = get_xpath('ytcp-text-dropdown-trigger', 'dropdown style-scope ytcp-video-metadata-playlists')
+            dropdown = get_element_by_xpath(self.driver, xpath)
+            if dropdown:
+                self.scroll_into_view(dropdown)
+                dropdown.click()
                 sleep(1)
-            click_done()
+                xpath = get_xpath('span', 'checkbox-label style-scope ytcp-checkbox-group')
+                ele = get_element_by_xpath(self.driver, xpath, playlist_name)
+                if ele:
+                    ele.click()
+                    sleep(1)
+                click_done()
+        except:
+            print("Chức năng chọn thumbnail chỉ áp dụng cho những tài khoản youtube đã xác minh số điện thoại !!!")
+            
     
     def click_not_make_for_kid(self):
         xpath = get_xpath_by_multi_attribute('tp-yt-paper-radio-button', ['name="VIDEO_MADE_FOR_KIDS_NOT_MFK"'])
@@ -305,7 +309,6 @@ class YouTubeManager():
                 if main_ele:
                     add_end = get_element_by_xpath(main_ele, add_xpath, index=1)
                     if add_end:
-                        # is_disabled = bool(add_end.get_attribute('disabled'))
                         add_end.click()
                         sleep(3)
                         end_ele = get_element_by_xpath(self.driver, subscribe_xpath, index=0)
@@ -325,6 +328,12 @@ class YouTubeManager():
                 sleep(0.5)
 
         def add_related_video():
+            def click_close():
+                xpath = get_xpath_by_multi_attribute('ytcp-icon-button', ['icon="icons:close"'])
+                ele = get_element_by_xpath(self.driver, xpath)
+                if ele:
+                    ele.click()
+                    sleep(1)
             try:
                 main_xpath = get_xpath_by_multi_attribute('div', ['id="upload-container"'])
                 if self.en_language:
@@ -337,13 +346,14 @@ class YouTubeManager():
                     add_end = get_element_by_xpath(main_ele, add_xpath)
                     if add_end:
                         add_end.click()
-                        sleep(3)
-                        related_ele = get_element_by_xpath(self.driver, related_xpath, index=0)
+                        related_ele = get_element_by_xpath(self.driver, related_xpath, index=0, timeout=6)
                         if related_ele:
                             related_ele.click()
                             sleep(2)
                         else:
                             press_esc_key(2, self.driver)
+                            click_close()
+                            
                 else:
                     add_an_end_screen()
             except:
@@ -353,28 +363,39 @@ class YouTubeManager():
             xpath = get_xpath('button', 'ytcp-button-shape-impl ytcp-button-shape-impl--filled ytcp-button-shape-impl--mono ytcp-button-shape-impl--size-m', 'aria-label', 'Next')
         else:
             xpath = get_xpath('button', 'ytcp-button-shape-impl ytcp-button-shape-impl--filled ytcp-button-shape-impl--mono ytcp-button-shape-impl--size-m', 'aria-label', 'Tiếp')
-        ele = get_element_by_xpath(self.driver, xpath)
-        if ele:
-            self.scroll_into_view(ele)
-            ele.click()
+        next_ele = get_element_by_xpath(self.driver, xpath)
+        if next_ele:
+            self.scroll_into_view(next_ele)
+            next_ele.click()
             sleep(1)
             add_related_video()
             try:
-                ele.click()
+                next_ele.click()
             except:
-                sleep(2)
-                ele.click()
+                next_ele = get_element_by_xpath(self.driver, xpath)
+                try:
+                    next_ele.click()
+                except:
+                    if self.en_language:
+                        print("Không tìm thấy nút \"Next\" --> Dừng đăng video ...")
+                    else:
+                        print("Không tìm thấy nút \"Tiếp\" --> Dừng đăng video ...")
+                    self.is_stop_upload = True
+                    return
             sleep(1)
-            ele.click()
+            next_ele.click()
             sleep(1)
         else:
-            print("Không tìm thấy nút \"Next\" hoặc \"Tiếp\" --> Dừng đăng video ...")
+            if self.en_language:
+                print("Không tìm thấy nút \"Next\" --> Dừng đăng video ...")
+            else:
+                print("Không tìm thấy nút \"Tiếp\" --> Dừng đăng video ...")
             self.is_stop_upload = True
 
 
     
     def click_public_radio(self):
-        xpath = get_xpath('tp-yt-paper-radio-button', 'style-scope ytcp-video-visibility-select iron-selected', attribute='name', attribute_value='PUBLIC')
+        xpath = get_xpath_by_multi_attribute('tp-yt-paper-radio-button', ['name="PUBLIC"'])
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.click()
@@ -382,13 +403,17 @@ class YouTubeManager():
 
     def click_public_now(self):
         if self.en_language:
-            xpath = get_xpath('button', 'ytcp-button-shape-impl ytcp-button-shape-impl--filled ytcp-button-shape-impl--mono ytcp-button-shape-impl--size-m', attribute='aria-label', attribute_value='Publish')
+            xpath = get_xpath_by_multi_attribute('button', ['aria-label="Publish"'])
         else:
-            xpath = get_xpath('button', 'ytcp-button-shape-impl ytcp-button-shape-impl--filled ytcp-button-shape-impl--mono ytcp-button-shape-impl--size-m', attribute='aria-label', attribute_value='Xuất bản')
+            xpath = get_xpath_by_multi_attribute('button', ['aria-label="Xuất bản"'])
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.click()
             sleep(5)
+        else:
+            print("Không tìm thấy nút xuất bản video !!!")
+            self.is_stop_upload = True
+            return
 
     def click_schedule_option(self):
         xpath = get_xpath('ytcp-icon-button', 'style-scope ytcp-video-visibility-select', attribute='id', attribute_value='second-container-expand-button')
@@ -572,8 +597,7 @@ class YouTubeManager():
         self.show_window()
         self.setting_window_size()
         create_button(frame = self.root,text="Đăng video", command= self.open_upload_video_by_cookies_window)
-        # create_button(frame = self.root,text="Đăng video bằng api (đăng ký api của google)", command= self.open_upload_video_by_API_window)
-        create_button(frame = self.root,text="Download Videos từ channel", command=self.open_download_video_window)
+        create_button(frame = self.root,text="Tải videos từ kênh", command=self.open_download_video_window)
         try:
             self.root.mainloop()
         except:
@@ -706,7 +730,7 @@ class YouTubeManager():
             self.playlist_var.insert(0, self.youtube_config['template'][self.channel_name]["curent_playlist"])
         self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", values=['Yes', 'No'], left=0.3, right=0.7, is_data_in_template=False)
         self.is_delete_after_upload_var = self.create_settings_input("Xóa video sau khi đăng", "is_delete_after_upload", values=["Yes", "No"], left=left, right=right)
-        self.cookies_var = create_frame_label_and_input(self.root, label_text="Nhập cookies", width=self.width, left=left, right=right)
+        self.cookies_var = create_frame_label_and_input(self.root, label_text="Đăng nhập bằng cookies", width=self.width, left=left, right=right)
         self.thumbnail_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa thumbnail", command=set_thumbnail_folder, width=self.width)
         self.thumbnail_folder_var.insert(0, self.youtube_config['template'][self.channel_name]['thumbnail_folder'])
         self.upload_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa video", command=set_upload_folder, width=self.width)
@@ -804,7 +828,7 @@ class YouTubeManager():
             else:
                 return None
         except Exception as e:
-            error_message(f"Xác minh thất bại. Hãy đảm bảo gmail {self.gmail} đăng đăng nhập trong trình duyệt xác minh")
+            error_message(f"Xác minh thất bại. Hãy đảm bảo bạn đang dùng gmail {self.gmail} để xác minh !!!")
             getlog()
             return None
 
@@ -812,16 +836,10 @@ class YouTubeManager():
         try:
             videos_folder = self.youtube_config['template'][self.channel_name]['upload_folder']
             thumbnail_folder = self.youtube_config['template'][self.channel_name]['thumbnail_folder']
-            if not videos_folder or not os.path.isdir(videos_folder):
-                print(f"Thư mục chứa video của channel {self.channel_name} không tồn tại")
+            videos = get_file_in_folder_by_type(videos_folder, ".mp4")   
+            if not videos:
                 return
-            videos = os.listdir(videos_folder)
-            videos = [k for k in videos if k.endswith('.mp4')]      
-            if len(videos) == 0:
-                print(f"Không có video nào trong thư mục {videos_folder}")
-                return
-            videos = natsorted(videos)
-
+            current_day = convert_datetime_to_string(datetime.now().date())
             if self.is_schedule:
                 number_of_days = get_number_of_days(self.youtube_config['template'][self.channel_name]['number_of_days'])
                 day_gap = get_day_gap(self.youtube_config['template'][self.channel_name]['day_gap'])
@@ -839,8 +857,9 @@ class YouTubeManager():
                     upload_date_str = add_date_into_string(upload_date_str, day_gap)
                     self.youtube_config['show_browser'] = False
                     if not is_date_greater_than_current_day(upload_date_str, day_delta=0):
-                        current_day = datetime.now().date()
                         upload_date_str = add_date_into_string(current_day, day_gap=1)
+            else:
+                upload_date_str = current_day
             if not self.login():
                 print(f'Đăng nhập thất bại !!!')
                 return
@@ -916,7 +935,7 @@ class YouTubeManager():
                     if self.youtube_config['template'][self.channel_name]['upload_date'] != upload_date_str:
                         self.youtube_config['template'][self.channel_name]['upload_date'] = upload_date_str
                         self.save_youtube_config()
-                    remove_or_move_after_upload(video_path, self.youtube_config['template'][self.channel_name]['is_delete_after_upload'], finish_folder_name='youtube_upload_finished')
+                    remove_or_move_file(video_path, self.youtube_config['template'][self.channel_name]['is_delete_after_upload'], finish_folder_name='youtube_upload_finished')
                     print(f'--> Đăng thành công video: {video_file}')
                     if (upload_count) % len(publish_times) == 0:
                         upload_date_str = add_date_into_string(upload_date_str, day_gap)
@@ -928,10 +947,14 @@ class YouTubeManager():
                     if self.is_stop_upload:
                         break
                     self.click_public_now()
+                    if self.youtube_config['template'][self.channel_name]['upload_date'] != upload_date_str:
+                        self.youtube_config['template'][self.channel_name]['upload_date'] = upload_date_str
+                        self.save_youtube_config()
                     upload_count += 1
-                    remove_or_move_after_upload(video_path, self.youtube_config['template'][self.channel_name]['is_delete_after_upload'], finish_folder_name='youtube_upload_finished')
+                    remove_or_move_file(video_path, self.youtube_config['template'][self.channel_name]['is_delete_after_upload'], finish_folder_name='youtube_upload_finished')
                     print(f'--> Đăng thành công video: {video_file}')
-                    break
+                    if upload_count == number_of_days:
+                        break
             if upload_count > 0:
                 if not self.is_auto_upload:
                     notification(self.root, f"Đăng thành công {upload_count} video")
@@ -993,8 +1016,7 @@ class YouTubeManager():
     def get_video_details(self, video_ids, check_status=False):
         if not video_ids:
             print("Không tìm thấy video nào.")
-        # Chia nhóm video ID để yêu cầu thông tin chi tiết
-        chunk_size = 50  # Số lượng video ID trong mỗi nhóm (giới hạn của API)
+        chunk_size = 50 
         for i in range(0, len(video_ids), chunk_size):
             chunk_video_ids = video_ids[i:i+chunk_size]
             video_ids_str = ','.join(chunk_video_ids)
@@ -1020,10 +1042,14 @@ class YouTubeManager():
         try:
             self.download_info = load_download_info()
             video_urls = []
-            def get_views_from_video(div_content):
+            def get_views_from_video(div_content, short=True):
                 try:
-                    view_div = div_content.find_element(By.XPATH, ".//div[contains(@aria-label, 'views')]")
-                    views_text = view_div.get_attribute("aria-label").split(' ')[0].strip()
+                    if short:
+                        view_div = div_content.find_element(By.XPATH, ".//div[contains(@aria-label, 'views')]")
+                        views_text = view_div.get_attribute("aria-label").split(' ')[0].strip()
+                    else:
+                        view_div = div_content.find_element(By.XPATH, ".//span[contains(text(), 'views')]")
+                        views_text = view_div.text.split(' ')[0].strip()
                     view_count = get_view_count(views_text)
                     return view_count
                 except:
@@ -1050,7 +1076,7 @@ class YouTubeManager():
                 div_contents = get_element_by_xpath(self.driver, xpath, multiple_ele=True)
                 if div_contents:
                     for div_content in div_contents:
-                        view_count = get_views_from_video(div_content)
+                        view_count = get_views_from_video(div_content, short)
                         if view_count >= view_cnt:
                             get_link_video(div_content)
 
@@ -1090,12 +1116,10 @@ class YouTubeManager():
                 return
             cnt_download = 0
             
-            for url in video_urls:
+            for url in video_urls.copy():
                 try:
                     if self.is_stop_download:
                         break
-                    print(f'--> Bắt đầu tải video: {url}')
-
                     if download_video_by_url(url, download_folder=download_folder):
                         print(f"--> Tải thành công video: {url}")
                         cnt_download += 1
@@ -1213,7 +1237,7 @@ class YouTubeManager():
         elif self.is_upload_video_window:
             self.root.title(f"Upload video Youtube: {self.channel_name}")
             self.width = 800
-            self.height_window = 923
+            self.height_window = 893
             self.is_upload_video_window = False
         elif self.is_download_window:
             self.root.title("Download videos Youtube")
@@ -1274,7 +1298,7 @@ class YouTubeManager():
             return combobox
         
         elif is_textbox:
-            textbox = ctk.CTkTextbox(frame, height=120, width=self.width*right)
+            textbox = ctk.CTkTextbox(frame, height=90, width=self.width*right)
             textbox.insert("1.0", val)
             textbox.pack(side=RIGHT, padx=padx)
             return textbox

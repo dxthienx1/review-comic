@@ -165,3 +165,13 @@
     #         except:
     #             getlog()
     #             return None
+
+# def convert_time_to_UTC(year, month, day, hour, minute, second=0, iso8601=True):
+#     local_tz = get_localzone()
+#     local_time = datetime(year, month, day, hour, minute, second, tzinfo=local_tz)
+#     utc_time = local_time.astimezone(timezone.utc)
+#     # Định dạng thời gian theo ISO 8601
+#     if iso8601:
+#         iso8601_time = utc_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+#         return iso8601_time
+#     return utc_time

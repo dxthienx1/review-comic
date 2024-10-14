@@ -3,35 +3,35 @@ from common_function_CTK import *
 
 
 def run_command_ffmpeg(command):
-    subprocess.run(command, check=True, text=True, encoding='utf-8', errors='ignore')
+    try:
+        subprocess.run(command, check=True, text=True, encoding='utf-8', errors='ignore')
+        return True
+    except:
+        return False
 
 def run_command_with_progress(command, duration):
-    # Khởi chạy ffmpeg và theo dõi tiến trình
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        universal_newlines=True,  # Đọc dữ liệu dưới dạng văn bản
-        encoding='utf-8',  # Chỉ định mã hóa utf-8
+        universal_newlines=True,
+        encoding='utf-8',
     )
 
-    # Biến lưu thời gian đã xử lý
     current_time = 0.0
-
+    check=False
     for line in process.stdout:
         if 'out_time_ms=' in line:
-            # Phân tích thời gian xử lý từ dòng tiến trình
             match = re.search(r'out_time_ms=(\d+)', line)
             if match:
                 out_time_ms = int(match.group(1))
-                # Tính toán thời gian đã xử lý (giây)
                 current_time = out_time_ms / 1000000.0
-                # Tính toán phần trăm
                 percent_complete = (current_time / duration) * 100
                 sys.stdout.write(f'\rĐã xử lý: {percent_complete:.2f}%')
                 sys.stdout.flush()
-
-    process.wait()  # Đợi tiến trình hoàn tất
+                check = True
+    process.wait()
+    return check
 
 def get_video_info(input_file):
     try:
@@ -45,7 +45,6 @@ def get_video_info(input_file):
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         info = json.loads(result.stdout)
-        # Lấy thông tin từ JSON
         video_info = info['streams'][0]
         width = video_info['width']
         height = video_info['height']
@@ -76,7 +75,18 @@ def get_video_info(input_file):
         except:
             return None
 
-def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no', is_delete=False, fast_cut=True):
+def get_audio_info(audio_path):
+    cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", audio_path]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    info = json.loads(result.stdout)
+    streams_info = info.get("streams", [])
+    if not streams_info:
+        print(f"Lỗi: Không thể tìm thấy thông tin của audio {audio_path}")
+        return None
+    streams_info = streams_info[0]
+    return streams_info
+
+def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no', is_delete=False, fast_cut=True, get_audio=False):
     ti = time()
     if fast_cut:
         print("..........................")
@@ -84,7 +94,8 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
     else:
         print("Bắt đầu cắt video...")
     try:
-        output_folder, output_file_path, file_name = get_output_folder(input_video_path, output_folder_name='cut_video')
+        output_folder, file_name = get_output_folder(input_video_path, output_folder_name='cut_video')
+        output_file_path = os.path.join(output_folder, file_name)
         temp_list_file = os.path.join(output_folder, "temp_list.txt")
         remove_file(temp_list_file)
         combine_videos = []
@@ -131,27 +142,26 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
 
             if fast_cut:
                 command = [
-                    'ffmpeg', '-accurate_seek', '-ss', str(start), '-i', input_video_path,
+                    'ffmpeg', '-progress', 'pipe:1', '-accurate_seek', '-ss', str(start), '-i', input_video_path,
                     '-to', str(end - start), '-c:v', 'copy', '-c:a', 'copy', '-fps_mode', 'cfr',
                     '-y', segment_file_path, '-loglevel', 'quiet'
                 ]
             else:
                 command = [
-                    'ffmpeg', '-i', input_video_path, '-ss', str(start), '-to', str(end), '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k', '-y', segment_file_path, '-loglevel', 'quiet'
+                    'ffmpeg', '-progress', 'pipe:1', '-i', input_video_path, '-ss', str(start), '-to', str(end), '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k', '-y', segment_file_path, '-loglevel', 'quiet'
                 ]
-            try:
-                subprocess.run(command, check=True)
-
-            except:
+            if not run_command_with_progress(command, duration):
                 cut_video_by_moviepy(input_video_path, segment_file_path, start, end)
 
+            if get_audio:
+                download_folder = os.path.join(output_folder, "extracted_audio")
+                os.makedirs(download_folder, exist_ok=True)
+                extract_audio_ffmpeg(video_path=segment_file_path, download_folder=download_folder)
             if is_connect:
                 combine_videos.append(segment_file_path)
 
-        cat = time() - ti
-        print(f'---> Thời gian cắt cho video {input_video_path} là {cat}s')
 
-        if is_connect != 'no' and combine_videos:
+        if is_connect != 'no' and len(combine_videos) > 1:
             try:
                 with open(temp_list_file, 'w', encoding= 'utf-8') as f:
                     for video in combine_videos:
@@ -165,16 +175,13 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
                 except:
                     pass
             except:
-                print("Có lỗi khi nối video, vui lòng đợi dùng cách khác để nối...")
                 merge_videos_use_moviepy(videos_list=combine_videos, file_path=output_file_path, is_delete=is_delete, fps=int(video_info['fps']))
-        noi = time() - ti
-        print(f'---> Thời gian xử lý cho video {input_video_path} là {noi}s')
+        cat = time() - ti
+        print(f'---> Thời gian cắt video {input_video_path} là {int(cat)}s')
         return True, None
     except:
-        print("Cắt video thất bại, vui lòng đợi dùng cách khác để cắt video...")
-        cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is_delete=is_delete)
-        noi = time() - ti
-        print(f'---> Thời gian cắt cho video {input_video_path} là {noi}s')
+        return cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is_delete=is_delete)
+
         
 def cut_video_by_moviepy(input_video_path, output_file_path, start, end):
     try:
@@ -184,12 +191,11 @@ def cut_video_by_moviepy(input_video_path, output_file_path, start, end):
         sub_clip.close()
         clip.close()
     except:
-        print(f"Cắt video {input_video_path} thất bại")
+        print(f"!!! Cắt video {input_video_path} thất bại !!!")
 
 def cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is_delete=False):
     try:
-        output_folder, output_file_path, file_name = get_output_folder(input_video_path, output_folder_name='cut_video')
-        # Tạo danh sách các đoạn video cắt ra
+        output_folder, file_name = get_output_folder(input_video_path, output_folder_name='cut_video')
         clips = []
         i = 0
         video = VideoFileClip(input_video_path)
@@ -202,8 +208,6 @@ def cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is
         for segment in segments:
             segment = segment.strip()
             start, end = segment.split('-')
-
-            # Chuyển đổi thời gian bắt đầu
             list_start = start.split(':')
             cnt = len(list_start)
             if cnt == 3:
@@ -253,7 +257,6 @@ def cut_video_by_timeline_use_moviepy(input_video_path, segments, is_connect, is
                 clip.close()
 
         video.close()
-        # remove_or_move_file(input_video_path, is_delete=is_delete, is_move=is_move)
         return True, None
     except Exception as e:
         if video:
@@ -273,8 +276,9 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
     temp_file_path = os.path.join(videos_folder, "temp.txt")
     max_fps = 24
     if not videos_path:
-        videos = natsorted(os.listdir(videos_folder))
-        videos = [k for k in videos if '.mp4' in k]
+        videos = get_file_in_folder_by_type(videos_folder)
+        if not videos:
+            return
         if len(videos) <= 1:
             return False, "Phải có ít nhất 2 video trong videos folder"
         videos_path = []
@@ -324,43 +328,45 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
         print(f'Tổng thời gian nối là {noi}')
         return True, f"Gộp video thành công vào file {file_path}"
     except:
-        print(f"Có lỗi khi ghép nhanh video. Đang thử dùng cách khác để ghép...")
         merge_videos_use_moviepy(videos_folder, file_path, is_delete, fps=max_fps)
         noi = time() - ti
         print(f'Tổng thời gian nối là {noi}')
 
 def merge_videos_use_moviepy(videos_folder, file_path=None, is_delete=False, is_move=True, videos_list=None, fps=30):
-    output_folder = f'{videos_folder}\\merge_videos'
-    os.makedirs(output_folder, exist_ok=True)
-    if videos_list:
-        edit_videos = videos_list
-    else:
-        edit_videos = os.listdir(videos_folder)
-        edit_videos = [k for k in edit_videos if '.mp4' in k]
-        if len(edit_videos) <= 1:
-            warning_message("Phải có ít nhất 2 video trong videos folder")
-            return
-        edit_videos = natsorted(edit_videos)
+    try:
+        if videos_list:
+            edit_videos = videos_list
+        else:
+            edit_videos = get_file_in_folder_by_type(videos_folder)
+            if not edit_videos:
+                return
+            if len(edit_videos) <= 1:
+                warning_message("Phải có ít nhất 2 video trong videos folder")
+                return
+        output_folder = f'{videos_folder}\\merge_videos'
+        os.makedirs(output_folder, exist_ok=True)
+        clips = []
+        remove_videos = []
+        for i, video_file in enumerate(edit_videos):
+            video_path = f'{videos_folder}\\{video_file}'
+            remove_videos.append(video_path)
+            clip = VideoFileClip(video_path)
+            clips.append(clip)
+        if len(clips) > 0:
+            final_clip = concatenate_videoclips(clips, method="compose")
+            if not file_path:
+                file_path = f"{output_folder}\\combine_video.mp4"
+            final_clip.write_videofile(file_path, codec='libx264', fps=fps)
+            final_clip.close()
+            for clip in clips:
+                clip.close()
+            for clip in clips:
+                clip.close()
+        for video_path in remove_videos:
+            remove_or_move_file(video_path, is_delete=is_delete, is_move=is_move)
+    except:
+        print(f"Có lỗi khi nối video !!!")
 
-    clips = []
-    remove_videos = []
-    for i, video_file in enumerate(edit_videos):
-        video_path = f'{videos_folder}\\{video_file}'
-        remove_videos.append(video_path)
-        clip = VideoFileClip(video_path)
-        clips.append(clip)
-    if len(clips) > 0:
-        final_clip = concatenate_videoclips(clips, method="compose")
-        if not file_path:
-            file_path = f"{output_folder}\\combine_video.mp4"
-        final_clip.write_videofile(file_path, codec='libx264', fps=fps)
-        final_clip.close()
-        for clip in clips:
-            clip.close()
-        for clip in clips:
-            clip.close()
-    for video_path in remove_videos:
-        remove_or_move_file(video_path, is_delete=is_delete, is_move=is_move)
 
 def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=None):
     if fast_connect:
@@ -417,7 +423,6 @@ def zoom_and_crop(clip, zoom_factor, vertical_position='center', horizontal_posi
     elif vertical_position == 'bottom':
         y1 = new_height - clip.h
         y2 = new_height
-    # Tính toán vị trí cắt theo chiều ngang
     if horizontal_position == 'center':
         x1 = (new_width - clip.w) // 2
         x2 = x1 + clip.w
@@ -439,44 +444,19 @@ def apply_zoom(clip, zoom_factor, vertical_position, horizontal_position):
         return None
     return zoom_and_crop(clip, zoom_factor, vertical_position, horizontal_position)
 
-# def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center', horizontal_position='center'):
-#     min_time_to_change_zoom = 3
-#     max_time_to_change_zoom = 5
-#     max_zoom_size = float(max_zoom_size)
-#     min_time_to_change_zoom = int(min_time_to_change_zoom)
-#     max_time_to_change_zoom = int(max_time_to_change_zoom)
-#     if max_time_to_change_zoom > clip.duration:
-#         max_time_to_change_zoom = clip.duration
-#     start_times = []
-#     current_time = 0
-#     while current_time < clip.duration:
-#         start_times.append(current_time)
-#         current_time += random.uniform(min_time_to_change_zoom, max_time_to_change_zoom)
-
-#     if start_times[-1] < clip.duration:
-#         start_times.append(clip.duration)
-
-#     zoom_factors = [round(random.uniform(1.01, max_zoom_size), 2) for _ in range(len(start_times) - 1)]
-    
-#     zoomed_clips = []
-#     try:
-#         for i, start_time in enumerate(start_times[:-1]):
-#             end_time = start_times[i + 1]
-#             sub_clip = clip.subclip(start_time, end_time)
-#             zoomed_clip = apply_zoom(sub_clip, zoom_factors[i], vertical_position, horizontal_position)
-#             zoomed_clips.append(zoomed_clip)
-    
-#         final_zoom_clip = concatenate_videoclips(zoomed_clips, method="compose")
-#         return final_zoom_clip
-#     except:
-#         getlog()
-
-def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center', horizontal_position='center'):
-    min_time_to_change_zoom = 3
-    max_time_to_change_zoom = 6
-    max_zoom_size = float(max_zoom_size)
-    min_time_to_change_zoom = int(min_time_to_change_zoom)
-    max_time_to_change_zoom = int(max_time_to_change_zoom)
+def zoom_video_random_intervals(clip, max_zoom_size, vertical_position='center', horizontal_position='center', is_random_zoom="3-5"):
+    try:
+        min_time_to_change_zoom, max_time_to_change_zoom = is_random_zoom.split('-')
+        min_time_to_change_zoom = int(float(min_time_to_change_zoom.strip()))
+        max_time_to_change_zoom = int(float(max_time_to_change_zoom.strip()))
+    except:
+        print("Thời gian zoom ngẫu nhiên không phù hợp !!!")
+        return None
+    try:
+        max_zoom_size = float(max_zoom_size)
+    except:
+        print("Tỷ lệ zoom không đúng định dạng số !!!")
+        return None
     if max_time_to_change_zoom > clip.duration:
         max_time_to_change_zoom = clip.duration
     start_times = []
@@ -701,7 +681,8 @@ def add_image_watermark_into_video(clip, top_bot_overlay_height='2,2', left_righ
 
 def convert_video_169_to_916(input_video_path, zoom_size=None, resolution="1080x1920", is_delete=False, is_move=True):
     try:
-        output_folder, output_file_path, file_name = get_output_folder(input_video_path, output_folder_name='converted_videos')
+        output_folder, file_name = get_output_folder(input_video_path, output_folder_name='converted_videos')
+        output_file_path = os.path.join(output_folder, file_name)
         video = VideoFileClip(input_video_path)
         width, height = video.size
         if not zoom_size:
@@ -732,17 +713,16 @@ def convert_video_916_to_169(input_video_path, resolution="1920x1080", is_delete
         if not resolution:
             resolution = '1920x1080'
         resolution = resolution.split('x')
-        output_folder, output_file_path, file_name = get_output_folder(input_video_path, output_folder_name='converted_videos')
+        output_folder, file_name = get_output_folder(input_video_path, output_folder_name='converted_videos')
+        output_file_path = os.path.join(output_folder, file_name)
         video = VideoFileClip(input_video_path)
         input_width, input_height = video.size
         new_height = input_width * 9 / 16
         if new_height <= input_height:
-            # Crop video từ giữa theo chiều cao
             y1 = (input_height - new_height) / 2
             y2 = y1 + new_height
             cropped_video = video.crop(x1=0, x2=input_width, y1=y1, y2=y2)
         else:
-            # Thêm viền đen để giữ nguyên cảnh quay
             new_width = input_height * 16 / 9
             black_bar = ColorClip(size=(int(new_width), input_height), color=(0, 0, 0))
             video = video.set_position(("center", "center"))
@@ -764,92 +744,97 @@ def get_and_adjust_resolution_from_clip(clip, scale_factor=0.997):
     resized_video = clip.resize((width, height))
     return resized_video
 
-def edit_audio(audio_path=None, video_path=None, video_url=None, speed="1", segments=None, download_folder=None):
-    speed = float(speed)
-    if segments:
+def extract_audio_ffmpeg(audio_path=None, video_path=None, video_url=None, video_folder=None, segments=None, download_folder=None, fast=True):
+    try:
+        if not segments:
+            segments = "0-999999999999"
         try:
             segments = segments.split(',')
         except:
             print("Định dạng thời gian cắt là start-end với start,end là hh:mm:ss hoặc mm:ss hoặc ss")
-            return None, "Có lỗi khi tách audio"
+            return
         cnt_cut = 0
         for segment in segments:
             cnt_cut += 1
             segment = segment.strip()
             start, end = segment.split('-')
-
-            # Chuyển đổi thời gian bắt đầu
-            list_start = start.split(':')
-            cnt = len(list_start)
-            if cnt == 3:
-                start = int(list_start[0]) * 3600 + int(list_start[1]) * 60 + int(list_start[2])
-            elif cnt == 2:
-                start = int(list_start[0]) * 60 + int(list_start[1])
-            elif cnt == 1:
-                start = int(list_start[0])
-            else:
-                message = "Định dạng thời gian cắt ở đầu video không đúng. Định dạng đúng là hh:mm:ss-hh:mm:ss hoặc mm:ss-mm:ss hoặc ss-ss"
-                return False, message
-
-            # Chuyển đổi thời gian kết thúc
-            list_end = end.split(':')
-            cnt = len(list_end)
-            if cnt == 3:
-                end = int(list_end[0]) * 3600 + int(list_end[1]) * 60 + int(list_end[2])
-            elif cnt == 2:
-                end = int(list_end[0]) * 60 + int(list_end[1])
-            elif cnt == 1:
-                end = int(list_end[0])
-            else:
-                message = "Định dạng thời gian cắt ở đầu video không đúng. Định dạng đúng là hh:mm:ss-hh:mm:ss hoặc mm:ss-mm:ss hoặc ss-ss"
-                return False, message
-            
-            if audio_path:
+            start = convert_time_to_seconds(start)
+            if start is None:
+                return
+            end = convert_time_to_seconds(end)
+            if end is None:
+                return
+            target_paths = []
+            if video_url:
+                video_path = download_video_by_url(video_url, download_folder, return_file_path=True)
+                target_path = video_path
+            elif audio_path:
                 target_path = audio_path
             elif video_path:
                 target_path = video_path
-            elif video_url:
-                video_path = download_video_by_url(video_url, download_folder, return_file_path=True)
-                target_path = video_path
+            elif video_folder:
+                videos =  get_file_in_folder_by_type(video_folder, ".mp4")   
+                if not videos:
+                    return
             else:
                 warning_message("Vui lòng chọn nguồn để edit video")
                 return
-            if '.mp3' in target_path:
-                audio_clip = AudioFileClip(target_path)
+            
+            if video_folder:
+                for video in videos:
+                    video_path = os.path.join(video_folder, video)
+                    target_paths.append(video_path)
             else:
-                video_clip = VideoFileClip(video_path)
-                audio_clip = video_clip.audio
-            duration = audio_clip.duration
-            if end > duration:
-                end = duration
-            try:
-                if int(start) > 0 or int(end) > 0:
-                    audio_clip = audio_clip.subclip(start, end)
-                if speed != 1:
-                    audio_clip = audio_clip.fx(speedx, speed)
-                output_folder, output_file_path, file_name = get_output_folder(target_path, output_folder_name='edited_audio')
-                if check_vietnamese_characters(file_name):
-                    file_name = convert_sang_tieng_viet_khong_dau(file_name)
+                target_paths.append(target_path)
+            for target_path in target_paths:
+                video_clip = None
+                if '.mp3' in target_path:
+                    audio_clip = AudioFileClip(target_path)
+                else:
+                    video_clip = VideoFileClip(video_path)
+                    audio_clip = video_clip.audio
+                duration = audio_clip.duration
+                if end > duration:
+                    end = duration
+                file_name = os.path.basename(target_path)
                 if len(segments) == 1:
                     audio_name = file_name.split('.')[0]
                 else:
                     audio_name = f"{file_name.split('.')[0]}_{cnt_cut}"
-                output_audio_path = f'{output_folder}/{audio_name}.mp3'
-
+                output_audio_path = f'{download_folder}/{audio_name}.mp3'
+                if os.path.exists(output_audio_path):
+                    output_audio_path = f'{download_folder}/{audio_name}_{cnt_cut}.mp3'
+                print(f"  --> Bắt đầu trích xuất audio từ file {target_path}")
                 try:
-                    audio_clip.write_audiofile(output_audio_path, codec='mp3')
+                    if fast:
+                        ffmpeg_cmd = [
+                            "ffmpeg", "-y",
+                            '-progress', 'pipe:1',
+                            "-i", target_path, "-ss", str(start), "-to", str(end),
+                            "-filter:a", f"atempo=1",
+                            "-loglevel", "quiet",
+                            output_audio_path
+                        ]
+                        run_command_with_progress(ffmpeg_cmd, duration)
+                    else:
+                        if start > 0 or end != duration:
+                            audio_clip = audio_clip.subclip(start, end)
+                        audio_clip.write_audiofile(output_audio_path, codec='mp3')
                 except:
-                    output_audio_path = f'{output_folder}/audio.mp3'
+                    output_audio_path = f'{download_folder}/audio.mp3'
                     audio_clip.write_audiofile(output_audio_path, codec='mp3')
-                audio_clip.close()
+                    
+                if audio_clip:
+                    audio_clip.close()
                 if video_clip:
                     video_clip.close()
-            except Exception as e:
-                getlog()
+                print(f"  --> Trích xuất thành công audio từ video {target_path}")
         if video_url:
             remove_file(video_path)
+    except:
+        print("Có lỗi trong quá trình trích xuất audio !!!")
+
 def check_vietnamese_characters(filename):
-    # Dải ký tự Unicode tiếng Việt bao gồm các ký tự có dấu
     vietnamese_pattern = re.compile(
         r'[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ'
         r'ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]'
@@ -869,10 +854,109 @@ def set_audio_for_clip(clip, background_music, background_music_volume="10"):
         if current_audio is None:
             clip = clip.set_audio(background_music)
         else:
-            # Kết hợp giọng thuyết minh và nhạc nền
             combined_audio = CompositeAudioClip([current_audio, background_music])
             clip = clip.set_audio(combined_audio)
         return clip
     except:
         print("Có lỗi ghi ghép audio vào video")
 
+def edit_audio_ffmpeg(input_audio_folder, start_cut="0", end_cut="0", pitch_factor=None, speed=None, cut_silence=False, aecho=None, flanger='7', chorus='0.07'):
+    try:
+        speed = get_float_data(speed)
+        if not speed:
+            print("Tốc độ phát audio không hợp lệ --> Đặt về 1")
+            speed = 1
+        if aecho:
+            aecho = get_float_data(aecho)
+            if not aecho:
+                print("Thời gian thiết lập tạo tiếng vang cho audio không hợp lệ --> Không áp dụng tạo tiếng vang")
+        pitch_factor = get_float_data(pitch_factor)
+        if not pitch_factor:
+            print("Cao độ không hợp lệ --> Đặt về 1")
+            pitch_factor = 1.0
+        try:
+            start_cut = float(start_cut)
+            end_cut = float(end_cut)
+        except:
+            print("Giá trị của start_cut và end_cut không hợp lệ. Đặt về 0.")
+            start_cut = end_cut = 0
+
+        import tempfile
+        audios = get_file_in_folder_by_type(input_audio_folder, ".mp3")
+        if not audios:
+            return
+        for audio in audios:
+            input_audio_path = os.path.join(input_audio_folder, audio)
+            audio_info = get_audio_info(input_audio_path)
+            if not audio_info:
+                return
+            duration = float(audio_info.get("duration", 0))
+            if start_cut + end_cut >= duration:
+                print("Thời gian cắt không hợp lệ. Đảm bảo rằng start_cut và end_cut không lớn hơn thời gian của audio.")
+                return
+            cut_duration = duration - start_cut - end_cut
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+                temp_audio_path = temp_audio_file.name
+            ffmpeg_cmd_cut = [
+                "ffmpeg", "-y",
+                '-loglevel', 'quiet',
+                "-ss", str(start_cut),
+                "-i", input_audio_path,
+                "-t", str(cut_duration),
+                "-c:a", "copy",
+                temp_audio_path
+            ]
+            if not run_command_ffmpeg(ffmpeg_cmd_cut):
+                print(f"Lỗi khi xử lý audio {input_audio_path}!")
+                return
+            streams_info = get_audio_info(temp_audio_path)
+            if not streams_info:
+                return
+            output_audio_folder, file_name = get_output_folder(input_audio_path, output_folder_name="edited_audios")
+            output_audio_path = os.path.join(output_audio_folder, file_name)
+            metadata = {"artist": "None", "album": "None", "title": "None", "encoder": "FFmpeg 6.0"}
+            original_sample_rate = int(streams_info.get("sample_rate", 0))
+            sample_rate = 44100 if original_sample_rate == 48000 else 48000
+            original_bitrate = streams_info.get("bit_rate", "192k")
+            bitrate = "256k" if original_bitrate == "192000" else "192k"
+            channels = 1 if streams_info.get("channels") == 2 else 2
+            volume = "4dB"
+            eq_adjust = "equalizer=f=120:width_type=h:width=300:g=5, equalizer=f=1000:width_type=h:width=300:g=-1"
+            ffmpeg_cmd_adjust = ["ffmpeg", '-loglevel', 'quiet', "-y", "-i", temp_audio_path]
+            for key, value in metadata.items():
+                ffmpeg_cmd_adjust += ["-metadata", f"{key}={value}"]
+            ffmpeg_cmd_adjust += ["-ar", str(sample_rate), "-b:a", bitrate, "-ac", str(channels)]
+            filters = [f"volume={volume}", eq_adjust]
+            if speed != 1.0:
+                filters.append(f"atempo={speed}")
+            if cut_silence:
+                filters.append("silenceremove=start_periods=1:start_silence=0.1:start_threshold=-50dB")
+            # Áp dụng hiệu ứng tùy chọn
+            if pitch_factor != 1.0:
+                filters.append(f"rubberband=pitch={pitch_factor}")
+            if flanger:
+                filters.append(f"flanger=delay={flanger}:depth=8:regen=-9:width=77:speed=0.7")
+            if aecho:
+                filters.append(f"aecho=0.8:0.9:{aecho}:0.3")
+            if chorus:
+                filters.append(f"chorus=0.8:0.9:50:{chorus}:{chorus}:3")
+
+            if filters:
+                ffmpeg_cmd_adjust += ["-af", ",".join(filters)]
+            ffmpeg_cmd_adjust += ["-c:a", "libmp3lame", output_audio_path]
+            if run_command_ffmpeg(ffmpeg_cmd_adjust):
+                print(f"Chỉnh sửa thông tin audio thành công: {output_audio_path}")
+            else:
+                print(f"Lỗi khi thay đổi thông tin audio !!!")
+            os.remove(temp_audio_path)
+    except:
+        print("Có lỗi trong quá trình chỉnh sửa audio !!!")
+
+# start_cut = "10.6"
+# end_cut = "0"
+# name = "D:\\download\\test edit audio\\audio\\test"
+# input_audio_path = f'{name}.mp3'
+# try:
+#     edit_audio_ffmpeg( input_audio_path=input_audio_path, start_cut=start_cut, end_cut=end_cut, pitch_factor='1', speed='1', cut_silence=True, aecho='100')
+# except:
+#     getlog()

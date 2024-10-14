@@ -39,10 +39,10 @@ class TikTokManager:
             
             if not self.tiktok_config['template'][self.account]['first_login']:
                 sleep(6)
-                upload_link = self.get_upload_button()
+                self.upload_link = self.get_upload_button()
             else:
-                upload_link = None
-            if not upload_link:
+                self.upload_link = None
+            if not self.upload_link:
                 print("Đang đăng nhập bằng email và password...")
                 email_xpath = '//input[@name="username"]'
                 email_input = get_element_by_xpath(self.driver, email_xpath)
@@ -57,15 +57,18 @@ class TikTokManager:
                     password_input.send_keys(Keys.RETURN)
                 press_esc_key(2, self.driver)
                 self.waiting_for_capcha_verify()
-                upload_link = self.get_upload_button()
-            if upload_link:
-                upload_link.click()
-                self.waiting_for_capcha_verify()
+                self.upload_link = self.get_upload_button()
+            if self.upload_link:
+                self.upload_link.click()
+                sleep(2)
+                if self.tiktok_config['template'][self.account]['waiting_verify']:
+                    sleep(5)
+                    self.save_session()
                 self.tiktok_config['template'][self.account]['first_login'] = False
                 self.save_tiktok_config()
                 return True
             else:
-                print("Đăng nhập thất bại, hãy kiểm tra lại thông tin đăng nhập đã đúng chưa!")
+                print("Đăng nhập thất bại !!!")
                 return False
         except:
             getlog()
@@ -105,7 +108,6 @@ class TikTokManager:
             cookies_info = get_pickle_data(tiktok_cookies_path) or {}
             cookies_info[self.account] = self.driver.get_cookies() or []
             save_to_pickle_file(cookies_info, tiktok_cookies_path)
-            print("Lưu cookies thành công.")
         except:
             getlog()
 
@@ -144,39 +146,42 @@ class TikTokManager:
         xpath1 = get_xpath('input', "TUXTextInputCore-input", "type", "text")
         xpath2 = get_xpath('span', "jsx-2986588792 day valid")
         kq=[]
-        date_time_ele = self.driver.find_elements(By.XPATH, xpath1)
-        date_ele = date_time_ele[1]
+        date_time_ele = get_element_by_xpath(self.driver, xpath1, multiple_ele=True)
+        if len(date_time_ele) > 1:
+            date_ele = date_time_ele[1]
+        else:
+            press_esc_key(1, self.driver)
+            date_time_ele = get_element_by_xpath(self.driver, xpath1, multiple_ele=True)
+            try:
+                date_ele = date_time_ele[1]
+            except:
+                print("Gặp lỗi khi nhập ngày đăng video --> Dừng đăng video.")
+                self.is_stop_upload = True
+                return
         if date_ele:
             date_ele.click()
             sleep(1)
-            cnt = 0
-            while True:
-                date_elements = self.driver.find_elements(By.XPATH, xpath2)
-                for ele in date_elements:
-                    date = ele.text
-                    if int(date) == int(day):
-                        kq.append(ele)
-                        break
-                if len(kq) == 0:
-                    cnt += 1
-                    if cnt == 2:
-                        print(f"Không tìm thấy ngày {date_string}")
-                        date_ele.click()
-                        break
-                else:
-                    ele = kq[0]
-                    ele.click()
-                    # print(f"đã chọn ngày {date}")
+            date_elements = get_element_by_xpath(self.driver, xpath2, multiple_ele=True)
+            if len(date_elements) == 0:
+                self.is_stop_upload = True
+                return
+            for ele in date_elements:
+                date = ele.text
+                if int(date) == int(day):
+                    kq.append(ele)
                     break
-        sleep(1)
+            if len(kq) == 0:
+                self.is_stop_upload = True
+            else:
+                ele = kq[0]
+                ele.click()
+                sleep(1)
             
     def scroll_into_view(self, element):
         self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
-        sleep(0.1)  # Đợi một chút để trình duyệt hoàn thành cuộn
+        sleep(0.2)
 
     def input_video_on_tiktok(self, video_path):
-        cnt = 0
-        while True:
             try:
                 xpath = "//input[@accept='video/*']"
                 ele = get_element_by_xpath(self.driver, xpath)
@@ -185,14 +190,9 @@ class TikTokManager:
                     sleep(3)
                     return True
                 else:
-                    cnt += 1
-                    if cnt > 3:
-                        return False
-            except:
-                sleep(2)
-                cnt += 1
-                if cnt > 3:
                     return False
+            except:
+                return False
    
     def input_description(self, description):
         xpath = get_xpath_by_multi_attribute("div", ["class='notranslate public-DraftEditor-content'", "contenteditable='true'", "role='combobox'"])
@@ -245,9 +245,8 @@ class TikTokManager:
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.click()
-            print(f"clicked schedule_button")
         else:
-            print("khong thay schedule_button")
+            print("khong thay nút lên lịch đăng video")
 
     def click_copyright_check(self):
         try:
@@ -281,20 +280,18 @@ class TikTokManager:
                 return True
 
     def click_post_button(self):
-        cnt = 0
-        while True:
-            xpath = get_xpath("button", "TUXButton TUXButton--default TUXButton--large TUXButton--primary")
-            ele = get_element_by_xpath(self.driver, xpath)
-            if ele:
+        try:
+            ele = get_element_by_text(self.driver, "Post", tag_name="div")
+            ele.click()
+            sleep(4)
+        except:
+            try:
+                xpath = get_xpath("button", "TUXButton TUXButton--default TUXButton--large TUXButton--primary")
+                ele = get_element_by_xpath(self.driver, xpath)
                 ele.click()
                 sleep(4)
-                break
-            else:
-                cnt += 1
-                sleep(2)
-            if cnt > 3:
-                break
-            
+            except:
+                self.is_stop_upload = True
 
     def check_progress_upload(self):
         cnt = 0
@@ -337,9 +334,9 @@ class TikTokManager:
             print("không thấy upload more video button")
     
     def waiting_for_capcha_verify(self):
-        sleep(3)
+        sleep(2)
         if self.tiktok_config['template'][self.account]['waiting_verify']:
-            sleep(17)
+            sleep(15)
         self.save_session()
 #--------------------------------Giao diện upload--------------------------------------
 
@@ -351,8 +348,8 @@ class TikTokManager:
         self.is_start_tiktok = True
         self.show_window()
         self.setting_window_size()
-        create_button(frame = self.root,text="Upload Videos", command= self.open_upload_video_window)
-        create_button(frame = self.root,text="Download Videos From Channel", command=self.open_download_video_window)
+        create_button(frame = self.root,text="Đăng video", command= self.open_upload_video_window)
+        create_button(frame = self.root,text="Tải video từ kênh", command=self.open_download_video_window)
         try:
             self.root.mainloop()
         except:
@@ -469,18 +466,13 @@ class TikTokManager:
                 if not self.is_auto_upload:
                     notification(self.root, "Hãy chọn thư mục chứa video muốn đăng")
                 return
-            if not os.path.isdir(videos_folder):
-                if not self.is_auto_upload:
-                    notification(self.root, f"Thư mục {videos_folder} không tồn tại")
+            videos = get_file_in_folder_by_type(videos_folder, ".mp4")   
+            if not videos:
                 return
-            videos = os.listdir(videos_folder)
-            videos = [k for k in videos if k.endswith('.mp4')]      
-            if len(videos) == 0:
-                return
-            videos = natsorted(videos)
             upload_count = 0
             date_cnt = 0
             number_of_days = get_number_of_days(self.tiktok_config['template'][self.account]['number_of_days'])
+            current_day = convert_datetime_to_string(datetime.now().date())
             if self.is_schedule:
                 day_gap = get_day_gap(self.tiktok_config['template'][self.account]['day_gap'])
                 upload_date_str = self.tiktok_config['template'][self.account]['upload_date']
@@ -493,13 +485,13 @@ class TikTokManager:
                     upload_date = add_date_into_string(upload_date_str, day_gap)
                     self.tiktok_config['show_browser'] = False
                     if not is_date_greater_than_current_day(upload_date, day_delta=0):
-                        current_day = datetime.now().date()
                         upload_date = add_date_into_string(current_day, day_gap=1)
-
                 publish_times_str = self.tiktok_config['template'][self.account]['publish_times']
                 publish_times = publish_times_str.split(',')   
                 if not publish_times:
                     return
+            else:
+                upload_date = current_day
 
             for i, video_file in enumerate(videos):
                 if self.is_stop_upload:
@@ -517,7 +509,6 @@ class TikTokManager:
                 video_path = os.path.join(videos_folder, video_file)
                 print(f'--> Bắt đầu đăng video {video_file}')
                 if upload_count > 0:
-                    # self.click_upload_more_video_button()
                     self.driver.get("https://www.tiktok.com/tiktokstudio/upload")
                     sleep(3)
                 if self.is_stop_upload:
@@ -555,14 +546,12 @@ class TikTokManager:
                             continue
                     else:
                         continue
-
-                    
                     upload_count += 1
                     if self.tiktok_config['template'][self.account]['upload_date'] != upload_date:
                         self.tiktok_config['template'][self.account]['upload_date'] = upload_date
                         self.save_tiktok_config()
                     print(f'--> Đăng thành công video {video_file}')
-                    remove_or_move_after_upload(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
+                    remove_or_move_file(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
                     if (upload_count) % len(publish_times) == 0:
                         upload_date = add_date_into_string(upload_date, day_gap)
                         date_cnt += 1
@@ -585,16 +574,19 @@ class TikTokManager:
                             print(f'CẢNH BÁO: video {video_path} có thể đã vi phạm chính sách tiltok, hãy kiểm tra lại...')
                             continue
                     else:
-                        continue
+                        print("Không thể kiểm tra tiến trình đăng video --> Dừng đăng video !!!")
+                        break
                     
                     upload_count += 1
+                    if self.tiktok_config['template'][self.account]['upload_date'] != upload_date:
+                        self.tiktok_config['template'][self.account]['upload_date'] = upload_date
+                        self.save_tiktok_config()
                     print(f'--> Đăng thành công video {video_file}')
-                    remove_or_move_after_upload(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
+                    remove_or_move_file(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
                     if upload_count == number_of_days:
                         break
             if upload_count > 0:
                 print(f"Đăng thành công {upload_count} video.")
-
         except:
             getlog()
         finally:
@@ -654,7 +646,7 @@ class TikTokManager:
             self.show_browser_var = self.create_settings_input(label_text="Hiển thị trình duyệt", config_key="show_browser", config=self.tiktok_config, values=['Yes', 'No'])
             self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu video", command=self.choose_folder_to_save, left=0.4, right=0.6, width=self.width)
             self.download_folder_var.insert(0, self.tiktok_config['download_folder'])
-            create_button(self.root, text="Back", command=self.get_start_tiktok, width=self.width)
+            create_button(self.root, text="Lùi lại", command=self.get_start_tiktok, width=self.width)
 
     def choose_folder_to_save(self):
         self.download_folder = filedialog.askdirectory()
@@ -771,7 +763,7 @@ class TikTokManager:
             else:
                 print(f'Không tìm thấy video nào. Có thể trình duyệt yêu cầu xác minh capcha !!!')
                 return
-            for url in video_urls:
+            for url in video_urls.copy():
                 try:
                     if self.is_stop_download:
                         break
@@ -818,7 +810,7 @@ class TikTokManager:
         elif self.is_upload_video_window:
             self.root.title(f"Upload video Tiktok: {self.account}")
             self.width = 800
-            self.height_window = 825
+            self.height_window = 795
             self.is_upload_video_window = False
         elif self.is_download_window:
             self.root.title("Download videos Tiktok")
@@ -881,7 +873,7 @@ class TikTokManager:
             return combobox
         
         elif is_textbox:
-            textbox = ctk.CTkTextbox(frame, height=120, width=self.width*right)
+            textbox = ctk.CTkTextbox(frame, height=90, width=self.width*right)
             textbox.insert("1.0", config[config_key])  # Đặt giá trị ban đầu vào textbox
             textbox.pack(side=RIGHT, padx=padx)
             return textbox

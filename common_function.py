@@ -13,8 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import traceback
 import pyttsx3
 import winreg
-from moviepy.video.fx.all import resize, crop, mirror_x
-from moviepy.video.fx.speedx import speedx
+from moviepy.video.fx.all import resize, crop, mirror_x, speedx
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, afx, vfx, CompositeVideoClip, ImageClip, ColorClip
 from moviepy.audio.AudioClip import CompositeAudioClip
 from pytube import YouTube
@@ -209,33 +208,38 @@ def get_driver_with_profile(target_gmail, show=True):
         print("--> Hãy dùng cookies để đăng nhập !")
         return None
 
-def get_element_by_xpath(driver, xpath, key=None, index=0, multiple_ele=False):
-    kq = []
-    cnt=0
-    while(len(kq)==0):
-        cnt+=1
-        elements = driver.find_elements(By.XPATH, xpath)
+def get_element_by_text(driver, text, tag_name='*', timeout=10):
+    try:
+        # Tìm element chứa text thuộc thẻ xác định
+        element = WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located((By.XPATH, f'//{tag_name}[contains(text(), "{text}")]'))
+        )
+        return element
+    except:
+        return None
+
+def get_element_by_xpath(driver, xpath, key=None, index=0, multiple_ele=False, timeout=10):
+    try:
         if multiple_ele:
-            return elements
+            WebDriverWait(driver, timeout).until(
+                EC.presence_of_all_elements_located((By.XPATH, xpath))
+            )
+            return driver.find_elements(By.XPATH, xpath)
+
+        WebDriverWait(driver, timeout).until(
+            EC.presence_of_element_located((By.XPATH, xpath))
+        )
+        elements = driver.find_elements(By.XPATH, xpath)
         if key:
             key = key.lower()
             for ele in elements:
                 if key in ele.accessible_name.lower() or key in ele.text.lower() or key in ele.tag_name.lower() or key in ele.aria_role.lower():
-                    kq.append(ele)
-                    break
-            if len(kq) > 0:
-                return kq[0]
-            else:
-                return None
-        else:
-            if len(elements) > 0:
-                ele = elements[index]
-                return ele
-        sleep(1)
-        cnt += 1
-        if cnt > 3:
-            # print(f"Không tìm thấy: {key}: {xpath}")
+                    return ele
             return None
+        if len(elements) > 0:
+            return elements[index] 
+    except:
+        return None
 
 def get_xpath(maintag, class_name=None, attribute=None, attribute_value=None, contain=False):
     if contain:
@@ -284,34 +288,18 @@ def convert_date_format_yyyymmdd_to_mmddyyyy(date_str, vi_date=False):
         print(f"Định dạng ngày {date_str} không đúng yy-mm-dd")
 
 def is_format_date_yyyymmdd(date_str, daydelta=None):
-    # Kiểm tra định dạng ngày bằng biểu thức chính quy
     date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
     if not date_pattern.match(date_str):
         return False, "Định dạng ngày phải là yyyy-mm-dd"
     if daydelta:
         try:
-            # Chuyển đổi từ chuỗi ngày sang đối tượng datetime
             date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
             return False, "Định dạng ngày phải là yyyy-mm-dd"
-
-        # Lấy ngày hiện tại
         current_date = datetime.now()
-        
-        # Kiểm tra khoảng cách giữa ngày nhập vào và ngày hiện tại
         if date_obj > current_date + timedelta(days=daydelta-1):
             return False, f"Date is more than {daydelta} days in the future"
     return True, "Valid date"
-
-def convert_time_to_UTC(year, month, day, hour, minute, second=0, iso8601=True):
-    local_tz = get_localzone()
-    local_time = datetime(year, month, day, hour, minute, second, tzinfo=local_tz)
-    utc_time = local_time.astimezone(timezone.utc)
-    # Định dạng thời gian theo ISO 8601
-    if iso8601:
-        iso8601_time = utc_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-        return iso8601_time
-    return utc_time
 
 def get_pushlish_time_hh_mm(publish_time="", facebook_time=False):
     try:
@@ -357,35 +345,6 @@ def convert_date_string_to_datetime(date_str):
     except:
         print(f"Định dạng ngày {date_str} phải là yyyy-mm-dd")
         return None
-
-def convert_date_yyyymmdd_to_youtybe_date(date_yyyymmdd, is_english=True):
-    try:
-        year, month, day = date_yyyymmdd.split('-')
-        month = int(month.strip())
-        if is_english:
-            convert_month = {
-                '1':"Jan",
-                '2':"Feb",
-                '3':"Mar",
-                '4':"Apr",
-                '5':"May",
-                '6':"Jun",
-                '7':"Jul",
-                '8':"Aug",
-                '9':"Sep",
-                '10':"Oct",
-                '11':"Nov",
-                '12':"Dec",
-            }
-            date = f'{convert_month[str(month)]} {date}, {year}'
-        else:
-            date = f'{day.strip()} thg {month}, {year.strip()}'
-        return date
-    except:
-        return None
-
-def add_days(datetime, days):
-    return datetime + timedelta(days=days)
     
 def add_date_into_string(date_str, day_gap):
     date  = convert_date_string_to_datetime(date_str)
@@ -451,23 +410,6 @@ def unset_autostart():
         pass
     except Exception as e:
         print(f"Could not unset autostart: {e}")
-
-def translate_now(translator, original):
-    if original:
-        original = original.strip().lower()
-        if "_" in original:
-            original = original.replace("_", " ")
-        if "-" in original:
-            original = original.replace("-", " ")
-        try:
-            translation = translator.translate(original)
-            translation = re.sub(r"\(.*?\)", "", translation)
-            return translation
-        except Exception as e:
-            print(f"An error occurred during translation: {e}")
-            return None
-    else:
-        return None
     
 def convert_sang_tieng_viet_khong_dau(input_str):
     convert_text = unidecode(input_str)
@@ -562,30 +504,38 @@ def getlog(lock=None):
     except:
         pass
 
-def get_audio_clip_from_video(video_path=None, is_get_video=False):
+def get_float_data(float_string):
     try:
-        video_clip = VideoFileClip(video_path)
-        audio_clip = video_clip.audio
-        if is_get_video:
-            output_folder, output_video_path, file_name = get_output_folder(video_path, output_folder_name='output_audio')
-            video_clip_without_audio = video_clip.without_audio()
-            video_clip_without_audio.write_videofile(output_video_path, codec='libx264', audio_codec='aac')
-            video_clip_without_audio.close()
-        video_clip.close()
-        return audio_clip
+        value = float(float_string)
+        return value
     except:
-        getlog()
         return None
 
+def check_folder(folder, is_create=False):
+    try:
+        if not os.path.exists(folder):
+            if is_create:
+                os.makedirs(folder, exist_ok=True)
+            else:
+                print(f'Thư mục {folder} không tồn tại.')
+                return False
+        return True
+    except:
+        print(f'{folder} không phải là đường dẫn thư mục hợp lệ !!!')
+        return False
+    
 def get_output_folder(input_video_path, output_folder_name='output_folder'):
-    folder_input = os.path.dirname(input_video_path)
-    file_name = os.path.basename(input_video_path)
+    folder_input, file_name = get_current_folder_and_basename(input_video_path)
     output_folder = f'{folder_input}/{output_folder_name}'
     os.makedirs(output_folder, exist_ok=True)
-    output_file_path = f'{output_folder}/{file_name}'
-    return output_folder, output_file_path, file_name
+    return output_folder, file_name
 
-def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=3, return_file_path=False):
+def get_current_folder_and_basename(input_video_path):
+    folder_input = os.path.dirname(input_video_path)
+    file_name = os.path.basename(input_video_path)
+    return folder_input, file_name #file_name bao gồm phần mở rộng
+
+def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=5, return_file_path=False):
     t = time()
     if not url:
         return False
@@ -763,7 +713,7 @@ def remove_char_in_file_name(folder_path, chars_want_to_remove, extension=None):
     except:
         pass
 
-def remove_or_move_after_upload(input_video_path, is_delete=False, is_move=True, finish_folder_name='upload_finished'):
+def remove_or_move_file(input_video_path, is_delete=False, is_move=True, finish_folder_name='finished folder'):
     try:
         if is_delete:
             os.remove(input_video_path)
@@ -779,23 +729,6 @@ def remove_or_move_after_upload(input_video_path, is_delete=False, is_move=True,
     except:
         print(f"Không thể xóa hoặc di chuyển file {input_video_path}")
         
-def remove_or_move_file(input_video_path, is_delete=False, is_move=True):
-    try:
-        if is_delete:
-            os.remove(input_video_path)
-            print(f'Đã xóa file {input_video_path}')
-        elif is_move:
-            output_folder, output_file_path, file_name = get_output_folder(input_video_path)
-            finish_folder = os.path.join(output_folder, 'Finished Edit')
-            os.makedirs(finish_folder, exist_ok=True)
-            move_file_path = os.path.join(finish_folder, file_name)
-            shutil.move(input_video_path, move_file_path)
-            print(f'Đã di chuyển file đến {move_file_path}')
-    except:
-        if is_delete:
-            print(f"Xóa không thành công file: {input_video_path}")
-        else:
-            print(f"Di chuyển không thành công file: {input_video_path}")
 
 def check_datetime_input(date_str, time_str):
     input_time = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
@@ -859,6 +792,7 @@ def get_views_text(views_ele):
         unit = match.group(2)
         return f'{number}{unit}'
     return None
+
 def get_view_count(view_count=""):
     if view_count:
         try:
@@ -917,27 +851,9 @@ def get_image_from_video(videos_folder, position=None):
         print(f'Đã trích xuất thành công {cnt} ảnh.')
         print(f'Thư mục chứa ảnh là {output_folder}.')
 
-# def check_time_for_auto_upload(time_check_string):
-#     try:
-#         target_hour, target_minute = time_check_string.split(':')
-#         now = datetime.now()
-#         target_time = now.replace(hour=int(target_hour.strip()), minute=int(target_minute.strip()), second=0, microsecond=0)
-        
-#         # Nếu thời gian mục tiêu đã qua trong ngày, chuyển sang ngày hôm sau
-#         if target_time < now :
-#             target_time += timedelta(days=1)
-        
-#         time_to_wait = (target_time - now).total_seconds()
-        
-#         if time_to_wait <= 0:
-#             return True, None
-#         return False, time_to_wait
-#     except:
-#         return False, None
-
 def get_time_check_cycle(time_check_string):
     try:
-        time_check = int(time_check_string)
+        time_check = int(float(time_check_string))
     except:
         time_check = 0
     return time_check * 60
@@ -951,7 +867,24 @@ def check_folder(folder):
         return False
     return True
 
-def get_list_video_in_folder(folder):
-    all_file = os.listdir(folder)
-    videos = [k for k in all_file if k.endswith('.mp4')]
-    return videos
+def get_random_audio_path(new_audio_folder):
+    audios = get_file_in_folder_by_type(new_audio_folder, file_type=".mp3", is_sort=False)
+    if not audios:
+        return None
+    return os.path.join(new_audio_folder, random.choice(audios))
+    
+def get_file_in_folder_by_type(folder, file_type=".mp4", is_sort=True):
+    try:
+        if not os.path.exists(folder):
+            print(f"Thư mục {folder} không tồn tại !!!")
+            return None
+        list_files = os.listdir(folder)
+        list_files = [k for k in list_files if k.endswith(file_type)]      
+        if len(list_files) == 0:
+            print(f"Không tìm thấy file {file_type} trong thư mục {folder} !!!")
+            return None
+        if is_sort:
+            list_files = natsorted(list_files)
+        return list_files
+    except:
+        return None

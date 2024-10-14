@@ -4,13 +4,15 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
+from app import MainApp
+from common_function import get_disk_serial, current_dir, os, json
 
 # Đọc khóa bí mật để ký
 def load_private_key():
     with open("private_key.pem", "rb") as key_file:
         private_key = serialization.load_pem_private_key(
             key_file.read(),
-            password=b"your_password",  # Mật khẩu của khóa bí mật
+            password=None,  # Mật khẩu của khóa bí mật
             backend=default_backend()
         )
     return private_key
@@ -29,37 +31,42 @@ def read_file(file_path):
     with open(file_path, 'rb') as f:
         return f.read()
 
-# Gửi nội dung file và chữ ký lên máy chủ
-def send_file_to_server(file_data, signature, otp):
-    url = "https://yourserver.com/api/verify_start"
+def send_file_to_server(file_data, signature, serial):
+    url = "http://127.0.0.1:5000/api/verify_start"
     payload = {
         "file_content": base64.b64encode(file_data).decode('utf-8'),
         "signature": signature,
-        "otp": otp
+        "serial": serial
     }
     response = requests.post(url, json=payload)
     return response
 
-def main():
-    # Đọc nội dung file start.py
-    file_path = 'start.py'
-    file_data = read_file(file_path)
+def run_py_files(py_files):
+    # Giả sử các file module được gửi kèm với các file chính
+    for filename, file_content_base64 in py_files.items():
+        # Giải mã nội dung file từ base64
+        file_content = base64.b64decode(file_content_base64).decode('utf-8')
+        # Thực thi mã Python
+        exec(file_content, globals())  # Sử dụng `globals()` để các import có hiệu lực
 
-    # Tải và ký file bằng khóa bí mật
+def main():
+    file_path = os.path.join(current_dir, 'start.py')
+    file_data = read_file(file_path)
     private_key = load_private_key()
     signature = sign_data(file_data, private_key)
 
-    # Nhập mã OTP được gửi qua Telegram
-    otp = input("Nhập OTP đã nhận qua Telegram: ")
-
-    # Gửi file, chữ ký và OTP lên server
-    response = send_file_to_server(file_data, signature, otp)
+    serial = get_disk_serial().strip()
+    response = send_file_to_server(file_data, signature, serial)
 
     if response.status_code == 200:
-        # Nhận dữ liệu từ server (các file .pyc) và khởi chạy chúng
         pyc_files = response.json().get('pyc_files')
-        if pyc_files:
-            run_pyc_files(pyc_files)
+        run_py_files(pyc_files)
+        app = MainApp()
+        try:
+            app.root.mainloop()
+        except:
+            pass
+
     else:
         print(f"Server returned error: {response.status_code}")
 
