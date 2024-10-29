@@ -1,13 +1,5 @@
-import httplib2
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaFileUpload
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
-from oauth2client.tools import run_flow
+
 from common_function import *
-from common_function_CTK import *
-from Common import *
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.force-ssl"]
 YOUTUBE_API_SERVICE_NAME = "youtube"
@@ -51,12 +43,14 @@ class YouTubeManager():
 
 #--------------------------------------Selenium--------------------------start
 
-    def login(self):
+    def login(self, show=False):
         try:
             if self.cookies_var and self.cookies_var.get().strip():
-                self.driver = get_driver(show=self.youtube_config['show_browser'])
+                self.driver = get_driver(show=show)
+                print(f'--> Đang sử dụng cookies để đăng nhập ...')
             else:
-                self.driver = get_driver_with_profile(target_gmail=self.gmail, show=self.youtube_config['show_browser'])
+                self.driver = get_driver_with_profile(target_gmail=self.gmail, show=show)
+                print(f'--> Đang sử dụng chrome profile để đăng nhập ...')
             if not self.driver:
                 return
             self.driver.get("https://www.youtube.com/")
@@ -64,7 +58,6 @@ class YouTubeManager():
             press_esc_key(2, self.driver)
             account_menu, language = self.get_account_menu()
             if not account_menu:
-                print(f'--> Đang sử dụng cookies để đăng nhập ...')
                 self.load_session()
                 press_esc_key(2, self.driver)
                 account_menu, language = self.get_account_menu()
@@ -150,9 +143,9 @@ class YouTubeManager():
 
     def click_upload_button(self):
         if self.en_language:
-            xpath = get_xpath('button', 'style-scope yt-icon-button', attribute='aria-label', attribute_value='Create')
+            xpath = get_xpath_by_multi_attribute('button', ['aria-label="Create"'])
         else:
-            xpath = get_xpath('button', 'style-scope yt-icon-button', attribute='aria-label', attribute_value='Tạo')
+            xpath = get_xpath_by_multi_attribute('button', ['aria-label="Tạo"'])
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.click()
@@ -185,7 +178,7 @@ class YouTubeManager():
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             ele.send_keys(video_path)
-            sleep(4)
+            sleep(4.5)
     
     def check_daily_update_limit(self):
         err_xpath = get_xpath('div', 'error-short style-scope ytcp-uploads-dialog')
@@ -284,8 +277,11 @@ class YouTubeManager():
             ele.click()
             sleep(1)
 
-    def click_altered_content(self):
-        xpath = get_xpath('tp-yt-paper-radio-button', 'style-scope ytkp-altered-content-select', 'name', 'VIDEO_HAS_ALTERED_CONTENT_YES')
+    def click_altered_content(self, no_altered=True):
+        if no_altered:
+            xpath = get_xpath_by_multi_attribute('tp-yt-paper-radio-button', ['name="VIDEO_HAS_ALTERED_CONTENT_YES"'])
+        else:
+            xpath = get_xpath_by_multi_attribute('tp-yt-paper-radio-button', ['name="VIDEO_HAS_ALTERED_CONTENT_NO"'])
         ele = get_element_by_xpath(self.driver, xpath)
         if ele:
             self.scroll_into_view(ele)
@@ -333,7 +329,7 @@ class YouTubeManager():
                 ele = get_element_by_xpath(self.driver, xpath)
                 if ele:
                     ele.click()
-                    sleep(1)
+                    sleep(2)
             try:
                 main_xpath = get_xpath_by_multi_attribute('div', ['id="upload-container"'])
                 if self.en_language:
@@ -358,40 +354,43 @@ class YouTubeManager():
                     add_an_end_screen()
             except:
                 sleep(0.5)
-
-        if self.en_language:
-            xpath = get_xpath('button', 'ytcp-button-shape-impl ytcp-button-shape-impl--filled ytcp-button-shape-impl--mono ytcp-button-shape-impl--size-m', 'aria-label', 'Next')
-        else:
-            xpath = get_xpath('button', 'ytcp-button-shape-impl ytcp-button-shape-impl--filled ytcp-button-shape-impl--mono ytcp-button-shape-impl--size-m', 'aria-label', 'Tiếp')
-        next_ele = get_element_by_xpath(self.driver, xpath)
-        if next_ele:
-            self.scroll_into_view(next_ele)
-            next_ele.click()
-            sleep(1)
-            add_related_video()
-            try:
+        try:
+            if self.en_language:
+                xpath = get_xpath_by_multi_attribute('button', ['aria-label="Next"'])
+            else:
+                xpath = get_xpath_by_multi_attribute('button', ['aria-label="Tiếp"'])
+            next_ele = get_element_by_xpath(self.driver, xpath)
+            if next_ele:
+                self.scroll_into_view(next_ele)
                 next_ele.click()
-            except:
-                next_ele = get_element_by_xpath(self.driver, xpath)
+                sleep(1)
+                add_related_video()
+                sleep(1)
                 try:
                     next_ele.click()
                 except:
-                    if self.en_language:
-                        print("Không tìm thấy nút \"Next\" --> Dừng đăng video ...")
-                    else:
-                        print("Không tìm thấy nút \"Tiếp\" --> Dừng đăng video ...")
-                    self.is_stop_upload = True
-                    return
-            sleep(1)
-            next_ele.click()
-            sleep(1)
-        else:
-            if self.en_language:
-                print("Không tìm thấy nút \"Next\" --> Dừng đăng video ...")
+                    next_ele = get_element_by_xpath(self.driver, xpath)
+                    try:
+                        next_ele.click()
+                    except:
+                        if self.en_language:
+                            print("Không tìm thấy nút \"Next\" --> Dừng đăng video ...")
+                        else:
+                            print("Không tìm thấy nút \"Tiếp\" --> Dừng đăng video ...")
+                        self.is_stop_upload = True
+                        return
+                sleep(1)
+                next_ele.click()
+                sleep(1)
             else:
-                print("Không tìm thấy nút \"Tiếp\" --> Dừng đăng video ...")
+                if self.en_language:
+                    print("Không tìm thấy nút \"Next\" --> Dừng đăng video ...")
+                else:
+                    print("Không tìm thấy nút \"Tiếp\" --> Dừng đăng video ...")
+                self.is_stop_upload = True
+        except:
+            print("Có lỗi khi đăng video --> Dừng đăng video !!!")
             self.is_stop_upload = True
-
 
     
     def click_public_radio(self):
@@ -548,9 +547,12 @@ class YouTubeManager():
             self.driver.quit()
             print("Đã đóng trình duyệt.")
 
-    def scroll_into_view(self, element):
-        self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
-        sleep(0.1)  # Đợi một chút để trình duyệt hoàn thành cuộn
+    def scroll_into_view(self, element, center=False):
+        if center:
+            self.driver.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", element)
+        else:
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", element)
+        sleep(0.2)
 
     def get_elements_by_xpath(self, xpath):
         eles = self.driver.find_elements(By.XPATH, xpath)
@@ -613,7 +615,7 @@ class YouTubeManager():
 
         def save_download_settings():
             download_folder = self.download_folder_var.get()
-            download_channel_id = self.download_by_channel_id.get()
+            download_channel_id = self.download_url_var.get()
             if not download_folder:
                 notification(self.root, "hãy chọn thư mục lưu file tải về.")
                 return False
@@ -625,7 +627,7 @@ class YouTubeManager():
                 self.download_by_selenium = True
             else:
                 self.download_by_selenium = False
-            self.youtube_config['download_by_channel_id'] = download_channel_id.strip()
+            self.youtube_config['download_url'] = download_channel_id.strip()
             self.youtube_config['filter_by_like'] = self.filter_by_like_var.get().strip()
             self.youtube_config['filter_by_views'] = self.filter_by_views_var.get().strip()
             self.save_youtube_config()
@@ -649,7 +651,7 @@ class YouTubeManager():
                 else:
                     return
 
-        self.download_by_channel_id = create_frame_label_and_input(self.root,label_text="Nhập link kênh", width=self.width, left=0.4, right=0.6)
+        self.download_url_var = create_frame_label_and_input(self.root,label_text="Nhập link kênh", width=self.width, left=0.4, right=0.6)
         self.filter_by_views_var = self.create_settings_input("Lọc theo số lượt xem", "filter_by_views", is_data_in_template=False, values=["100000", "200000", "300000", "500000", "1000000"], left=0.4, right=0.6)
         self.filter_by_like_var = self.create_settings_input("Lọc theo số lượt thích(đăng ký API google)", "filter_by_like", is_data_in_template= False, values=["10000", "20000", "30000", "50000", "100000"], left=0.4, right=0.6)
         self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu video", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
@@ -831,38 +833,132 @@ class YouTubeManager():
             error_message(f"Xác minh thất bại. Hãy đảm bảo bạn đang dùng gmail {self.gmail} để xác minh !!!")
             getlog()
             return None
-
-    def schedule_videos_by_selenium(self):
+        
+    def check_status_videos_by_selenium(self):
         try:
-            videos_folder = self.youtube_config['template'][self.channel_name]['upload_folder']
+            def get_studio():
+                self.driver.get('https://studio.youtube.com/')
+                sleep(2)
+                if self.en_language:
+                    ele = get_element_by_text(self.driver, 'Content', 'div')
+                else:
+                    ele = get_element_by_text(self.driver, 'Nội dung', 'div')
+                if ele:
+                    ele.click()
+                else:
+                    xpath = get_xpath_by_multi_attribute('tp-yt-paper-icon-item', ['id="menu-paper-icon-item-1"'])
+                    ele = get_element_by_xpath(self.driver, xpath)
+                    if ele:
+                        ele.click()
+                sleep(2)
+
+            def click_more_action_and_delete():
+                def click_delete_video():
+                    ele = get_element_by_text(self.driver, 'Xóa vĩnh viễn', 'yt-formatted-string')
+                    if ele:
+                        ele.click()
+                ele = get_element_by_text(self.driver, 'Thao tác khác', tag_name='span')
+                if ele:
+                    ele.click()
+                    click_delete_video()
+                    sleep(0.5)
+                    press_TAB_key(self.driver)
+                    sleep(1)
+                    press_ENTER_key(self.driver)
+                    sleep(1)
+                    press_TAB_key(self.driver, 2)
+                    press_ENTER_key(self.driver)
+                    sleep(60)
+                    
+            def click_short_tag():
+                short_tag = get_element_by_text(self.driver, 'Shorts', tag_name='span')
+                if short_tag:
+                    short_tag.click()
+                    sleep(3)
+
+            def get_all_video_in_one_page():
+                xpath = get_xpath_by_multi_attribute('div', ['id="row-container"'])
+                self.scroll_page()
+                eles = get_element_by_xpath(self.driver, xpath, multiple_ele=True)
+                next_ele = None
+                if eles and len(eles) >= 30:
+                    next_xpath = get_xpath_by_multi_attribute('ytcp-icon-button', ['id="navigate-after"', 'tabindex="0"'])
+                    next_ele = get_element_by_xpath(self.driver, next_xpath)
+                return eles, next_ele
+            
+            if not self.login(True):
+                return
+            get_studio()
+            check_short_video = False
+            while True:
+                div_videos, next_ele = get_all_video_in_one_page()
+                if div_videos and len(div_videos) > 0:
+                    self.cnt_delete_video = 0
+                    for div_video in div_videos:
+                        texts = div_video.text.split('\n')
+                        if 'Không có' not in texts and 'None' not in texts or 'Bản quyền' in texts:
+                            checkbox_element = div_video.find_element(By.XPATH, './/div[contains(@class, "ytcp-checkbox-lit")]')
+                            if checkbox_element:
+                                self.scroll_into_view(div_video, center=True)
+                                sleep(0.5)
+                                checkbox_element.click()
+                                self.cnt_delete_video += 1
+                    if self.cnt_delete_video > 0:
+                        click_more_action_and_delete()
+                    if next_ele:
+                        next_ele.click()
+                        sleep(3)
+                    else:
+                        if check_short_video:
+                            break
+                        click_short_tag()
+                        check_short_video = True
+        except:
+            getlog()
+            print("Có lỗi trong quá trình check bản quyền video !!!")
+        finally:
+            self.close_driver()
+
+
+    def schedule_videos_by_selenium(self, folder=None):
+        try:
             thumbnail_folder = self.youtube_config['template'][self.channel_name]['thumbnail_folder']
+            if folder:
+                videos_folder = folder
+            else:
+                videos_folder = self.youtube_config['template'][self.channel_name]['upload_folder']
+            if not check_folder(videos_folder):
+                return False
             videos = get_file_in_folder_by_type(videos_folder, ".mp4")   
             if not videos:
-                return
+                return False
             current_day = convert_datetime_to_string(datetime.now().date())
             if self.is_schedule:
                 number_of_days = get_number_of_days(self.youtube_config['template'][self.channel_name]['number_of_days'])
                 day_gap = get_day_gap(self.youtube_config['template'][self.channel_name]['day_gap'])
                 upload_date_str = self.youtube_config['template'][self.channel_name]['upload_date']
                 if not upload_date_str:
-                    return
+                    return False
                 publish_times = self.youtube_config['template'][self.channel_name]['publish_times'].split(',')
                 if not publish_times:
-                    return
-                upload_date = get_upload_date(upload_date_str, next_day=True)
+                    return False
+                upload_date = get_upload_date(upload_date_str)
                 upload_date_str = convert_datetime_to_string(upload_date)
                 tomorow_str = convert_datetime_to_string(datetime.now() + timedelta(days=1))
                 if self.is_auto_upload:
                     number_of_days = 100
                     upload_date_str = add_date_into_string(upload_date_str, day_gap)
                     self.youtube_config['show_browser'] = False
+                    if folder:
+                        self.youtube_config['show_browser'] = True
                     if not is_date_greater_than_current_day(upload_date_str, day_delta=0):
                         upload_date_str = add_date_into_string(current_day, day_gap=1)
             else:
+                number_of_days = 1
                 upload_date_str = current_day
-            if not self.login():
+            if not self.login(self.youtube_config['show_browser']):
                 print(f'Đăng nhập thất bại !!!')
-                return
+                return False
             else:
                 print(f'Đăng nhập thành công !!!')
 
@@ -877,6 +973,8 @@ class YouTubeManager():
                     publish_time = publish_times[upload_count % len(publish_times)].strip()
                     publish_time = get_pushlish_time_hh_mm(publish_time)
                     if not publish_time:
+                        return False
+                    if not check_datetime_input(upload_date_str, publish_time):
                         return False
                 if self.is_stop_upload:
                     break
@@ -915,10 +1013,8 @@ class YouTubeManager():
                 self.click_not_make_for_kid()
                 if self.is_stop_upload:
                     break
-                if self.youtube_config['template'][self.channel_name]['altered_content']:
-                    self.click_show_more()
-                    self.click_altered_content()
-
+                self.click_show_more()
+                self.click_altered_content(self.youtube_config['template'][self.channel_name]['altered_content'])
                 self.click_next_button()
                 if self.is_schedule:
                     self.click_schedule_option()
@@ -960,7 +1056,8 @@ class YouTubeManager():
                     notification(self.root, f"Đăng thành công {upload_count} video")
                 else:
                     print(f"Đăng thành công {upload_count} video")
-            return True
+                return True
+            return False
         except:
             getlog()
             return False
@@ -978,7 +1075,7 @@ class YouTubeManager():
             if mine:
                 response = self.youtube.channels().list(part="contentDetails", maxResults=50, mine=True).execute()
             else:
-                response = self.youtube.channels().list(part="contentDetails", id=self.youtube_config['download_by_channel_id']).execute()
+                response = self.youtube.channels().list(part="contentDetails", id=self.youtube_config['download_url']).execute()
             if "items" not in response or len(response["items"]) == 0:
                 raise Exception("No items found in channel details response.")
             uploads_playlist_id = response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
@@ -1080,10 +1177,10 @@ class YouTubeManager():
                         if view_count >= view_cnt:
                             get_link_video(div_content)
 
-            self.driver = get_driver(show=False)
-            channel_url = self.youtube_config['download_by_channel_id']
-            filter_by_views = self.youtube_config['filter_by_views']
             download_folder = self.youtube_config['download_folder']
+            self.driver = get_driver(show=False)
+            channel_url = self.youtube_config['download_url']
+            filter_by_views = self.youtube_config['filter_by_views']
             
             self.driver.get(channel_url)
             t=time()
@@ -1120,22 +1217,25 @@ class YouTubeManager():
                 try:
                     if self.is_stop_download:
                         break
-                    if download_video_by_url(url, download_folder=download_folder):
+                    if download_video_by_url(url, download_folder=download_folder, video_urls=video_urls.copy()):
                         print(f"--> Tải thành công video: {url}")
                         cnt_download += 1
                         video_urls.remove(url)
                         if url not in self.download_info['downloaded_urls']:
                             self.download_info['downloaded_urls'].append(url)
                         save_download_info(self.download_info)
-                    else:
-                        print(f"!!! Tải không thành công video {url} !!!")
                 except:
                     getlog()
                     print(f"Tải không thành công {url}")
+            
             if cnt_download > 0:
                 notification(self.root, f"Đã tải thành công {cnt_download} video.")
+            else:
+                download_video_by_bravedown(video_urls, download_folder)
         except:
             getlog()
+        finally:
+            self.close_driver()
             
 
     def scroll_page(self):      
@@ -1154,7 +1254,7 @@ class YouTubeManager():
                 if k < 2:
                     k += 1
                     self.driver.execute_script("window.scrollBy(0, -400);")
-                    sleep(1)
+                    sleep(0.5)
                     self.driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
                     sleep(2)
                 else:
