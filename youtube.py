@@ -39,7 +39,7 @@ class YouTubeManager():
         self.driver = None
         self.download_by_selenium = True
         self.cookies_var = None
-        
+        self.first_upload = False
 
 #--------------------------------------Selenium--------------------------start
 
@@ -349,7 +349,7 @@ class YouTubeManager():
                         else:
                             press_esc_key(2, self.driver)
                             click_close()
-                            
+                            self.first_upload = True
                 else:
                     add_an_end_screen()
             except:
@@ -364,8 +364,9 @@ class YouTubeManager():
                 self.scroll_into_view(next_ele)
                 next_ele.click()
                 sleep(1)
-                add_related_video()
-                sleep(1)
+                if self.first_upload:
+                    add_related_video()
+                    sleep(1)
                 try:
                     next_ele.click()
                 except:
@@ -564,7 +565,7 @@ class YouTubeManager():
         self.youtube_config = get_json_data(youtube_config_path)
 
     def save_youtube_config(self):
-        save_to_json_file(self.youtube_config, youtube_config_path)
+        save_to_pickle_file(self.youtube_config, youtube_config_path)
 
     def load_secret_info(self):
         try:
@@ -583,7 +584,7 @@ class YouTubeManager():
                 oauth = self.secret_data[self.gmail]['oauth']
                 self.api_key = self.secret_data[self.gmail]['api']
                 self.oauth_path = f'{current_dir}\\oauth\\{self.gmail}.json'
-                save_to_json_file(oauth, self.oauth_path)
+                save_to_pickle_file(oauth, self.oauth_path)
                 return True
         except:
             getlog()
@@ -758,6 +759,7 @@ class YouTubeManager():
             self.youtube_config['template'][self.channel_name]["number_of_days"] = self.number_of_days_var.get()
             self.youtube_config['template'][self.channel_name]["day_gap"] = self.day_gap_var.get()
             self.youtube_config['template'][self.channel_name]["publish_times"] = self.publish_times_var.get()
+            self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] = 0
             self.youtube_config['template'][self.channel_name]["thumbnail_folder"] = self.thumbnail_folder_var.get()
             self.youtube_config['template'][self.channel_name]["upload_folder"] = self.upload_folder_var.get()
             self.youtube_config['template'][self.channel_name]['gmail'] = self.gmail
@@ -932,29 +934,32 @@ class YouTubeManager():
             videos = get_file_in_folder_by_type(videos_folder, ".mp4")   
             if not videos:
                 return False
+            if 'cnt_upload_in_day' not in self.youtube_config['template'][self.channel_name]:
+                self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] = 0
             current_day = convert_datetime_to_string(datetime.now().date())
+            tomorow_str = convert_datetime_to_string(datetime.now() + timedelta(days=1))
+            number_of_days = get_number_of_days(self.youtube_config['template'][self.channel_name]['number_of_days'])
             if self.is_schedule:
-                number_of_days = get_number_of_days(self.youtube_config['template'][self.channel_name]['number_of_days'])
                 day_gap = get_day_gap(self.youtube_config['template'][self.channel_name]['day_gap'])
-                upload_date_str = self.youtube_config['template'][self.channel_name]['upload_date']
-                if not upload_date_str:
+                old_upload_date_str = self.youtube_config['template'][self.channel_name]['upload_date']
+                if not old_upload_date_str:
                     return False
                 publish_times = self.youtube_config['template'][self.channel_name]['publish_times'].split(',')
                 if not publish_times:
                     return False
-                upload_date = get_upload_date(upload_date_str)
+                upload_date = get_upload_date(old_upload_date_str)
                 upload_date_str = convert_datetime_to_string(upload_date)
-                tomorow_str = convert_datetime_to_string(datetime.now() + timedelta(days=1))
+                if upload_date_str != old_upload_date_str:
+                    self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] = 0
                 if self.is_auto_upload:
                     number_of_days = 100
-                    upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                    if self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] == 0 or self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] >= len(publish_times):
+                        upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                        self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] = 0
                     self.youtube_config['show_browser'] = False
                     if folder:
                         self.youtube_config['show_browser'] = True
-                    if not is_date_greater_than_current_day(upload_date_str, day_delta=0):
-                        upload_date_str = add_date_into_string(current_day, day_gap=1)
             else:
-                number_of_days = 1
                 upload_date_str = current_day
             if not self.login(self.youtube_config['show_browser']):
                 print(f'Đăng nhập thất bại !!!')
@@ -970,12 +975,17 @@ class YouTubeManager():
                     print(f"Ngày đăng {upload_date_str} vượt quá {day_delta} ngày so với ngày hiện tại. Không thể tiếp tục đăng video.")
                     break
                 if self.is_schedule:
-                    publish_time = publish_times[upload_count % len(publish_times)].strip()
-                    publish_time = get_pushlish_time_hh_mm(publish_time)
-                    if not publish_time:
-                        return False
-                    if not check_datetime_input(upload_date_str, publish_time):
-                        return False
+                    cnt_upload_in_day = self.youtube_config['template'][self.channel_name]['cnt_upload_in_day']
+                    while True:
+                        publish_time = publish_times[cnt_upload_in_day % len(publish_times)].strip()
+                        publish_time = get_pushlish_time_hh_mm(publish_time)
+                        if not check_datetime_input(upload_date_str, publish_time):
+                            cnt_upload_in_day += 1
+                            if cnt_upload_in_day % len(publish_times) == 0:
+                                upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                                self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] = 0
+                        else:
+                            break
                 if self.is_stop_upload:
                     break
                 video_name = os.path.splitext(video_file)[0]
@@ -986,7 +996,7 @@ class YouTubeManager():
                     full_title = title
                 if len(full_title) > 100:
                     if not self.is_auto_upload:
-                        notification(self.root, f"Chiều dài tối đa của tiêu đề là 100 ký tự:\n{self.full_title}: có tổng {len(self.full_title)} ký tự")
+                        print(f"Chiều dài tối đa của tiêu đề là 100 ký tự:\n{full_title}: có tổng {len(full_title)} ký tự")
                     continue
                 video_path = os.path.join(videos_folder, video_file)
                 print(f'--> Bắt đầu đăng video: {video_file}')
@@ -1028,16 +1038,19 @@ class YouTubeManager():
                         break
                     self.click_schedule_now()
                     upload_count += 1
+                    cnt_upload_in_day += 1
+                    self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] = cnt_upload_in_day
                     if self.youtube_config['template'][self.channel_name]['upload_date'] != upload_date_str:
                         self.youtube_config['template'][self.channel_name]['upload_date'] = upload_date_str
-                        self.save_youtube_config()
                     remove_or_move_file(video_path, self.youtube_config['template'][self.channel_name]['is_delete_after_upload'], finish_folder_name='youtube_upload_finished')
                     print(f'--> Đăng thành công video: {video_file}')
-                    if (upload_count) % len(publish_times) == 0:
+                    if (cnt_upload_in_day) % len(publish_times) == 0:
                         upload_date_str = add_date_into_string(upload_date_str, day_gap)
                         date_cnt += 1
-                        if date_cnt == number_of_days:
-                            break
+                        self.youtube_config['template'][self.channel_name]['cnt_upload_in_day'] = 0
+                    self.save_youtube_config()
+                    if date_cnt == number_of_days:
+                        break
                 else:
                     self.click_public_radio()
                     if self.is_stop_upload:
@@ -1312,7 +1325,7 @@ class YouTubeManager():
                 self.list_videos_download_from_channel.append(video_url)
                 if video_url not in self.download_info['downloaded_urls']:
                     self.download_info['downloaded_urls'].append(video_url)
-                save_to_json_file(self.download_info, download_info_path)
+                save_to_pickle_file(self.download_info, download_info_path)
         except:
             sleep(1)
 

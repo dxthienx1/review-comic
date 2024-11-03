@@ -8,23 +8,19 @@ from natsort import natsorted
 from datetime import datetime, timedelta, timezone, time as dtime
 from time import sleep, time
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import traceback
 import pyttsx3
 import winreg
 from moviepy.video.fx.all import resize, crop, mirror_x, speedx
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, afx, vfx, CompositeVideoClip, ImageClip, ColorClip
 from moviepy.audio.AudioClip import CompositeAudioClip
-from pytube import YouTube
-from translate import Translator
-import requests
 from pydub import AudioSegment
+import requests
 from unidecode import unidecode
 import yt_dlp
 import portalocker
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -70,6 +66,7 @@ def get_current_dir():
         is_dev_enviroment = True
     return current_dir
 
+
 def get_chrome_profile_folder():
     if platform.system() == "Windows":
         profile_folder = os.path.join(os.environ['LOCALAPPDATA'], "Google", "Chrome", "User Data")
@@ -81,26 +78,24 @@ def get_chrome_profile_folder():
         raise Exception("Hệ điều hành không được hỗ trợ.")
     return profile_folder
 
-profile_folder = get_chrome_profile_folder()
 current_dir = get_current_dir()
 sys.path.append(current_dir)
-config_path = os.path.join(current_dir, 'config.json')
-chromedriver_path = os.path.join(current_dir, 'import\\chromedriver.exe')
 secret_path = os.path.join(current_dir, 'oauth', 'secret.json')
-download_info_path = os.path.join(current_dir, 'download_info.json')
-youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
+chromedriver_path = os.path.join(current_dir, 'import\\chromedriver.exe')
+config_path = os.path.join(current_dir, 'config.pkl')
+download_info_path = os.path.join(current_dir, 'download_info.pkl')
+youtube_config_path = os.path.join(current_dir, 'youtube_config.pkl')
 icon_path = os.path.join(current_dir, 'import' , 'icon.png')
 ico_path = os.path.join(current_dir, 'import' , 'icon.ico')
-test_folder = f'{current_dir}\\test'
-local_storage_path = os.path.join(current_dir, 'local_storage.json')
-facebook_cookies_path = os.path.join(current_dir, 'facebook_cookies.json')
+local_storage_path = os.path.join(current_dir, 'local_storage.pkl')
+facebook_cookies_path = os.path.join(current_dir, 'facebook_cookies.pkl')
 tiktok_cookies_path = os.path.join(current_dir, 'tiktok_cookies.pkl')
 youtube_cookies_path = os.path.join(current_dir, 'youtube_cookies.pkl')
-youtube_config_path = os.path.join(current_dir, 'youtube_config.json')
-tiktok_config_path = os.path.join(current_dir, 'tiktok_config.json')
-facebook_config_path = os.path.join(current_dir, 'facebook_config.json')
+youtube_config_path = os.path.join(current_dir, 'youtube_config.pkl')
+tiktok_config_path = os.path.join(current_dir, 'tiktok_config.pkl')
+facebook_config_path = os.path.join(current_dir, 'facebook_config.pkl')
+profile_folder = get_chrome_profile_folder()
 pre_time_download = 0
-
 padx = 5
 pady = 2
 height_element = 40
@@ -141,13 +136,13 @@ def load_download_info():
         download_if = get_json_data(download_info_path)
     else:
         download_if = download_info
-    save_to_json_file(download_if, download_info_path)
+    save_to_pickle_file(download_if, download_info_path)
     return download_if
 
 def save_download_info(data):
-    save_to_json_file(data, download_info_path)
+    save_to_pickle_file(data, download_info_path)
 
-def get_driver(show=True, download_folder=None):
+def get_driver(show=True):
     try:
         service = Service(chromedriver_path)
         options = webdriver.ChromeOptions()
@@ -158,23 +153,13 @@ def get_driver(show=True, download_folder=None):
         options.add_argument('--disable-gpu')
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
-        # options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36")
-        options.add_argument("--log-level=3")  # Suppress most logs
-        options.add_argument("--disable-logging")  # Disable logging
+        options.add_argument("--log-level=3")
+        options.add_argument("--disable-logging")
         options.add_experimental_option('excludeSwitches', ['enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
-        # if download_folder:
-        #     if not os.path.exists(download_folder):
-        #         os.makedirs(download_folder)
-        #     options.add_experimental_option('prefs', {
-        #         "download.default_directory": download_folder,
-        #         "download.prompt_for_download": False,
-        #         "download.directory_upgrade": True,
-        #         "safebrowsing.enabled": True
-        #     })
         driver = webdriver.Chrome(service=service, options=options)
-        if show:
-            driver.maximize_window()
+        # if show:
+        #     driver.maximize_window()
         stealth(driver,
                 languages=["en-US", "en"],
                 vendor="Google Inc.",
@@ -192,7 +177,7 @@ def get_driver(show=True, download_folder=None):
     
 def get_driver_with_profile(target_gmail, show=True):
     try:
-        os.system("taskkill /F /IM chrome.exe /T")
+        os.system("taskkill /F /IM chrome.exe /T >nul 2>&1")
     except:
         pass
     sleep(1)
@@ -226,16 +211,19 @@ def get_driver_with_profile(target_gmail, show=True):
     profile_name = get_profile_name_by_gmail()
     if profile_name:
         profile_path = os.path.join(profile_folder, profile_name)
-        print(profile_path)
         options = webdriver.ChromeOptions()
         options.add_argument(f"user-data-dir={profile_folder}")
         options.add_argument(f"profile-directory={profile_name}")
         if not show:
             options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument("--log-level=3")
+        options.add_argument("--disable-logging")
+        options.add_experimental_option('excludeSwitches', ['enable-automation'])
+        options.add_experimental_option('useAutomationExtension', False)
         driver = webdriver.Chrome(options=options)
-        driver.maximize_window()
+        # driver.maximize_window()
         return driver
     else:
         print(f'Không tìm thấy profile cho tài khoản google {target_gmail}')
@@ -482,17 +470,18 @@ def remove_file(file_path):
     except:
         pass
 
-def get_json_data(file_name):
-    if os.path.exists(file_name):
-        try:
-            with open(file_name, "r", encoding="utf-8") as file:
-                portalocker.lock(file, portalocker.LOCK_SH)
-                p = json.load(file)
-                portalocker.unlock(file)
-        except:
-            getlog()
-            p = {}
-    else:
+def get_json_data(file_name=""):
+    try:
+        if file_name.endswith('.json'):
+            if os.path.exists(file_name):
+                with open(file_name, "r", encoding="utf-8") as file:
+                    portalocker.lock(file, portalocker.LOCK_SH)
+                    p = json.load(file)
+                    portalocker.unlock(file)
+        else:
+            p = get_pickle_data(file_name)
+    except:
+        getlog()
         p = {}
     return p
 
@@ -518,7 +507,6 @@ def get_pickle_data(file_path):
             getlog()
     return None
 
-
 def save_to_pickle_file(data, file_path):
     try:
         with open(file_path, "wb") as file:
@@ -527,6 +515,17 @@ def save_to_pickle_file(data, file_path):
             portalocker.unlock(file)
     except:
         getlog()
+
+def convert_json_to_pickle(directory):
+    for filename in os.listdir(directory):
+        if filename.endswith('.json'):
+            json_file_path = os.path.join(directory, filename)
+            pkl_file_path = os.path.join(directory, filename[:-5] + '.pkl')  # Thay đổi đuôi file từ .json sang .pkl
+            data = get_json_data(json_file_path)
+            if data:
+                save_to_pickle_file(data, pkl_file_path)
+                remove_file(json_file_path)
+convert_json_to_pickle(current_dir)
 
 def get_txt_data(file_path):
     if not os.path.isfile(file_path):
@@ -598,7 +597,7 @@ def get_current_folder_and_basename(input_video_path):
 
 def download_video_by_bravedown(video_urls, download_folder=None, root_web="https://bravedown.com/ixigua-video-downloader"):
     try:
-        driver = get_driver(show=True, download_folder=download_folder)
+        driver = get_driver(show=True)
         def choose_downlaod_folder():
             if download_folder:
                 driver.get("chrome://settings/downloads")
@@ -615,7 +614,6 @@ def download_video_by_bravedown(video_urls, download_folder=None, root_web="http
                 sleep(1)
             sleep(1)
         choose_downlaod_folder()
-        sleep(1)
         def verify_human(video_url):
             ele = get_element_by_text(driver, "Please verify you are human!")
             if ele:
@@ -642,47 +640,16 @@ def download_video_by_bravedown(video_urls, download_folder=None, root_web="http
                 return None
         cnt=0
         download_info = get_json_data(download_info_path)
+        download_from, root_web = get_download_flatform(video_urls[0])
+        driver.get(root_web)
+        sleep(5)
         for video_url in video_urls.copy():
-            if "//www.douyin.com/" in video_url:
-                root_web = "https://bravedown.com/douyin-video-downloader"
-            elif "//www.youtube.com/" in video_url or "youtu.be/" in video_url:
-                root_web = "https://bravedown.com/youtube-video-downloader"
-            elif "//www.facebook.com/" in video_url:
-                root_web = "https://bravedown.com/facebook-video-downloader"
-            elif "//www.instagram.com/" in video_url:
-                root_web = "https://bravedown.com/instagram-video-downloader"
-            elif "//www.twitter.com/" in video_url or "//twitter.com/" in video_url:
-                root_web = "https://bravedown.com/twitter-video-downloader"
-            elif "//www.instagram.com/" in video_url:
-                root_web = "https://bravedown.com/instagram-video-downloader"
-            elif "//www.tiktok.com/" in video_url:
-                root_web = "https://bravedown.com/tiktok-downloader"
-            elif "//www.vimeo.com/" in video_url:
-                root_web = "https://bravedown.com/vimeo-downloader"
-            elif "//www.reddit.com/" in video_url:
-                root_web = "https://bravedown.com/reddit-downloader"
-            elif "//www.dailymotion.com/" in video_url:
-                root_web = "https://bravedown.com/dailymotion-video-downloader"
-            elif "//www.vk.com/" in video_url:
-                root_web = "https://bravedown.com/vk-video-downloader"
-            elif "//www.bilibili.com/" in video_url:
-                root_web = "https://bravedown.com/bilibili-downloader"
-            elif "//www.snapchat.com/" in video_url:
-                root_web = "https://bravedown.com/snapchat-video-downloader"
-            elif "baidu.com/" in video_url:
-                root_web = "https://bravedown.com/baidu-video-downloader"
-            elif "www.threads.net/" in video_url:
-                root_web = "https://bravedown.com/threads-downloader"
-            elif "kuaishou.com/" in video_url:
-                root_web = "https://bravedown.com/kuaishou-video-downloader"
-            else:
-                root_web = "https://bravedown.com/ixigua-video-downloader"
-
-            driver.get(root_web)
-            sleep(3)
-            input_url(video_url)
             if cnt==0:
                 verify_human(video_url)
+            else:
+                driver.get(root_web)
+                sleep(2)
+            input_url(video_url)
             ele = get_max_resolution_video()
             if not ele:
                 continue
@@ -697,7 +664,7 @@ def download_video_by_bravedown(video_urls, download_folder=None, root_web="http
             sleep(2)
             print(f'Tải thành công video: {video_url}')
         if cnt > 0:
-            print(f'  --> Đã tải được {cnt}video.')
+            print(f'  --> Đã tải được {cnt} video.')
             return True
         else:
             return False
@@ -712,37 +679,53 @@ def download_video_by_bravedown(video_urls, download_folder=None, root_web="http
 def get_download_flatform(video_url):
     if "//www.douyin.com/" in video_url:
         download_flatform = "douyin"
+        root_web = "https://bravedown.com/douyin-video-downloader"
     elif "//www.youtube.com/" in video_url or "youtu.be/" in video_url:
         download_flatform = "youtube"
+        root_web = "https://bravedown.com/youtube-video-downloader"
     elif "//www.facebook.com/" in video_url:
         download_flatform = "facebook"
+        root_web = "https://bravedown.com/facebook-video-downloader"
     elif "//www.instagram.com/" in video_url:
         download_flatform = "instagram"
+        root_web = "https://bravedown.com/instagram-video-downloader"
     elif "//www.twitter.com/" in video_url or "//twitter.com/" in video_url:
         download_flatform = "twitter"
+        root_web = "https://bravedown.com/twitter-video-downloader"
     elif "//www.tiktok.com/" in video_url:
         download_flatform = "tiktok"
+        root_web = "https://bravedown.com/tiktok-downloader"
     elif "//www.vimeo.com/" in video_url:
         download_flatform = "vimeo"
+        root_web = "https://bravedown.com/vimeo-downloader"
     elif "//www.reddit.com/" in video_url:
         download_flatform = "reddit"
+        root_web = "https://bravedown.com/reddit-downloader"
     elif "//www.dailymotion.com/" in video_url:
         download_flatform = "dailymotion"
+        root_web = "https://bravedown.com/dailymotion-video-downloader"
     elif "//www.vk.com/" in video_url:
         download_flatform = "vk"
+        root_web = "https://bravedown.com/vk-video-downloader"
     elif "//www.bilibili.com/" in video_url:
         download_flatform = "bilibili"
+        root_web = "https://bravedown.com/bilibili-downloader"
     elif "//www.snapchat.com/" in video_url:
         download_flatform = "snapchat"
+        root_web = "https://bravedown.com/snapchat-video-downloader"
     elif "baidu.com/" in video_url:
-        download_flatform = "https://bravedown.com/baidu-video-downloader"
+        download_flatform = "baidu"
+        root_web = "https://bravedown.com/baidu-video-downloader"
     elif "www.threads.net/" in video_url:
         download_flatform = "threads"
+        root_web = "https://bravedown.com/threads-downloader"
     elif "kuaishou.com/" in video_url:
         download_flatform = "kuaishou"
+        root_web = "https://bravedown.com/kuaishou-video-downloader"
     else:
         download_flatform = "ixigua"
-    return download_flatform
+        root_web = "https://bravedown.com/ixigua-video-downloader"
+    return download_flatform, root_web
 
 def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=5, return_file_path=False):
     t = time()
@@ -773,8 +756,6 @@ def download_video_by_url(url, download_folder=None, file_path=None, sleep_time=
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
-                'noplaylist': True,
-                'logger': yt_dlp.utils.DefaultLogger(),
                 'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
                 'outtmpl': f'{download_folder}/%(title)s.%(ext)s'
             }
@@ -898,7 +879,6 @@ def remove_or_move_file(input_video_path, is_delete=False, is_move=True, finish_
     try:
         if is_delete:
             os.remove(input_video_path)
-            print(f'Đã xóa file {input_video_path}')
         elif is_move:
             videos_folder = os.path.dirname(input_video_path)
             finish_folder = os.path.join(videos_folder, f'{finish_folder_name}')
@@ -906,18 +886,21 @@ def remove_or_move_file(input_video_path, is_delete=False, is_move=True, finish_
             base_name = os.path.basename(input_video_path)
             move_file_path = os.path.join(finish_folder, base_name)
             shutil.move(input_video_path, move_file_path)
-            print(f'Đã di chuyển file {input_video_path} đến thư mục {finish_folder}')
     except:
         print(f"Không thể xóa hoặc di chuyển file {input_video_path}")
         
 
 def check_datetime_input(date_str, time_str):
-    input_time = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-    current_time_plus_30 = datetime.now() + timedelta(minutes=30)
-    if input_time <= current_time_plus_30:
-        print(f'Thời gian muốn đăng vào là {time_str} ngày {date_str} không hợp lệ --> Phải đăng sau 30 phút so với thời điểm hiện tại.')
+    try:
+        input_time = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        current_time_plus_30 = datetime.now() + timedelta(minutes=30)
+        if input_time <= current_time_plus_30:
+            print(f'Thời gian muốn đăng vào là {time_str} ngày {date_str} không hợp lệ --> Phải đăng sau 30 phút so với thời điểm hiện tại.')
+            return False
+        return True
+    except:
+        print("Định dạng giờ không đúng hh:mm")
         return False
-    return True
 
 def get_upload_date(upload_date, next_day=False):
     current_date = datetime.now().date()
@@ -1044,29 +1027,29 @@ def get_image_from_video(videos_folder, position=None):
     if len(videos) == 0:
         print(f"Không tìm thấy video trong thư mục {videos_folder}")
         return
-    output_folder = os.path.join(videos_folder, 'images')
-    os.makedirs(output_folder, exist_ok=True)
-    cnt = 0
-    for i, video_file in enumerate(videos):
-        video_path = os.path.join(videos_folder, video_file)
-        video_name = os.path.splitext(video_file)[0] #lấy tên
-        image_path = os.path.join(output_folder, f'{video_name}.png')
-        video = VideoFileClip(video_path)
-        if ':' in position:
-            extraction_time = time_position
-        else:
-            extraction_time = video.duration - time_position
-        if extraction_time < 0 or extraction_time > video.duration:
-            print(f'Thời điểm trích xuất ảnh vượt quá thời lượng của video {video_file}. Lấy thời điểm trích xuất ở cuối video')
-            extraction_time = video.duration
-        frame = video.get_frame(extraction_time)
-        from imageio import imwrite
-        imwrite(image_path, frame)
-        video.close()
-        cnt += 1
-    if cnt > 0:
-        print(f'Đã trích xuất thành công {cnt} ảnh.')
-        print(f'Thư mục chứa ảnh là {output_folder}.')
+    try:
+        output_folder = os.path.join(videos_folder, 'images')
+        os.makedirs(output_folder, exist_ok=True)
+        for i, video_file in enumerate(videos):
+            video_path = os.path.join(videos_folder, video_file)
+            video_name = os.path.splitext(video_file)[0]
+            image_path = os.path.join(output_folder, f'{video_name}.png')
+            if os.path.exists(image_path):
+                continue
+            video = VideoFileClip(video_path)
+            if ':' in position:
+                extraction_time = time_position
+            else:
+                extraction_time = video.duration - time_position
+            if extraction_time < 0 or extraction_time > video.duration:
+                print(f'Thời điểm trích xuất ảnh vượt quá thời lượng của video {video_file}. Lấy thời điểm trích xuất ở cuối video')
+                extraction_time = video.duration
+            frame = video.get_frame(extraction_time)
+            from imageio import imwrite
+            imwrite(image_path, frame)
+            video.close()
+    except:
+        print("Có lỗi trong quá trình trích xuất ảnh từ video !!!")
 
 def get_time_check_cycle(time_check_string):
     try:
@@ -1107,7 +1090,17 @@ def get_file_in_folder_by_type(folder, file_type=".mp4", is_sort=True, noti=True
         return list_files
     except:
         return None
-    
+
+def move_file_from_folder_to_folder(folder1, folder2):
+    try:
+        for filename in os.listdir(folder1):
+            folder1_file = os.path.join(folder1, filename)
+            folder2_file = os.path.join(folder2, filename)
+            if os.path.isfile(folder1_file):
+                shutil.move(folder1_file, folder2_file)
+    except:
+        pass
+        
 
 #--------------------------CTK----------------------------
 
@@ -1124,10 +1117,13 @@ def message_aks(message):
 def warning_message(message):
     messagebox.showinfo(title="WARNING", message=message)
 def notification(parent=None, message=""):
-    if parent:
-        parent.after(0, lambda: messagebox.showinfo(title="Notification", message=message))
-    else:
-        messagebox.showinfo(title="Notification", message=message)
+    try:
+        if parent:
+            parent.after(0, lambda: messagebox.showinfo(title="Notification", message=message))
+        else:
+            messagebox.showinfo(title="Notification", message=message)
+    except:
+        pass
 
 def error_message(message):
     messagebox.showinfo(title="ERROR", message=message)
@@ -2052,7 +2048,7 @@ def set_audio_for_clip(clip, background_music, background_music_volume="10"):
     except:
         print("Có lỗi ghi ghép audio vào video")
 
-def edit_audio_ffmpeg(input_audio_folder, start_cut="0", end_cut="0", pitch_factor=None, speed=None, cut_silence=False, aecho=None, flanger='7', chorus='0.07'):
+def edit_audio_ffmpeg(input_audio_folder, start_cut="0", end_cut="0", pitch_factor=None, speed=None, cut_silence=False, aecho=None, flanger='8', chorus='0.05'):
     try:
         speed = get_float_data(speed)
         if not speed:
@@ -2128,9 +2124,9 @@ def edit_audio_ffmpeg(input_audio_folder, start_cut="0", end_cut="0", pitch_fact
             if flanger:
                 filters.append(f"flanger=delay={flanger}:depth=3:regen=-9:width=77:speed=0.7")
             if aecho:
-                filters.append(f"aecho=0.85:0.9:{aecho}:0.2")
+                filters.append(f"aecho=0.8:0.9:{aecho}:0.2")
             if chorus:
-                filters.append(f"chorus=0.85:0.9:50:{chorus}:{chorus}:3")
+                filters.append(f"chorus=0.8:0.9:50:{chorus}:{chorus}:3")
 
             if filters:
                 ffmpeg_cmd_adjust += ["-af", ",".join(filters)]
@@ -2300,7 +2296,7 @@ def load_config():
                 "vi": "Vietnamese"
             }
         }
-        save_to_json_file(config, config_path)
+        save_to_pickle_file(config, config_path)
     return config
 
 youtube_category = {
@@ -2379,7 +2375,7 @@ def load_youtube_config():
         config = get_json_data(youtube_config_path)
     else:
         config = youtube_config
-    save_to_json_file(config, youtube_config_path)
+    save_to_pickle_file(config, youtube_config_path)
     return config
 
 def load_tiktok_config():
@@ -2387,7 +2383,7 @@ def load_tiktok_config():
         config = get_json_data(tiktok_config_path)
     else:
         config = tiktok_config
-    save_to_json_file(config, tiktok_config_path)
+    save_to_pickle_file(config, tiktok_config_path)
     return config
 
 def load_facebook_config():
@@ -2395,5 +2391,5 @@ def load_facebook_config():
         config = get_json_data(facebook_config_path)
     else:
         config = facebook_config
-    save_to_json_file(config, facebook_config_path)
+    save_to_pickle_file(config, facebook_config_path)
     return config

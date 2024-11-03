@@ -32,9 +32,8 @@ class TikTokManager:
             if not self.driver:
                 return False
             self.load_session()
-            
             if not self.tiktok_config['template'][self.account]['first_login']:
-                sleep(6)
+                sleep(8)
                 self.upload_link = self.get_upload_button()
             else:
                 self.upload_link = None
@@ -83,7 +82,6 @@ class TikTokManager:
 
     def load_session(self, url="https://www.tiktok.com/login/phone-or-email/email"):
         self.driver.get(url)
-        print("Đang thử đăng nhập bằng cookies ... !")
         sleep(1.5)
         try:
             cookies_info = get_pickle_data(tiktok_cookies_path)
@@ -95,7 +93,7 @@ class TikTokManager:
                     self.driver.add_cookie(cookie)
                 sleep(1.5)
                 self.driver.refresh()
-                sleep(1)
+                sleep(2)
         except:
             getlog()
             return False
@@ -109,34 +107,40 @@ class TikTokManager:
             getlog()
 
     def select_time(self, public_time):
-        hh, mm = public_time.split(':')
-        xpath = get_xpath('input', "TUXTextInputCore-input", "type", "text")
-        date_time_ele = self.driver.find_elements(By.XPATH, xpath)
-        if date_time_ele:
-            time_ele = date_time_ele[0]
-            time_ele.click()
-            sleep(1)
-            xpath_hh = get_xpath('span', "tiktok-timepicker-option-text tiktok-timepicker-left")
-            hh_elements = self.driver.find_elements(By.XPATH, xpath_hh)
-            for element in hh_elements:
-                self.scroll_into_view(element)
-                if int(element.text) == int(hh):
-                    element.click()
-                    break
-            sleep(0.5)
-            xpath_mm = get_xpath('span', "tiktok-timepicker-option-text tiktok-timepicker-right")
-            mm_elements = self.driver.find_elements(By.XPATH, xpath_mm)
-            for element in mm_elements:
-                self.scroll_into_view(element)
-                if int(element.text) == int(mm):
-                    element.click()
-                    break
-            sleep(0.3)
-            time_ele.click()
+            hh, mm = public_time.split(':')
+            xpath = get_xpath('input', "TUXTextInputCore-input", "type", "text")
+            date_time_ele = self.driver.find_elements(By.XPATH, xpath)
+            if date_time_ele:
+                time_ele = date_time_ele[0]
+                time_ele.click()
+                sleep(1)
+                xpath_hh = get_xpath('span', "tiktok-timepicker-option-text tiktok-timepicker-left")
+                hh_elements = self.driver.find_elements(By.XPATH, xpath_hh)
+                for element in hh_elements:
+                    self.scroll_into_view(element)
+                    if int(element.text) == int(hh):
+                        element.click()
+                        break
+                sleep(0.5)
+                xpath_mm = get_xpath('span', "tiktok-timepicker-option-text tiktok-timepicker-right")
+                mm_elements = self.driver.find_elements(By.XPATH, xpath_mm)
+                for element in mm_elements:
+                    self.scroll_into_view(element)
+                    if int(element.text) == int(mm):
+                        element.click()
+                        break
+                sleep(0.3)
+            try:
+                time_ele.click()
+            except:
+                print("Ngày giờ đăng không hợp lệ --> Không thể lên lịch quá 10 ngày so với ngày hiện tại !!!")
+                self.is_stop_upload = True
 
     def select_date(self, date_string):
-        if not is_date_greater_than_current_day(date_str=date_string):
-            return
+        if is_date_greater_than_current_day(date_str=date_string, day_delta=9):
+            print("Ngày giờ đăng không hợp lệ --> Không thể lên lịch quá 10 ngày so với ngày hiện tại !!!")
+            self.is_stop_upload = True
+            return True
         year, month, day = date_string.strip().split("-")
         xpath1 = get_xpath('input', "TUXTextInputCore-input", "type", "text")
         xpath2 = get_xpath('span', "jsx-2986588792 day valid", contain=True)
@@ -152,21 +156,21 @@ class TikTokManager:
             except:
                 print("Gặp lỗi khi nhập ngày đăng video --> Dừng đăng video.")
                 self.is_stop_upload = True
-                return
+                return False
         if date_ele:
             date_ele.click()
             sleep(1)
             date_elements = get_element_by_xpath(self.driver, xpath2, multiple_ele=True)
             if len(date_elements) == 0:
                 self.is_stop_upload = True
-                return
+                return False
             
             for ele in date_elements:
                 date = ele.text
                 if int(date) == int(day):
                     ele.click()
                     sleep(1)
-                    return
+                    return False
             if len(date_elements) < 11:
                 date_elements[-1].click()
                 sleep(0.5)
@@ -175,14 +179,14 @@ class TikTokManager:
                 date_elements = get_element_by_xpath(self.driver, xpath2, multiple_ele=True)
                 if len(date_elements) == 0:
                     self.is_stop_upload = True
-                    return
+                    return False
                 for ele in date_elements:
                     date = ele.text
                     if int(date) == int(day):
                         kq.append(ele)
                         ele.click()
                         sleep(1)
-                        return
+                        return False
                 self.is_stop_upload = True
 
 
@@ -450,6 +454,7 @@ class TikTokManager:
             self.tiktok_config['template'][self.account]["location"] = self.location_var.get().strip()
             self.tiktok_config['template'][self.account]["upload_date"] = upload_date
             self.tiktok_config['template'][self.account]["publish_times"] = self.publish_times_var.get()
+            self.tiktok_config['template'][self.account]['cnt_upload_in_day'] = 0
             self.tiktok_config['template'][self.account]["upload_folder"] = self.upload_folder_var.get()
             self.tiktok_config['template'][self.account]["thumbnail_folder"] = self.thumbnail_folder_var.get()
             self.tiktok_config['template'][self.account]["waiting_verify"] = self.waiting_verify_var.get() == 'Yes'
@@ -477,51 +482,61 @@ class TikTokManager:
             else:
                 videos_folder = self.tiktok_config['template'][self.account]['upload_folder']
             if not check_folder(videos_folder):
-                return False
+                return False, False
             videos = get_file_in_folder_by_type(videos_folder, ".mp4")   
             if not videos:
-                return False
+                return False, False
             upload_count = 0
             date_cnt = 0
+            if 'cnt_upload_in_day' not in self.tiktok_config['template'][self.account]:
+                self.tiktok_config['template'][self.account]['cnt_upload_in_day'] = 0
             number_of_days = get_number_of_days(self.tiktok_config['template'][self.account]['number_of_days'])
             current_day = convert_datetime_to_string(datetime.now().date())
             if self.is_schedule:
-                day_gap = get_day_gap(self.tiktok_config['template'][self.account]['day_gap'])
-                upload_date_str = self.tiktok_config['template'][self.account]['upload_date']
-                if not upload_date_str:
-                    return False
-                upload_date = get_upload_date(upload_date_str)
-                upload_date = convert_datetime_to_string(upload_date)
-                if self.is_auto_upload:
-                    number_of_days = 100
-                    upload_date = add_date_into_string(upload_date_str, day_gap)
-                    self.tiktok_config['show_browser'] = False
-                    if folder:
-                        self.tiktok_config['show_browser'] = True
-                    if not is_date_greater_than_current_day(upload_date, day_delta=0):
-                        upload_date = add_date_into_string(current_day, day_gap=1)
                 publish_times_str = self.tiktok_config['template'][self.account]['publish_times']
                 publish_times = publish_times_str.split(',')   
                 if not publish_times:
-                    return False
+                    return False, False
+                day_gap = get_day_gap(self.tiktok_config['template'][self.account]['day_gap'])
+                old_upload_date_str = self.tiktok_config['template'][self.account]['upload_date']
+                if not old_upload_date_str:
+                    return False, False
+                upload_date = get_upload_date(old_upload_date_str)
+                upload_date_str = convert_datetime_to_string(upload_date)
+                if upload_date_str != old_upload_date_str:
+                    self.tiktok_config['template'][self.account]['cnt_upload_in_day'] = 0
+                if self.is_auto_upload:
+                    number_of_days = 100
+                    self.tiktok_config['show_browser'] = False
+                    if folder:
+                        self.tiktok_config['show_browser'] = True
+                    if self.tiktok_config['template'][self.account]['cnt_upload_in_day'] == 0 or self.tiktok_config['template'][self.account]['cnt_upload_in_day'] >= len(publish_times):
+                        upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                        self.tiktok_config['template'][self.account]['cnt_upload_in_day'] = 0
             else:
-                number_of_days=1
-                upload_date = current_day
-
+                upload_date_str = current_day
             for i, video_file in enumerate(videos):
                 if self.is_stop_upload:
                     break
+                if is_date_greater_than_current_day(upload_date_str, 9):
+                    print("Dừng đăng video vì ngày lên lịch đã vượt  quá giới hạn mà tiktok cho phép(tối đa 10 ngày)")
+                    break
                 if self.is_schedule:
-                    publish_time = publish_times[upload_count % len(publish_times)].strip()
-                    publish_time = get_pushlish_time_hh_mm(publish_time)
-                    if not publish_time:
-                        return False
-                    if not check_datetime_input(upload_date, publish_time):
-                        return False
+                    cnt_upload_in_day = self.tiktok_config['template'][self.account]['cnt_upload_in_day']
+                    while True:
+                        publish_time = publish_times[cnt_upload_in_day % len(publish_times)].strip()
+                        publish_time = get_pushlish_time_hh_mm(publish_time)
+                        if not check_datetime_input(upload_date_str, publish_time):
+                            cnt_upload_in_day += 1
+                            if cnt_upload_in_day % len(publish_times) == 0:
+                                upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                                self.tiktok_config['template'][self.account]['cnt_upload_in_day'] = 0
+                        else:
+                            break
                 if upload_count == 0:
                     if not self.login(self.tiktok_config['show_browser']):
                         print(f'Có lỗi trong quá trình đăng nhập. Hãy kiểm tra xem tài khoản có cần phải xác minh capcha không.')
-                        return False
+                        return False, False
                 video_name = os.path.splitext(video_file)[0] #lấy tên
                 thumbnail_path = os.path.join(thumbnail_folder, f'{video_name}.png')
     
@@ -547,10 +562,13 @@ class TikTokManager:
                     break
                 if self.is_schedule:   
                     self.click_schedule_button()
-                    self.select_date(upload_date)
+                    if self.select_date(upload_date_str):
+                        return False, True
                     if self.is_stop_upload:
                         break
                     self.select_time(publish_time)
+                    if self.is_stop_upload:
+                        break
                     if self.check_progress_upload():
                         if self.check_status_copyright_check():
                             if self.is_stop_upload:
@@ -562,19 +580,19 @@ class TikTokManager:
                     else:
                         continue
                     upload_count += 1
-                    if self.tiktok_config['template'][self.account]['upload_date'] != upload_date:
-                        self.tiktok_config['template'][self.account]['upload_date'] = upload_date
-                        self.save_tiktok_config()
+                    cnt_upload_in_day += 1
+                    self.tiktok_config['template'][self.account]['cnt_upload_in_day'] = cnt_upload_in_day
+                    if self.tiktok_config['template'][self.account]['upload_date'] != upload_date_str:
+                        self.tiktok_config['template'][self.account]['upload_date'] = upload_date_str
                     print(f'--> Đăng thành công video {video_file}')
                     remove_or_move_file(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
-                    if (upload_count) % len(publish_times) == 0:
-                        upload_date = add_date_into_string(upload_date, day_gap)
+                    if cnt_upload_in_day % len(publish_times) == 0:
+                        upload_date_str = add_date_into_string(upload_date_str, day_gap)
                         date_cnt += 1
-                        if date_cnt == number_of_days:
-                            break
-                        if is_date_greater_than_current_day(upload_date, 9):
-                            print("Dừng đăng video vì ngày lên lịch đã vượt  quá giới hạn mà tiktok cho phép(tối đa 10 ngày)")
-                            break
+                        self.tiktok_config['template'][self.account]['cnt_upload_in_day'] = 0
+                    self.save_tiktok_config()
+                    if date_cnt == number_of_days:
+                        break
                 else:
                     if self.is_stop_upload:
                         break
@@ -593,8 +611,8 @@ class TikTokManager:
                         break
                     
                     upload_count += 1
-                    if self.tiktok_config['template'][self.account]['upload_date'] != upload_date:
-                        self.tiktok_config['template'][self.account]['upload_date'] = upload_date
+                    if self.tiktok_config['template'][self.account]['upload_date'] != upload_date_str:
+                        self.tiktok_config['template'][self.account]['upload_date'] = upload_date_str
                         self.save_tiktok_config()
                     print(f'--> Đăng thành công video {video_file}')
                     remove_or_move_file(video_path, is_delete=self.tiktok_config['template'][self.account]['is_delete_after_upload'], finish_folder_name='tiktok_upload_finished')
@@ -602,16 +620,16 @@ class TikTokManager:
                         break
             if upload_count > 0:
                 print(f"Đăng thành công {upload_count} video.")
-                return True
-            return False
+                return True, False
+            return False, False
         except:
             getlog()
-            return False
+            return False, False
         finally:
             self.close()
 
     def save_tiktok_config(self):
-        save_to_json_file(self.tiktok_config, tiktok_config_path)
+        save_to_pickle_file(self.tiktok_config, tiktok_config_path)
 
     def get_tiktok_config(self):
         self.tiktok_config = get_json_data(tiktok_config_path)
@@ -685,7 +703,7 @@ class TikTokManager:
             sleep(1)
             self.load_session()
             self.driver.get(url)
-            sleep(3)
+            sleep(4)
             press_esc_key(1, self.driver)
             if self.tiktok_config['show_browser']:
                 sleep(6)
@@ -767,7 +785,7 @@ class TikTokManager:
             if len(video_urls) > 0:
                 print(f"--> Tổng số video tìm được là {len(video_urls)}")
             else:
-                print(f'Không tìm thấy video nào. Có thể trình duyệt yêu cầu xác minh capcha !!!')
+                print(f'Không tìm thấy video nào phù hợp!!!')
                 return
             download_folder = self.tiktok_config['download_folder']
             for url in video_urls.copy():
@@ -775,7 +793,7 @@ class TikTokManager:
                     if self.is_stop_download:
                         break
                     print(f'--> Bắt đầu tải video: {url}')
-                    if download_video_by_url(url, download_folder=download_folder, try_down=True):
+                    if download_video_by_url(url, download_folder=download_folder):
                         print(f"--> Tải thành công video: {url}")
                         cnt_download += 1
                         video_urls.remove(url)
@@ -829,7 +847,7 @@ class TikTokManager:
         self.setting_screen_position()
 
     def save_tiktok_config(self):
-        save_to_json_file(self.tiktok_config, tiktok_config_path)
+        save_to_pickle_file(self.tiktok_config, tiktok_config_path)
 
     def exit_app(self):
         self.reset()

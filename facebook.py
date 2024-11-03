@@ -147,6 +147,7 @@ class FacebookManager:
             self.facebook_config['template'][self.page_name]["description"] = self.description_var.get("1.0", ctk.END).strip()
             self.facebook_config['template'][self.page_name]["upload_date"] = upload_date
             self.facebook_config['template'][self.page_name]["publish_times"] = publish_times
+            self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] = 0
             self.facebook_config['template'][self.page_name]["is_title_plus_video_name"] = self.is_title_plus_video_name_var.get() == "Yes"
             self.facebook_config['template'][self.page_name]["upload_folder"] = self.upload_folder_var.get()
             self.facebook_config['template'][self.page_name]["is_delete_after_upload"] = self.is_delete_after_upload_var.get() == 'Yes'
@@ -295,7 +296,7 @@ class FacebookManager:
                             if url not in download_info['downloaded_urls']:
                                 download_info['downloaded_urls'].append(url)
                                 video_urls.remove(url)
-                                save_to_json_file(download_info, download_info_path)
+                                save_to_pickle_file(download_info, download_info_path)
                                 cnt += 1
                 if cnt > 0:
                     print(f'Đã tải thành công {cnt} video')
@@ -344,12 +345,12 @@ class FacebookManager:
         if 'facebook' not in self.cookies_info:
             self.cookies_info['facebook'] = {}
         self.cookies_info['facebook'][self.account] = self.driver.get_cookies()
-        save_to_json_file(self.cookies_info, facebook_cookies_path)
+        save_to_pickle_file(self.cookies_info, facebook_cookies_path)
         if 'facebook' not in self.local_storage_info:
             self.local_storage_info['facebook'] = {}
         local_storage = self.driver.execute_script("return {...window.localStorage};")
         self.local_storage_info['facebook'][self.account] = local_storage
-        save_to_json_file(self.local_storage_info, local_storage_path)
+        save_to_pickle_file(self.local_storage_info, local_storage_path)
 
     def waiting_for_capcha_verify(self):
         sleep(2)
@@ -778,28 +779,33 @@ class FacebookManager:
                 return False
             upload_count = 0
             date_cnt = 0
-            time_cnt = 0
+            if 'cnt_upload_in_day' not in self.facebook_config['template'][self.page_name]:
+                self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] = 0
             number_of_days = get_number_of_days(self.facebook_config['template'][self.page_name]['number_of_days'])
             current_day = convert_datetime_to_string(datetime.now().date())
             if self.is_schedule:
                 day_gap = get_day_gap(self.facebook_config['template'][self.page_name]['day_gap'])
-                upload_date_yymmdd_str = self.facebook_config['template'][self.page_name]['upload_date']
-                upload_date_yymmdd = convert_date_string_to_datetime(upload_date_yymmdd_str)
-                upload_date_yymmdd = get_upload_date(upload_date_yymmdd)
-                upload_date_yymmdd = convert_datetime_to_string(upload_date_yymmdd)
+                old_upload_date_str = self.facebook_config['template'][self.page_name]['upload_date']
+                if not old_upload_date_str:
+                    return False
+                upload_date = get_upload_date(old_upload_date_str)
+                upload_date_str = convert_datetime_to_string(upload_date)
+                if upload_date_str != old_upload_date_str:
+                    self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] = 0
                 publish_times_str = self.facebook_config['template'][self.page_name]['publish_times']
                 publish_times = publish_times_str.split(',')
+                if not publish_times:
+                    return False
                 if self.is_auto_upload:
                     number_of_days = 100
-                    upload_date_yymmdd = add_date_into_string(upload_date_yymmdd, day_gap=day_gap)
                     self.facebook_config['show_browser'] = False
                     if folder:
                         self.facebook_config['show_browser'] = True
-                    if not is_date_greater_than_current_day(upload_date_yymmdd, day_delta=0):
-                        upload_date_yymmdd = add_date_into_string(current_day, day_gap=1)
+                    if self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] == 0 or self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] >= len(publish_times):
+                        upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                        self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] = 0
             else:
-                number_of_days=1
-                upload_date_yymmdd = current_day
+                upload_date_str = current_day
 
 
             if not self.login(self.facebook_config['show_browser']):
@@ -809,6 +815,9 @@ class FacebookManager:
                 return
             for i, video_file in enumerate(videos, start=0):
                 if self.is_stop_upload:
+                    break
+                if is_date_greater_than_current_day(upload_date_str, 28):
+                    print("Dừng đăng video vì ngày lên lịch đã vượt  quá giới hạn mà facebook cho phép(tối đa 29 ngày)")
                     break
                 video_name = os.path.splitext(video_file)[0]
                 title = self.facebook_config['template'][self.page_name]['title']
@@ -823,7 +832,16 @@ class FacebookManager:
                 video_path = os.path.join(videos_folder, video_file)
                 print(f'--> Bắt đầu đăng video {video_file}')
                 if self.is_schedule:
-                    publish_time = publish_times[time_cnt].strip()
+                    cnt_upload_in_day = self.facebook_config['template'][self.page_name]['cnt_upload_in_day']
+                    while True:
+                        publish_time = publish_times[cnt_upload_in_day % len(publish_times)].strip()
+                        if not check_datetime_input(upload_date_str, publish_time):
+                            cnt_upload_in_day += 1
+                            if cnt_upload_in_day % len(publish_times) == 0:
+                                upload_date_str = add_date_into_string(upload_date_str, day_gap)
+                                self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] = 0
+                        else:
+                            break
                     if self.en_language:
                         publish_time = get_pushlish_time_hh_mm(publish_time, facebook_time=True)
                         if not publish_time:
@@ -834,8 +852,6 @@ class FacebookManager:
                         if not publish_time:
                             return
                         hour, minute = publish_time.split(':')
-                    if not check_datetime_input(upload_date_yymmdd, publish_time):
-                        return False
                     self.get_meta_business_suite()
                     if self.is_stop_upload:
                         break
@@ -854,7 +870,7 @@ class FacebookManager:
                     self.input_description(description)
                     self.click_option_menu()
                     self.click_schedule_option()
-                    self.input_date(upload_date_yymmdd)
+                    self.input_date(upload_date_str)
                     if self.is_stop_upload:
                         break
                     self.input_hours(hour)
@@ -869,21 +885,20 @@ class FacebookManager:
                         break
                     self.click_public_schedule_button()
                     upload_count += 1
-                    time_cnt += 1
-                    if self.facebook_config['template'][self.page_name]['upload_date'] != upload_date_yymmdd:
-                        self.facebook_config['template'][self.page_name]['upload_date'] = upload_date_yymmdd
-                        self.save_facebook_config()
+                    cnt_upload_in_day += 1
+                    self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] = cnt_upload_in_day
+                    if self.facebook_config['template'][self.page_name]['upload_date'] != upload_date_str:
+                        self.facebook_config['template'][self.page_name]['upload_date'] = upload_date_str
                     print(f'--> Đăng thành công video {video_file}')
                     remove_or_move_file(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], True, 'facebook_upload_finished')
-                    if (time_cnt) % len(publish_times) == 0:
-                        upload_date_yymmdd = add_date_into_string(upload_date_yymmdd, day_gap)
+
+                    if (cnt_upload_in_day) % len(publish_times) == 0:
+                        upload_date_str = add_date_into_string(upload_date_str, day_gap)
                         date_cnt += 1
-                        time_cnt = 0
-                        if date_cnt == number_of_days:
-                            break
-                        if is_date_greater_than_current_day(upload_date_yymmdd, 28):
-                            print("Dừng đăng video vì ngày lên lịch đã vượt  quá giới hạn mà facebook cho phép(tối đa 29 ngày)")
-                            break
+                        self.facebook_config['template'][self.page_name]['cnt_upload_in_day'] = 0
+                    self.save_facebook_config()
+                    if date_cnt == number_of_days:
+                        break
                 else:
                     if self.is_reel_video:
                         self.driver.get("https://www.facebook.com/reels/create/?surface=ADDL_PROFILE_PLUS")
@@ -907,8 +922,8 @@ class FacebookManager:
                             break
                         self.click_post_button()
                     print(f'--> Đăng thành công video {video_file}')
-                    if self.facebook_config['template'][self.page_name]['upload_date'] != upload_date_yymmdd:
-                        self.facebook_config['template'][self.page_name]['upload_date'] = upload_date_yymmdd
+                    if self.facebook_config['template'][self.page_name]['upload_date'] != upload_date_str:
+                        self.facebook_config['template'][self.page_name]['upload_date'] = upload_date_str
                         self.save_facebook_config()
                     remove_or_move_file(video_path, self.facebook_config['template'][self.page_name]['is_delete_after_upload'], self.facebook_config['template'][self.page_name]['is_move_after_upload'], 'facebook_upload_finished')
                     upload_count += 1
@@ -956,7 +971,7 @@ class FacebookManager:
         self.setting_screen_position()
 
     def save_facebook_config(self):
-        save_to_json_file(self.facebook_config, facebook_config_path)
+        save_to_pickle_file(self.facebook_config, facebook_config_path)
 
     def exit_app(self):
         self.reset()
