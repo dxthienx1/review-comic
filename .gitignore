@@ -1,5 +1,5 @@
 ffmpeg/
-test/
+test*/
 oauth/
 download_folder/
 finish/
@@ -26,3 +26,20 @@ download_info.json
 *.pem
 *.mp3
 *.mp4
+*.wav
+# venv/
+vietnamese_dataset/
+dataset/
+finetune_models/
+main/
+output/
+models/
+scripts/
+wavs/
+eval/
+venv/
+.vscode/
+best_model*.pth
+*.pyc
+*.log
+test*.py
