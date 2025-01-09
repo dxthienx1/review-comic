@@ -394,7 +394,7 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
         self.chapters_var = create_frame_label_and_input(self.root, label_text="Tải chương truyện cụ thể", width=self.width, left=0.4, right=0.6)
-        self.download_image_from_truyenqqto_var = create_frame_button_and_input(self.root,text="Tải các chương truyện", command=start_thread_download_image_from_truyenqqto, width=self.width, left=0.4, right=0.6)
+        self.download_image_from_truyenqqto_var = create_frame_button_and_input(self.root,text="Tải các chương truyện", command=start_thread_download_image_from_truyenqqto, place_holder="Link danh sách chương", width=self.width, left=0.4, right=0.6)
         self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu ảnh", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
@@ -402,6 +402,9 @@ class MainApp:
         # nettruyenssr.com, truyenqqto.com
         try:
             main_folder = self.download_folder_var.get()
+            if not main_folder.strip():
+                print(f'Hãy chọn thư mục chứa truyện tải về!')
+                return
             if not check_folder(main_folder):
                 return
             chapter_url = self.download_image_from_truyenqqto_var.get()
@@ -423,7 +426,7 @@ class MainApp:
             def get_list_chapter():
                 if 'truyenqqto.com' in chapter_url:
                     return get_element_by_text(driver, "Chương ", tag_name="a", multiple=True)
-                elif 'nettruyenssr.com/' in chapter_url:
+                elif '//nettruyen' in chapter_url:
                     def click_view_more():
                         def click_ADS():
                             try:

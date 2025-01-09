@@ -107,7 +107,7 @@ LEFT = 'left'
 RIGHT = 'right'
 CENTER = 'center'
 
-max_lenth_text = 300
+max_lenth_text = 250
 
 def load_ffmpeg():
     def get_ffmpeg_dir():
@@ -4165,8 +4165,8 @@ def cleaner_text(text, is_loi_chinh_ta=True):
 
 
 # # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
-# cnt = 1
-# old_txt = "E:\\Python\\developping\\review comic\\test\\1.txt"
+# cnt = 3875
+# old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\18.txt"
 
 # fol = os.path.dirname(old_txt)
 # file_name = os.path.basename(old_txt).split('.')[0]
