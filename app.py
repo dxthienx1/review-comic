@@ -48,6 +48,7 @@ class MainApp:
             self.new_name=None
             self.index = 1
             self.download_image_from_truyenqqto = False
+            self.download_text_story = False
             self.edit_image_window = False
             self.export_video_window = False
             self.is_extract_sub_image_audio_from_video_window = False
@@ -77,14 +78,168 @@ class MainApp:
             self.setting_window_size()
         else:
             self.show_window()
+        create_button(frame=self.root, text="Tải truyện chữ", command=self.open_download_text_story_window)
         create_button(frame=self.root, text="Tải truyện tranh", command=self.open_download_image_window)
         create_button(frame=self.root, text="Lấy phụ đề từ ảnh", command=self.open_edit_image_window)
-        create_button(frame=self.root, text="Xuất video từ phụ đề truyện tranh", command=self.export_video_from_subtitles_window)
+        create_button(frame=self.root, text="Xuất video từ phụ đề truyện", command=self.export_video_from_subtitles_window)
         create_button(frame=self.root, text="Tải video", command=self.open_other_download_video_window)
         create_button(frame=self.root, text="Xử lý video", command=self.open_edit_video_menu)
         create_button(frame=self.root, text="Xử lý audio", command=self.open_edit_audio_window)
         create_button(frame=self.root, text="Chức năng khác", command=self.other_function)
         create_button(frame=self.root, text="Cài đặt chung", command=self.open_common_settings)
+
+    def open_download_text_story_window(self):
+        def start_thread_download_text_story():
+            if not self.download_thread or not self.download_thread.is_alive():
+                self.is_stop_download = False
+                self.download_thread = threading.Thread(target=self.start_download_text_story)
+                self.download_thread.start()
+        
+        self.reset()
+        self.download_text_story = True
+        self.show_window()
+        self.setting_window_size()
+        self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu truyện", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
+        self.chapters_var = create_frame_label_and_input(self.root, text="chương bắt đầu-chương kết thúc", width=self.width, left=0.4, right=0.6)
+        self.download_text_story_var = create_frame_label_and_input(self.root,text="Mẫu link tải chương truyện", place_holder="thay số chương bằng <idx>", width=self.width, left=0.4, right=0.6)
+        create_button(self.root, text="Bắt đầu tải", command=start_thread_download_text_story, width=self.width)
+        create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
+
+    def start_download_text_story(self):
+        try:
+            main_folder = self.download_folder_var.get()
+            if not main_folder.strip():
+                print(f'Hãy chọn thư mục chứa truyện tải về!')
+                return
+            if not check_folder(main_folder):
+                return
+            base_url = self.download_text_story_var.get()
+            if not base_url.startswith('http://vietnamthuquan'):
+                if '<idx>' not in base_url:
+                    print(f'Link tải truyện phải thay <idx> vào vị trí chương truyện. Ví dụ link chương 2 là https://metruyenchu.vn/thieu-gia-bi-bo-roi/chuong-2-32C8 thì chuyển thành https://metruyenchu.vn/thieu-gia-bi-bo-roi/chuong-<idx>-32C8')
+                    return
+                is_use_profile = True
+            else:
+                is_use_profile = False
+
+            start_chapter = self.chapters_var.get().strip()
+            if '-' not in start_chapter:
+                start_chapter = int(start_chapter)
+                end_chapter = 5000
+            else:
+                try:
+                    start_chapter, end_chapter = start_chapter.split('-')
+                    start_chapter = int(start_chapter.strip())
+                    end_chapter = int(end_chapter.strip())
+                except:
+                    start_chapter = 1
+                    end_chapter = 5000
+
+            if not base_url:
+                self.noti("Hãy nhập link truyện muốn tải trước.")
+                return
+            if is_use_profile:
+                driver = get_driver_with_profile(show=True)
+            else:
+                driver = get_driver(show=True)
+            sleep(3)
+            driver.get(base_url)
+            sum_txt_path = os.path.join(main_folder, f'sum_content.txt')
+            list_linkes = []
+            sum_content = ""
+            start_down = True
+            for i in range(start_chapter, end_chapter+1):
+                if 'http://vietnamthuquan' in base_url:
+                    txt_path = sum_txt_path
+                else:
+                    txt_path = os.path.join(main_folder, f'{i}.txt')
+                with open(txt_path, 'w', encoding='utf-8') as file:
+                    link = base_url.replace('<idx>', str(i))
+                    if link not in list_linkes:
+                        chapter_content = ""
+                        driver.get(link)
+                        sleep(2)
+                        if start_down:
+                            sleep(8)
+                            start_down = False
+                        if 'https://metruyenchu' in  link:
+                            xpath = get_xpath('article', 'chapter-content', contain=True)
+                            ele = get_element_by_xpath(driver, xpath)
+                            if ele:
+                                list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                if len(list_contents) > 0:
+                                    for p_ele in list_contents:
+                                        content = p_ele.text
+                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                        if 'http://vietnamthuquan' in  link:
+                            xpath_links = "//div[contains(@onclick, 'chuongid')]"
+                            all_links = get_element_by_xpath(driver, xpath_links, multiple=True)
+                            for i, link_chapter in enumerate(all_links):
+                                txt_path1 = os.path.join(main_folder, f'{i+1}.txt')
+                                with open(txt_path1, 'w', encoding='utf-8') as file:
+                                    link_chapter.click()
+                                    sleep(4)
+                                    xpath = get_xpath('div', 'chuhoavn')
+                                    ele = get_element_by_xpath(driver, xpath)
+                                    if ele:
+                                        chapter_content = ele.text
+                                    if chapter_content:
+                                        file.write(f'{chapter_content}')
+                                        sum_content = f'{sum_content}\n{chapter_content}' if sum_content else chapter_content
+                                        chapter_content = ""
+                                    else:
+                                        print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
+                                        break
+                            with open(sum_txt_path, 'w', encoding='utf-8') as file:
+                                file.write(sum_content)
+                            self.close_driver()
+                            return
+                        if 'https://banlong.us/' in  link:
+                            xpath = get_xpath('div', 'published-content', contain=True)
+                            ele = get_element_by_xpath(driver, xpath)
+                            if ele:
+                                list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                if len(list_contents) > 0:
+                                    for p_ele in list_contents:
+                                        content = p_ele.text
+                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                        elif 'https://truyenyy' in  link:
+                            xpath = get_xpath('div', 'chap-content', contain=True)
+                            ele = get_element_by_xpath(driver, xpath)
+                            if ele:
+                                list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                if len(list_contents) > 0:
+                                    for p_ele in list_contents:
+                                        content = p_ele.text
+                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                        elif 'https://truyenfull' in  link or 'https://truyenhoan' in link:
+                            xpath = get_xpath('div', 'chapter-c', contain=True)
+                            ele = get_element_by_xpath(driver, xpath)
+                            if ele:
+                                ads_contents = ele.find_elements(By.XPATH, "./*")
+                                ads_texts = [e.text.strip() for e in ads_contents if e.text.strip()]
+                                content = ele.text
+                                for ad_text in ads_texts:
+                                    content = content.replace(ad_text, '')
+                                if content:
+                                    liness = content.split('\n')
+                                    lines = [line.strip() for line in liness if line.strip()]
+                                    for content in lines:
+                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+
+                        if chapter_content:
+                            file.write(f'{chapter_content}')
+                            sum_content = f'{sum_content}\n{chapter_content}' if sum_content else chapter_content
+                        else:
+                            print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
+                            break
+            with open(sum_txt_path, 'w', encoding='utf-8') as file:
+                file.write(sum_content)
+        except:
+            print(f'Lỗi khi lấy nội dung từ web {base_url}!!!')
+            getlog()
+        finally:
+            self.close_driver()
 
     def open_edit_image_window(self):
         def start_edit_image_thread():
@@ -97,7 +252,7 @@ class MainApp:
         self.edit_image_window = True
         self.show_window()
         self.setting_window_size()
-        self.black_word_var = create_frame_label_and_input(self.root, label_text="Các từ muốn loại bỏ", width=self.width, left=0.4, right=0.6)
+        self.black_word_var = create_frame_label_and_input(self.root, text="Các từ muốn loại bỏ", width=self.width, left=0.4, right=0.6)
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa truyện", command=self.choose_videos_edit_folder, width=self.width, left=0.4, right=0.6)
         create_button(self.root, text="Bắt đầu", command=start_edit_image_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
@@ -199,19 +354,87 @@ class MainApp:
         def start_export_video_from_subtitles_thread():
             if not self.edit_thread or not self.edit_thread.is_alive():
                 self.is_stop_edit = False
-                self.edit_thread = threading.Thread(target=self.export_video_from_subtitles)
+                is_comic = self.story_type_var.get() == 'Yes'
+                if is_comic:
+                    self.edit_thread = threading.Thread(target=self.export_video_from_subtitles)
+                else:
+                    self.edit_thread = threading.Thread(target=self.export_text_story_to_video)
                 self.edit_thread.start()
         
         self.reset()
         self.export_video_window = True
         self.show_window()
         self.setting_window_size()
-        self.language_var = self.create_settings_input(label_text="Ngôn ngữ", config_key="language_tts", values=self.support_languages, left=0.3, right=0.7)
-        self.speed_talk_var = self.create_settings_input(label_text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
-        # self.speed_talk_var = create_frame_label_and_input(self.root, label_text="Tốc độ giọng đọc", width=self.width, left=0.3, right=0.7)
+        self.language_var = self.create_settings_input(text="Ngôn ngữ", config_key="language_tts", values=self.support_languages, left=0.3, right=0.7)
+        self.language_var.set('vi')
+        self.speed_talk_var = self.create_settings_input(text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
+        self.story_type_var = self.create_settings_input(text="Đây là truyện tranh", values=['Yes', 'No'], left=0.3, right=0.7)
+        self.story_type_var.set('No')
+        self.thread_number_var = self.create_settings_input(text="Số luồng chạy", values=['1', '2', '3', '4'], left=0.3, right=0.7)
+        self.thread_number_var.set('1')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa truyện", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_subtitles_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
+
+    def export_text_story_to_video(self):
+        try:
+            start_time = time()
+            is_merge_videos = False
+            thread_number = self.thread_number_var.get().strip()
+            language = self.language_var.get().strip()
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\vi.wav")
+            if language == 'en':
+                speaker_wav = os.path.join(current_dir, "models\\ref_data\\en.wav")
+            if language == 'zh':
+                speaker_wav = os.path.join(current_dir, "models\\ref_data\\zh.wav")
+
+            folder_story = self.videos_edit_folder_var.get().strip()
+            if not check_folder(folder_story):
+                print(f"Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
+                return False
+
+            txt_files = get_file_in_folder_by_type(folder_story, file_type='.txt') or []
+            if len(txt_files) == 0:
+                print(f'Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
+                return False
+
+            images = get_file_in_folder_by_type(folder_story, file_type='.jpg', noti=False) or []
+            output_folder = os.path.join(folder_story, 'output')
+            os.makedirs(output_folder, exist_ok=True)
+
+            for i, txt_file in enumerate(txt_files):
+                t = time()
+                file_name = txt_file.replace('.txt', '')
+                txt_path = os.path.join(folder_story, txt_file)
+                output_audio_path = os.path.join(output_folder, f'{file_name}.wav')
+                # Chuyển đổi text thành audio
+                text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=output_audio_path, thread_number=thread_number)
+                try:
+                    img_path = os.path.join(folder_story, images[i])
+                except IndexError:
+                    img_path = None
+                if os.path.exists(output_audio_path):
+                    print(f'Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
+                    if img_path and os.path.exists(img_path):
+                        is_merge_videos = True
+                        output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
+                        # Ghép ảnh và âm thanh thành video
+                        command = f"ffmpeg -y -loop 1 -i \"{img_path}\" -i \"{output_audio_path}\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest \"{output_video_path}\""
+                        run_command_ffmpeg(command=command)
+                else:
+                    print(f'Warning: xuất file {txt_path} sang audio không thành công !!!')
+            export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
+            if is_merge_videos:
+                merge_videos_use_ffmpeg(output_folder, export_file_name)
+                print("Xuất video hoàn tất.")
+            else:
+                merge_audio_use_ffmpeg(output_folder, export_file_name)
+                print("Xuất audio hoàn tất.")
+            print(f'Tổng thời gian xử lý: {time() - start_time}s')
+            return True
+        except:
+            getlog()
+            return False
 
     def export_video_from_subtitles(self):
         try:
@@ -393,9 +616,9 @@ class MainApp:
         self.download_image_from_truyenqqto = True
         self.show_window()
         self.setting_window_size()
-        self.chapters_var = create_frame_label_and_input(self.root, label_text="Tải chương truyện cụ thể", width=self.width, left=0.4, right=0.6)
-        self.download_image_from_truyenqqto_var = create_frame_button_and_input(self.root,text="Tải các chương truyện", command=start_thread_download_image_from_truyenqqto, place_holder="Link danh sách chương", width=self.width, left=0.4, right=0.6)
         self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu ảnh", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
+        self.chapters_var = create_frame_label_and_input(self.root, text="Tải chương truyện cụ thể", width=self.width, left=0.4, right=0.6)
+        self.download_image_from_truyenqqto_var = create_frame_button_and_input(self.root,text="Tải các chương truyện", command=start_thread_download_image_from_truyenqqto, place_holder="Link danh sách chương", width=self.width, left=0.4, right=0.6)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
     def start_download_image_from_truyenqqto(self):
@@ -531,7 +754,7 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
         self.is_start_app = False
-        self.download_by_video_url = create_frame_label_and_input(self.root, label_text="Nhập link video", width=self.width, left=0.4, right=0.6)
+        self.download_by_video_url = create_frame_label_and_input(self.root, text="Nhập link video", width=self.width, left=0.4, right=0.6)
         self.download_folder_var = create_frame_button_and_input(self.root, text="Chọn thư mục lưu video", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
         create_button(frame=self.root, text="Bắt đầu tải video", command=start_download_by_video_url)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
@@ -605,14 +828,14 @@ class MainApp:
         self.is_edit_audio_option = True
         self.setting_window_size()
         self.show_window()
-        self.end_cut_var, self.first_cut_var = create_frame_label_input_input(self.root, label_text="Cắt ở đầu/cuối video (s)", width=self.width, left=0.4, mid=0.28, right=0.32)
+        self.end_cut_var, self.first_cut_var = create_frame_label_input_input(self.root, text="Cắt ở đầu/cuối video (s)", width=self.width, left=0.4, mid=0.28, right=0.32)
         # self.end_cut_var.delete(0, ctk.END)
         self.end_cut_var.insert(0, 0)
         self.first_cut_var.insert(0, 0)
-        self.audio_speed_var = self.create_settings_input(label_text="Tốc độ phát", config_key="audio_speed", values=['0.8', '1', '1.2'], left=0.4, right=0.6)
-        self.pitch_factor_var = self.create_settings_input(label_text="Điều chỉnh cao độ (vd: 1.2)", config_key="pitch_factor", values=['-0.8','1','1.2'], left=0.4, right=0.6)
-        self.cut_silence_var = self.create_settings_input(label_text="Cắt bỏ những đoạn im lặng", config_key="cut_silence", values=['Yes', 'No'], left=0.4, right=0.6)
-        self.aecho_var = self.create_settings_input(label_text="Tạo tiếng vang (ms)", config_key="aecho", values=['100', '500', '1000'], left=0.4, right=0.6)
+        self.audio_speed_var = self.create_settings_input(text="Tốc độ phát", config_key="audio_speed", values=['0.8', '1', '1.2'], left=0.4, right=0.6)
+        self.pitch_factor_var = self.create_settings_input(text="Điều chỉnh cao độ (vd: 1.2)", config_key="pitch_factor", values=['-0.8','1','1.2'], left=0.4, right=0.6)
+        self.cut_silence_var = self.create_settings_input(text="Cắt bỏ những đoạn im lặng", config_key="cut_silence", values=['Yes', 'No'], left=0.4, right=0.6)
+        self.aecho_var = self.create_settings_input(text="Tạo tiếng vang (ms)", config_key="aecho", values=['100', '500', '1000'], left=0.4, right=0.6)
         self.folder_get_audio_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa audio", command= self.choose_folder_get_audio, left=0.4, right=0.6, width=self.width)
         self.folder_get_audio_var.insert(0, self.config['audios_edit_folder'])
         create_button(self.root, text="Bắt đầu chỉnh sửa audio", command=start_thread_edit_audio, width=self.width)
@@ -623,10 +846,10 @@ class MainApp:
         self.is_extract_audio_option = True
         self.setting_window_size()
         self.show_window()
-        self.segment_audio_var = create_frame_label_and_input(self.root, label_text="Thời gian bắt đầu-kết thúc", width=self.width, left=0.4, right=0.6)
-        self.speed_audio_var = create_frame_label_and_input(self.root, label_text="Thay đổi tốc độ audio", width=self.width, left=0.4, right=0.6)
+        self.segment_audio_var = create_frame_label_and_input(self.root, text="Thời gian bắt đầu-kết thúc", width=self.width, left=0.4, right=0.6)
+        self.speed_audio_var = create_frame_label_and_input(self.root, text="Thay đổi tốc độ audio", width=self.width, left=0.4, right=0.6)
         self.speed_audio_var.insert(0, '1.0')
-        self.video_get_audio_url = create_frame_label_and_input(self.root, label_text="Lấy audio từ Link", left=0.4, right=0.6)
+        self.video_get_audio_url = create_frame_label_and_input(self.root, text="Lấy audio từ Link", left=0.4, right=0.6)
         self.audio_edit_path = create_frame_button_and_input(self.root,text="Lấy audio từ file MP3", command= self.choose_audio_edit_file, left=0.4, right=0.6)
         self.video_get_audio_path = create_frame_button_and_input(self.root,text="Lấy audio từ file video", command= self.choose_video_get_audio_path, left=0.4, right=0.6)
         self.folder_get_audio_var = create_frame_button_and_input(self.root,text="Lấy audio từ video trong thư mục", command= self.choose_folder_get_audio, left=0.4, right=0.6)
@@ -864,12 +1087,12 @@ class MainApp:
         self.is_cut_video_window =True
         self.show_window()
         self.setting_window_size()
-        self.segments_var = self.create_settings_input(label_text="Khoảng thời gian muốn lấy(start-end)", left=0.4, right=0.6)
-        self.fast_cut_var = self.create_settings_input(label_text="Cắt nhanh", values=["Yes", "No"], left=0.4, right=0.6)
+        self.segments_var = self.create_settings_input(text="Khoảng thời gian muốn lấy(start-end)", left=0.4, right=0.6)
+        self.fast_cut_var = self.create_settings_input(text="Cắt nhanh", values=["Yes", "No"], left=0.4, right=0.6)
         self.fast_cut_var.set(value="No")
-        self.get_audio_var = self.create_settings_input(label_text="Trích xuất MP3", values=["Yes", "No"], left=0.4, right=0.6)
+        self.get_audio_var = self.create_settings_input(text="Trích xuất MP3", values=["Yes", "No"], left=0.4, right=0.6)
         self.get_audio_var.set(value="No")
-        self.choose_is_connect_var = self.create_settings_input(label_text="Nối các video lại", values=["No", "Connect", "Fast Connect"], left=0.4, right=0.6)
+        self.choose_is_connect_var = self.create_settings_input(text="Nối các video lại", values=["No", "Connect", "Fast Connect"], left=0.4, right=0.6)
         self.choose_is_connect_var.set(value="No")
         self.videos_edit_path_var = create_frame_button_and_input(self.root, "Chọn video muốn cắt", width=self.width, command=self.choose_videos_edit_file, left=0.4, right=0.6)
         self.videos_edit_folder_var = create_frame_button_and_input(self.root, "Chọn thư mục chứa các video", width=self.width, command=self.choose_videos_edit_folder, left=0.4, right=0.6)
@@ -882,7 +1105,7 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
         self.file_name_var = create_frame_label_and_input(self.root, "Đặt tên file sau khi gộp", width=self.width, left=0.4, right=0.6)
-        self.fast_combine_var = self.create_settings_input(label_text="Gộp nhanh", values=["Yes", "No"], left=0.4, right=0.6)
+        self.fast_combine_var = self.create_settings_input(text="Gộp nhanh", values=["Yes", "No"], left=0.4, right=0.6)
         self.fast_combine_var.set('Yes')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root, "Chọn thư mục chứa video", command=self.choose_videos_edit_folder, width=self.width, left=0.4, right=0.6)
         self.videos_edit_folder_var.insert(0, self.config['videos_edit_folder'])
@@ -895,7 +1118,7 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
         self.file_name_var = create_frame_label_and_input(self.root, "Đặt tên file sau khi gộp", width=self.width, left=0.4, right=0.6)
-        self.fast_combine_var = self.create_settings_input(label_text="Gộp nhanh", values=["Yes", "No"], left=0.4, right=0.6)
+        self.fast_combine_var = self.create_settings_input(text="Gộp nhanh", values=["Yes", "No"], left=0.4, right=0.6)
         self.fast_combine_var.set('Yes')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root, "Chọn thư mục chứa audio", command=self.choose_videos_edit_folder, width=self.width, left=0.4, right=0.6)
         self.videos_edit_folder_var.insert(0, self.config['videos_edit_folder'])
@@ -963,13 +1186,13 @@ class MainApp:
             self.combine_video_by_moviepy()
 
     def combine_audio_by_ffmpeg(self):
-        videos_folder = self.videos_edit_folder_var.get()
+        audios_folder = self.videos_edit_folder_var.get()
         file_name = self.file_name_var.get()
         fast_combine = self.fast_combine_var.get() == 'Yes'
-        if not check_folder(videos_folder):
+        if not check_folder(audios_folder):
             return
         try:
-            is_ok, message = merge_audio_use_ffmpeg(videos_folder, file_name, fast_combine=fast_combine)
+            is_ok, message = merge_audio_use_ffmpeg(audios_folder, file_name, fast_combine=fast_combine)
             self.noti(message)
         except:
             print(f"Có lỗi trong quá trình gộp audio !!!")
@@ -979,7 +1202,7 @@ class MainApp:
         self.is_edit_video_window = True
         self.setting_window_size()
         self.show_window()
-        self.end_cut_var, self.first_cut_var = create_frame_label_input_input(self.root, label_text="Cắt ở đầu/cuối video (s)", width=self.width, left=0.4, mid=0.28, right=0.32)
+        self.end_cut_var, self.first_cut_var = create_frame_label_input_input(self.root, text="Cắt ở đầu/cuối video (s)", width=self.width, left=0.4, mid=0.28, right=0.32)
         self.first_cut_var.insert(0, self.config['first_cut'])
         self.end_cut_var.insert(0, self.config['end_cut'])
         self.flip_video_var = self.create_settings_input("Lật ngang video", "flip_video", values=["Yes", "No"])
@@ -1386,11 +1609,11 @@ class MainApp:
         self.water_path_var.insert(0, water_mask_image)
 
 #------------------------------------------------------Common-----------------------------------------------------
-    def create_settings_input(self, label_text, config_key=None, values=None, is_textbox = False, left=0.4, right=0.6, add_button=False, text=None, command=None):
+    def create_settings_input(self, text, config_key=None, values=None, is_textbox = False, left=0.4, right=0.6, add_button=False, command=None):
         frame = create_frame(self.root)
         if add_button:
             create_button(frame= frame, text=text, command=command, width=0.2, side=RIGHT)
-        create_label(frame, text=label_text, side=LEFT, width=self.width*left, anchor='w')
+        create_label(frame, text=text, side=LEFT, width=self.width*left, anchor='w')
 
         if values:
             if not config_key:
@@ -1446,6 +1669,7 @@ class MainApp:
         self.is_edit_audio_option = False
         self.is_extract_audio_option = False
         self.download_image_from_truyenqqto = False
+        self.download_text_story = False
         self.edit_image_window = False
         self.export_video_window = False
         self.is_extract_sub_image_audio_from_video_window = False
@@ -1625,9 +1849,9 @@ class MainApp:
                 self.height_window = 315
                 self.is_other_download_window = False            
             elif self.download_image_from_truyenqqto:
-                self.root.title("Tải ảnh từ truyenqqto.com")
+                self.root.title("Tải truyện tranh")
                 self.width = 500
-                self.height_window = 265
+                self.height_window = 270
                 self.download_image_from_truyenqqto = False              
             elif self.edit_image_window:
                 self.root.title("Xử lý ảnh")
@@ -1637,13 +1861,18 @@ class MainApp:
             elif self.export_video_window:
                 self.root.title("Xuất video từ phụ đề")
                 self.width = 500
-                self.height_window = 310
+                self.height_window = 410
                 self.export_video_window = False              
             elif self.is_extract_sub_image_audio_from_video_window:
                 self.root.title("Lấy âm thanh/ phụ đề/ ảnh từ video")
                 self.width = 700
-                self.height_window = 265
+                self.height_window = 270
                 self.is_extract_sub_image_audio_from_video_window = False              
+            elif self.download_text_story:
+                self.root.title("Tải Truyện Chữ")
+                self.width = 500
+                self.height_window = 315
+                self.download_text_story = False              
 
         self.setting_screen_position()
 
@@ -1652,10 +1881,10 @@ class MainApp:
         self.reset()
         self.is_rename_file_by_index_window = True
         self.setting_window_size()
-        self.file_name_var = create_frame_label_and_input(self.root, label_text="Tên file muốn đổi", place_holder="Tên file có chứa \"<index>\" làm vị trí đặt số", width=self.width, left=0.4, right=0.6)
-        self.index_file_name_var = create_frame_label_and_input(self.root, label_text="Số thứ tự bắt đầu", width=self.width, left=0.4, right=0.6)
+        self.file_name_var = create_frame_label_and_input(self.root, text="Tên file muốn đổi", place_holder="Tên file có chứa \"<index>\" làm vị trí đặt số", width=self.width, left=0.4, right=0.6)
+        self.index_file_name_var = create_frame_label_and_input(self.root, text="Số thứ tự bắt đầu", width=self.width, left=0.4, right=0.6)
         self.index_file_name_var.insert(0, '1')
-        self.file_name_extension_var = create_frame_label_and_input(self.root, label_text="Loại file muốn đổi tên", width=self.width, left=0.4, right=0.6)
+        self.file_name_extension_var = create_frame_label_and_input(self.root, text="Loại file muốn đổi tên", width=self.width, left=0.4, right=0.6)
         self.file_name_extension_var.insert(0, '.wav')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         create_button(frame=self.root, text="Bắt Đầu Đổi Tên", command= self.rename_file_by_index)
@@ -1666,7 +1895,7 @@ class MainApp:
         self.reset()
         self.is_extract_image_from_video_window = True
         self.setting_window_size()
-        self.image_position_var = create_frame_label_and_input(self.root, label_text="Chọn vị trí trích xuất ảnh", width=self.width, left=0.4, right=0.6, place_holder='Ví dụ: 00:40 hoặc 00:10:15')
+        self.image_position_var = create_frame_label_and_input(self.root, text="Chọn vị trí trích xuất ảnh", width=self.width, left=0.4, right=0.6, place_holder='Ví dụ: 00:40 hoặc 00:10:15')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa Video", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         create_button(frame=self.root, text="Bắt Đầu Trích Xuất Ảnh", command= self.extract_image_from_video)
         create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
@@ -1676,8 +1905,8 @@ class MainApp:
         self.reset()
         self.is_remove_char_in_file_name_window = True
         self.setting_window_size()
-        self.char_want_to_remove_var = create_frame_label_and_input(self.root, label_text="Nhập các ký tự muốn loại bỏ", width=self.width, left=0.4, right=0.6, place_holder='Ví dụ: .,-,#')
-        self.file_name_extension_var = create_frame_label_and_input(self.root, label_text="Loại file muốn đổi tên", width=self.width, left=0.4, right=0.6)
+        self.char_want_to_remove_var = create_frame_label_and_input(self.root, text="Nhập các ký tự muốn loại bỏ", width=self.width, left=0.4, right=0.6, place_holder='Ví dụ: .,-,#')
+        self.file_name_extension_var = create_frame_label_and_input(self.root, text="Loại file muốn đổi tên", width=self.width, left=0.4, right=0.6)
         self.file_name_extension_var.insert(0, '.wav')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         create_button(frame=self.root, text="Bắt Đầu Đổi Tên", command= self.remove_char_in_file_name)
@@ -1718,8 +1947,8 @@ class MainApp:
         self.is_text_to_mp3_window = True
         self.setting_window_size()
         self.file_path_get_var = create_frame_button_and_input(self.root, text="File \'.txt\' muốn chuyển đổi", command= self.choose_directory_get_txt_file, width=self.width, left=0.4, right=0.6)
-        self.speed_talk_var = self.create_settings_input(label_text="Tốc độ đọc", config_key='speed_talk', values=["0.8", "0.9", "1", "1.1", "1.2"])
-        self.convert_multiple_record_var = self.create_settings_input(label_text="Chế độ chuyển theo từng dòng", values=["Yes", "No"])
+        self.speed_talk_var = self.create_settings_input(text="Tốc độ đọc", config_key='speed_talk', values=["0.8", "0.9", "1", "1.1", "1.2"])
+        self.convert_multiple_record_var = self.create_settings_input(text="Chế độ chuyển theo từng dòng", values=["Yes", "No"])
         self.convert_multiple_record_var.set("No")
         create_button(frame=self.root, text="Bắt đầu chuyển đổi", command= self.text_to_mp3)
         create_button(self.root, text="Lùi lại", command=self.open_edit_audio_window, width=self.width)
