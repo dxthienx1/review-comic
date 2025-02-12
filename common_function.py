@@ -1602,6 +1602,7 @@ def extract_audio_ffmpeg(audio_path=None, video_path=None, video_url=None, video
 
         if video_url:
             video_path = download_video_by_url(video_url, download_folder, return_file_path=True)
+            print(video_path)
 
         for segment in segments:
             segment = segment.strip()
@@ -2010,6 +2011,168 @@ def take_screenshot(name="1"):
             keyboard.unhook_all()
             break
 
+def number_to_vietnamese_with_units(text):
+    # Bản đồ đơn vị và cách đọc
+    unit_mapping = {
+        "h": "giờ",
+        "m": "mét",
+        "cm": "xen ti mét",
+        "mm": "mi li mét",
+        "km": "ki lô mét",
+        "s": "giây",
+        "ms": "mi li giây"
+    }
+
+    # Hàm chuyển đổi số thành chữ
+    def number_to_vietnamese(number):
+        if not (0 <= number < 1_000_000_000_000_000):
+            return "Số nằm ngoài phạm vi hỗ trợ."
+        words = {
+            0: "không",
+            1: "một",
+            2: "hai",
+            3: "ba",
+            4: "bốn",
+            5: "năm",
+            6: "sáu",
+            7: "bảy",
+            8: "tám",
+            9: "chín"
+        }
+        units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
+
+        def read_three_digits(num, is_end):
+            hundreds = num // 100
+            tens = (num % 100) // 10
+            ones = num % 10
+            result = []
+            # Đọc hàng trăm
+            if hundreds > 0:
+                result.append(f"{words[hundreds]} trăm")
+            elif not is_end and (tens > 0 or ones > 0):
+                result.append("không trăm")
+            # Đọc hàng chục và hàng đơn vị
+            if tens > 1:
+                result.append(f"{words[tens]} mươi")
+                if ones == 1:
+                    result.append("mốt")
+                elif ones == 5:
+                    result.append("lăm")
+                elif ones > 0:
+                    result.append(words[ones])
+            elif tens == 1:
+                result.append("mười")
+                if ones > 0:
+                    result.append(words[ones])
+            elif tens == 0:
+                if ones > 0:
+                    if hundreds > 0 or (hundreds == 0 and not is_end):
+                        result.append("linh")
+                    result.append(words[ones])
+
+            return " ".join(result)
+
+        parts = []
+        idx = 0
+        while number > 0:
+            num_part = number % 1000
+            if num_part > 0:
+                if number < 1000:
+                    part = read_three_digits(num_part, is_end=True)
+                else:
+                    part = read_three_digits(num_part, is_end=False)
+                if idx > 0:
+                    part += f" {units[idx]}"
+                parts.append(part)
+            number //= 1000
+            idx += 1
+
+        return " ".join(reversed(parts))
+
+    # Hàm xử lý từng cụm số và đơn vị
+    def convert(match):
+        number = int(match.group(1))
+        unit = match.group(2)
+        if unit:
+            unit_word = unit_mapping.get(unit, unit)
+            return f"{number_to_vietnamese(number)} {unit_word}"
+        return number_to_vietnamese(number)
+
+    # Biểu thức chính quy tìm số và số kèm đơn vị
+    pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
+    return re.sub(pattern, convert, text)
+
+def number_to_english_with_units(text):
+    # Mapping of units to English words
+    unit_mapping = {
+        "h": "hour",
+        "m": "meter",
+        "cm": "centimeter",
+        "mm": "millimeter",
+        "km": "kilometer",
+        "s": "second",
+        "ms": "millisecond"
+    }
+    
+    # Function to convert numbers to English words
+    def number_to_english(number):
+        if not (0 <= number < 1_000_000_000_000_000):
+            return "Number out of supported range."
+        
+        words = {
+            0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+            6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+            11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen", 15: "fifteen",
+            16: "sixteen", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty",
+            30: "thirty", 40: "forty", 50: "fifty", 60: "sixty", 70: "seventy",
+            80: "eighty", 90: "ninety"
+        }
+        units = ["", "thousand", "million", "billion", "trillion"]
+        
+        def read_three_digits(num):
+            hundreds = num // 100
+            tens = (num % 100) // 10
+            ones = num % 10
+            result = []
+            
+            if hundreds > 0:
+                result.append(f"{words[hundreds]} hundred")
+            
+            if tens >= 2:
+                result.append(words[tens * 10])
+                if ones > 0:
+                    result.append(words[ones])
+            elif tens == 1 or ones > 0:
+                result.append(words[tens * 10 + ones])
+            
+            return " ".join(result)
+        
+        parts = []
+        idx = 0
+        while number > 0:
+            num_part = number % 1000
+            if num_part > 0:
+                part = read_three_digits(num_part)
+                if idx > 0:
+                    part += f" {units[idx]}"
+                parts.append(part)
+            number //= 1000
+            idx += 1
+        
+        return " ".join(reversed(parts))
+    
+    # Function to process number-unit pairs
+    def convert(match):
+        number = int(match.group(1))
+        unit = match.group(2)
+        if unit:
+            unit_word = unit_mapping.get(unit, unit)
+            return f"{number_to_english(number)} {unit_word}"
+        return number_to_english(number)
+    
+    # Regular expression pattern to match numbers with optional units
+    pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
+    return re.sub(pattern, convert, text)
 
 
 #-----------------commond-------------------------------
@@ -2081,13 +2244,25 @@ special_word = {
     "***":"",
     "**":"",
     "*":"",
+    "♣ ♣ ♣ ♣ ♣ ♣":"",
+    "♣ ♣ ♣ ♣ ♣":"",
+    "♣ ♣ ♣ ♣":"",
     "♣ ♣ ♣":"",
+    "♣ ♣":"",
+    "♣":"",
     "^":"",
     "+++":"",
     "++":"",
     "+":"",
     "/": " ",
-    ";": ". ",
+    "(": ".",
+    ")": ".",
+    "}": ".",
+    "{": ".",
+    "[": ".",
+    "]": ".",
+    "|": " ",
+    ";": ".",
     "-": " ",
     "_": " ",
     ":": ".",
@@ -2136,6 +2311,7 @@ special_word = {
     "truyện full":"",
     "truyện được lấy tại":"",
     "truyện được copy tại":"",
+    "--- o ---":"",
     "-- o --":"",
     "nhóm dịch:":"",
     "friendship":"",
@@ -2159,45 +2335,45 @@ special_word = {
 }
 
 viet_tat = {
-    "CÓ THỂ BẠN THÍCH":"",
-    "IP" : "ai pi",
-    "ADN" : "ây đi en",
-    "AND" : "ây đi en",
-    "DNA" : "đi en ây",
-    "IT" : "ai ti",
-    "AI" : "ây ai",
-    "VPN " : "vi pi en",
-    "HTTPS" : "hát tê tê pê ếch",
-    "HTTP" : "hát tê tê pê",
-    "WHO" : "vê kép hát ô",
-    "GDP" : "gi đi pi",
-    "CPI" : "xi pi ai",
-    "IPO" : "ai pi ô",
-    "KPI" : "cây pi ai",
-    "GPS" : "gi pi ếch",
-    "USB" : "diu ếch bi",
-    "API" : "ây pi ai",
-    "GPT" : "gi pi ti",
-    "QR" : "qui rờ",
-    "UBND": "Ủy ban nhân dân",
-    "HĐND": "hội đồng nhân dân",
-    "MTTQ": "mặt trận tổ quốc",
-    "KT-XH": "kinh tế Xã hội",
-    "ĐBQH": "đại biểu quốc hội",
-    "THCS": "trung học cơ sở",
-    "THPT": "trung học phổ thông",
-    "KH-CN": "Khoa học Công nghệ",
-    "TCKT": "tài chính kế toán",
-    "KHKT": "khoa học kỹ thuật",
-    "CNTT": "công nghệ thông tin",
-    "CNPM": "công nghệ phần mềm",
-    "KH&CN": "khoa học và công nghệ",
-    "CTTĐT": "cổng thông tin điện tử",
-    "MXH": "mạng xã hội",
-    "GPLX": "giấy phép lái xe",
-    "STK": "số tài khoản",
-    "fff":"fff",
-    "fff":"fff"
+    " id ": " ai đi ",
+    " ip ": " ai pi ",
+    " adn ": " ây đi en ",
+    " and ": " ây đi en ",
+    " dna ": " đi en ây ",
+    " it ": " ai ti ",
+    " ai ": " ây ai ",
+    " vpn ": " vi pi en ",
+    " https ": " hát tê tê pê ếch ",
+    " http ": " hát tê tê pê ",
+    " who ": " vê kép hát ô ",
+    " gdp ": " gi đi pi ",
+    " cpi ": " xi pi ai ",
+    " ipo ": " ai pi ô ",
+    " kpi ": " cây pi ai ",
+    " gps ": " gi pi ếch ",
+    " usb ": " diu ếch bi ",
+    " api ": " ây pi ai ",
+    " gpt ": " gi pi ti ",
+    " qr ": " qui rờ ",
+    " ubnd ": " ủy ban nhân dân ",
+    " hđnd ": " hội đồng nhân dân ",
+    " mttq ": " mặt trận tổ quốc ",
+    " kt-xh ": " kinh tế xã hội ",
+    " đbqh ": " đại biểu quốc hội ",
+    " thcs ": " trung học cơ sở ",
+    " thpt ": " trung học phổ thông ",
+    " kh-cn ": " khoa học công nghệ ",
+    " tckt ": " tài chính kế toán ",
+    " khkt ": " khoa học kỹ thuật ",
+    " cntt ": " công nghệ thông tin ",
+    " cnpm ": " công nghệ phần mềm ",
+    " kh&cn ": " khoa học và công nghệ ",
+    " cttđt ": " cổng thông tin điện tử ",
+    " mxh ": " mạng xã hội ",
+    " gplx ": " giấy phép lái xe ",
+    " stk ": " số tài khoản ",
+    " nđ-cp ": " nờ đê xê pê ",
+    " fff ": " fff "
 }
 
 loi_chinh_ta = {
@@ -2277,7 +2453,7 @@ loi_chinh_ta = {
     "wi-fi": "quai phai",
     "app": "áp",
     "chip": "chíp",
-    "fan": "phen",
+    "fan": "phan",
     "monitor": "mo ni tơ",
     "keyboard": "ki bo",
     "bmw": "bi em đắp bờ liu",
@@ -2507,7 +2683,6 @@ loi_chinh_ta = {
     "mô giấc": "một giấc",
     "hội trần": "hội chuẩn",
     "trên ngành": "chuyên ngành",
-    "học mụy": "học muội",
     "sen vào": "xen vào",
     "dùng bỏ": "ruồng bỏ",
     "giáng vẻ": "dáng vẻ",
@@ -3125,7 +3300,6 @@ loi_chinh_ta = {
     "dên lên": "rên lên",
     "tỏ vẽ": "tỏ vẻ",
     "rõ rạc": "dõng dạc",
-    "sư mụy": "sư muội",
     "trưởng môn": "chưởng môn",
     "võ đàng": "võ đang",
     "bộ vốt": "bộ vuốt",
@@ -3141,7 +3315,7 @@ loi_chinh_ta = {
     "nhân nhó": "nhăn nhó",
     "lục điện": "lục địa",
     "tạm môn": "tà môn",
-    "trợt nhận": "chợt nhận",
+    "trợt": "chợt",
     "quá lớn": "quát lớn",
     "nhất bỏng": "nhấc bổng",
     "phụ triện": "phù triện",
@@ -4182,7 +4356,6 @@ loi_chinh_ta = {
     "mất mái": "mấp máy",
     "ấp tới": "ập tới",
     "mũi nhảy": "mũi nhạy",
-    "thưởng thức": "thường thức",
     "màn xương": "màn sương",
     "trộp": "chộp",
     "một chảo": "một trảo",
@@ -4533,6 +4706,7 @@ loi_chinh_ta = {
     "vướt đi": "vứt đi",
     "ủiển truyền": "uyển chuyển",
     "lão gia từ": "lão gia tử",
+    "lão gia từu": "lão gia từ",
     "trinh chiến": "chinh chiến",
     "vô khống": "vu khống",
     "díu dít": "ríu rít",
@@ -4686,6 +4860,687 @@ loi_chinh_ta = {
     "tiếng tâm": "tiếng tăm",
     "cộp lóc": "cộc lốc",
     "niềm nời": "niềm nở",
+    "dụ vào chồng": "dụ vào tròng",
+    "chệt để": "triệt để",
+    "ly dự": "ly rượu",
+    "xeo lên": "reo lên",
+    "nickname": "nít nem",
+    "lấy phép": "lễ phép",
+    "ngựa cười": "gượng cười",
+    "ngỏ lối": "ngỏ lời",
+    "trả hàm": "chả ham",
+    "sưỡng chân": "sượng trân",
+    "em dễ": "em rễ",
+    "mủng": "mồm",
+    "trả dạy": "chả dạy",
+    "dạo chức": "dạo trước",
+    "đô cổ": "đồ cổ",
+    "tả ác": "tà ác",
+    "khúc xáo": "khúc sáo",
+    "trẻ củi": "chẻ củi",
+    "thi hoạ": "thi họa",
+    "con dễ": "con rễ",
+    "lão gia tứ": "lão gia tử",
+    "chật tự": "trật tự",
+    "ăn đất": "ăn đứt",
+    "nguyên chiến": "nghênh chiến",
+    "chấn tiệm": "trấn tiệm",
+    "cây đáng": "cay đắng",
+    "một không hài": "một không hai",
+    "gieo hò": "reo hò",
+    "tà tơi": "tả tơi",
+    "nút trưởng": "nuốt chửng",
+    "lãnh giá": "lạnh giá",
+    "cam hận": "căm hận",
+    "một sớp": "một xấp",
+    "nghĩ nhân": "mỹ nhân",
+    "dỗi nghề": "rỗi nghề",
+    "tên điểu": "tên đểu",
+    "thiêu gia": "thiếu gia",
+    "luôn tiếng": "lớn tiếng",
+    "đồ đều": "đồ đểu",
+    "mưa hồ": "mơ hồ",
+    "vàng lên": "vang lên",
+    "dơ nắm đấm": "giơ nắm đấm",
+    "khóc ẩm": "khóc ầm",
+    "điên rổ": "điên rồ",
+    "đùa dẫn": "đùa giỡn",
+    "sofa": "sô pha",
+    "trán trước": "chắn trước",
+    "lèn vào": "lẻn vào",
+    "ấp đến": "ập đến",
+    "hẹn chứ": "hẹn trước",
+    "tuyếp": "tuýp",
+    "trình tề": "chỉnh tề",
+    "bao chọn": "bao trọn",
+    "quang đáng": "quang đãng",
+    "chật khớp": "trật khớp",
+    "hà hốc": "há hốc",
+    "văn xin": "van xin",
+    "dự dàng": "dịu dàng",
+    "sang bóng": "sáng bóng",
+    "bụt cao": "buộc cao",
+    "chễ vai": "trễ vai",
+    "đầy đạn": "đầy đặn",
+    "thông phức": "thơm phức",
+    "đẩy ấp": "đầy ắp",
+    "chamberteen": "cham bơ tin",
+    "domain": "đô men",
+    "leroy": "ly roi",
+    "ôn chật": "ôm chặt",
+    "bố giả": "bố già",
+    "bẫu cửa": "bậu cửa",
+    "lýt": "liếc",
+    "luật phiêu": "lượt viêu",
+    "la lịch": "lai lịch",
+    "chốc mắt": "chớp mắt",
+    "thẳng thán": "thẳng thắn",
+    "đa thề": "đa thê",
+    "thề thuốc": "thề thốt",
+    "nhắc nhờ": "nhắc nhở",
+    "rưới ánh mắt": "dưới ánh mắt",
+    "mồ hôi hồ": "mồ hôi hột",
+    "che ngược": "che ngực",
+    "do dữ": "do dự",
+    "wechat": "qui chát",
+    "đôi sách": "đối sách",
+    "giờ hai tay": "giơ hai tay",
+    "văn xin": "van xin",
+    "ý đổ": "ý đồ",
+    "cô chấp": "cố chấp",
+    "chiêu chọc": "trêu chọc",
+    "cờt": "cợt",
+    "thầm máu": "thấm máu",
+    "bàn hình": "màn hình",
+    "bản phím": "bàn phím",
+    "đục chiếm": "độc chiếm",
+    "lệnh lung": "lạnh lùng",
+    "cấp tình": "cấp tỉnh",
+    "thường thức": "thưởng thức",
+    "radar": "ra đa",
+    "đáy dầm": "đái dầm",
+    "dơ dao": "giơ dao",
+    "túng vai": "túm vai",
+    "vansin": "van xin",
+    "chơ giúp": "chưa dứt",
+    "nhị nhục": "nhịn nhục",
+    "túng cổ": "túm cổ",
+    "về hiu": "về hưu",
+    "nhiu mày": "nhíu mày",
+    "trà tấn": "tra tấn",
+    "làm giấu": "làm dấu",
+    "sủa bẫy": "sủa bậy",
+    "dưa nắm đấm": "giơ nắm đấm",
+    "dối bù": "rối bù",
+    "dối tung": "rối tung",
+    "trận mắt": "trợn mắt",
+    "tin thấy": "tìm thấy",
+    "rào đồ ăn": "giao đồ ăn",
+    "túng lấy": "túm lấy",
+    "nhấc cầm": "nhấc cằm",
+    "góc dễ": "góc rẽ",
+    "rượu vàng": "rượu vang",
+    "hoàng sự": "hoảng sợ",
+    "ngầng đầu": "ngẩng đầu",
+    "nhắn tính": "nhắn tin",
+    "gãc": "gác",
+    "rám xông": "dám xông",
+    "rộng chân": "dậm chân",
+    "cuôn xéo": "cuốn xéo",
+    "dên gì": "rên rỉ",
+    "hiên hòa": "hiền hòa",
+    "trao hỏi": "chào hỏi",
+    "alice": "a lít",
+    "xe mê": "say mê",
+    "hogwarts": "ho quớt",
+    "rõ hỏi": "dò hỏi",
+    "nguyễn giang": "nghiến răng",
+    "chầm lắng": "trầm lắng",
+    "chờ muộn": "chưa muộn",
+    "ngông củng": "ngông cuồng",
+    "chì vào": "chỉ vào",
+    "mado": "ma đô",
+    "vazin": "van xin",
+    "khoai khoang": "khoe khoang",
+    "tắt hắn": "tát hắn",
+    "cái giám": "cái rắm",
+    "một chận": "một trận",
+    "vẻ mắt": "vẻ mặt",
+    "tình giấc": "tỉnh giấc",
+    "giờ nay": "giờ này",
+    "diêu nhau": "dìu nhau",
+    "liên nói": "liền nói",
+    "đùa bớn": "đùa bỡn",
+    "mảnh khẳng": "mảnh khảnh",
+    "dễ dụa": "giãy giụa",
+    "đẻ cô xuống": "đè cô xuống",
+    "rửa trò": "giở trò",
+    "ben nói": "bèn nói",
+    "chưa mắt": "trơ mắt",
+    "mẹ rụt": "mẹ ruột",
+    "biệt ra": "bịa ra",
+    "trân lý": "chân lý",
+    "điên củng": "điên cuồng",
+    "hậu ruệ": "hậu duệ",
+    "khô lỗi": "khôi lỗi",
+    "ô ế": "ô uế",
+    "chữa chị": "chữa trị",
+    "hậu dễ": "hậu duệ",
+    "chước lẫn sau": "trước lẫn sau",
+    " thẻ thùng": " thẹn thùng",
+    "biến thai": "biến thái",
+    "ôm lế": "ôm lấy",
+    "an mày": "ăn mày",
+    "vạt vãnh": "vặt vãnh",
+    "chénh canh": "chén canh",
+    "huyền đại": "huynh đài",
+    "không dám đầu": "không dám đâu",
+    "lước": "liếc",
+    "phủ nhà": "phủ nha",
+    "từ tứ": "từ từ",
+    "gia khỏi": "ra khỏi",
+    "trưởng sinh": "trường sinh",
+    "giảng dài": "giảng giải",
+    "lao kiếm": "lau kiếm",
+    "cầu nệ": "câu nệ",
+    "dấu dếm": "dấu giếm",
+    "con dòng": "con rồng",
+    "lòng tử": "long tử",
+    "nếu phụ": "nữ phụ",
+    "trùng chiêu": "trúng chiêu",
+    "đoàn kiếm": "đoản kiếm",
+    "đoạn kiếm": "đoản kiếm",
+    "con lửa": "con lừa",
+    "lông từ": "long tử",
+    "miếu thở": "miếu thờ",
+    "nhà phủ": "nha phủ",
+    "xích chút": "suýt chút",
+    "hỗn sực": "hỗn xược",
+    "thức giận": "tức giận",
+    "tỉ nữ": "tuỳ nữ",
+    "thổi xáo": "thổi sáo",
+    "diêu dắt": "dìu dắt",
+    "quà cắp": "quà cáp",
+    "tăng lễ": "tang lễ",
+    "biến đỏ": "bến đò",
+    "miếu thở": "miếu thờ",
+    "om song": "ôm xồm",
+    "lý đạo trường": "lý đạo trưởng",
+    "di hải": "di hài",
+    "xùi bọt": "sủi bọt",
+    "dữ tượng": "dữ tợn",
+    "bằng hiểu": "bạn hữu",
+    "xốt ruột": "sốt ruột",
+    "thù liễm": "thu liễm",
+    "huyên đài": "huynh đài",
+    "cháy ngược": "trái ngược",
+    "đạo hiểu": "đạo hữu",
+    "hiếu kỷ": "hiếu kỳ",
+    "ôn chán": "ôm trán",
+    "thu sĩ": "tu sĩ",
+    "tạc lưỡi": "tặc lưỡi",
+    "chần chuồng": "trần truồng",
+    "chai tráng": "trai tráng",
+    "bồn công tử": "bổn công tử",
+    "trào thuyền": "chèo thuyền",
+    "phòng phu": "phàm phu",
+    "dân chủng": "dân chúng",
+    "quyền trưởng": "quyền trượng",
+    "xấm xét": "sấm sét",
+    "thinh hãi": "kinh hãi",
+    "tiêu cháy": "thiêu cháy",
+    "dễ dụa": "giãy dụa",
+    "thất xách": "thất sách",
+    "ngu xuân": "ngu xuẩn",
+    "song sui": "xong xui",
+    "hám hại": "hãm hại",
+    "trường bối": "trưởng bối",
+    "xấm sét": "sấm sét",
+    "bồn quân": "bổn quân",
+    "thẳng thán": "thẳng thắn",
+    "hàn rạm": "ngàn dặm",
+    "nhãy con": "nhãi con",
+    "run rể": "run rẩy",
+    "rứt khoát": "dứt khoát",
+    "chói buộc": "trói buộc",
+    "b.u.c.c.": "bức",
+    "tỉu đệ": "tiểu đệ",
+    "chận nhãn": "trận nhãn",
+    "thẳng thán": "thẳng thắn",
+    "bồn quân": "bổn quân",
+    "kếp kếp": "kiếp kiếp",
+    "trùng chiều": "trúng chiêu",
+    "rừng chút": "rừng trúc",
+    "cử địa": "cửu đệ",
+    "dàng dài": "giảng giải",
+    "mùi nhám": "mồi nhấm",
+    "giả đáo": "giá đáo",
+    "nhao mắt": "nheo mắt",
+    "ẩm ẩm": "ầm ầm",
+    "máng chửi": "mắng chửi",
+    "nhằn hạ": "nhan hạ",
+    "khai nứt": "khe nứt",
+    "xìng xích": "xiềng xích",
+    "giấy rứt": "dây dứt",
+    "tù vì": "tu vi",
+    "hỏa hoãn": "hoà hoãn",
+    "lòng hồn": "long hồn",
+    "hủy hồn": "hủy hôn",
+    "trao hỏi": "chào hỏi",
+    "ngây ngửi": "ngây người",
+    "xả tinh": "xà tinh",
+    "cầm chế": "cấm chế",
+    "đồn sáng": "đốm sáng",
+    "in ỏi": "inh ỏi",
+    "bé gai": "bé gái",
+    "trần chờ": "chần chờ",
+    "giáo đổ": "giáo đồ",
+    "nhỏ nhỏ": "nho nhỏ",
+    "thiều nữ": "thiếu nữ",
+    "đông nát": "đồng nát",
+    "ý mạnh": "ỷ mạnh",
+    "lấy bày": "lẩy bẩy",
+    "thà mạng": "tha mạng",
+    "thỉ thầm": "thì thầm",
+    "tự xác": "tự sát",
+    "nhiêm khắc": "nghiêm khắc",
+    "trốn ở": "chốn ở",
+    "bổ câu": "bồ câu",
+    "dên gì": "rên rỉ",
+    "tổ hỏa": "tẩu hỏa",
+    "sống mũi": "sóng mũi",
+    "đong băng": "đóng băng",
+    "thẩm mắng": "thầm mắng",
+    "sấm xét": "sấm sét",
+    "xát thương": "sát thương",
+    "trùng tộc": "chủng tộc",
+    "yêu đáy": "ưu đãi",
+    "một nghìn0": "mười nghìn",
+    "rơ tay": "dơ tay",
+    "tiếng xét": "tiếng sét",
+    "trục tội": "chuộc tội",
+    "thẩm mỹ": "thầm nghĩ",
+    "tia xét": "tia sét",
+    "khét nạch": "khét nẹt",
+    "thều thảo": "thều thào",
+    "ghen gì": "rên rỉ",
+    "mụi": "muội",
+    "thiết lôi": "thiên lôi",
+    "bàng long": "bằng lòng",
+    "môn đầu": "môn đồ",
+    "nịnh bỡ": "nịnh bợ",
+    "chân tru": "trơn tru",
+    "ưng biến": "ứng biến",
+    "thường điểm": "thưởng điểm",
+    "rũi ra": "dũi ra",
+    "tiếng xét": "tiếng sét",
+    "trần chỉnh": "chấn chỉnh",
+    "giả nứt": "rạn nứt",
+    "di chứ": "gì chứ",
+    "chưa rẽ": "chia rẽ",
+    "sư huyên": "sư huynh",
+    "khâu trung": "không trung",
+    "trợt vang": "chợt vang",
+    "tỉ mũi": "tỉ muội",
+    "rắc ngộ": "giác ngộ",
+    "tổ sư ra": "tổ sư gia",
+    "diệt chừ": "diệt trừ",
+    "sư cấp": "sơ cấp",
+    "nhụt trí": "nhụt chí",
+    "đầu nhi": "đồ nhi",
+    "chật quát": "chợt quát",
+    "hai tử": "hài tử",
+    "sướng sở": "sửng sờ",
+    "tuần lệnh": "tuân lệnh",
+    "cẳn kẽ": "cặn kẽ",
+    "vậy lên": "vậy nên",
+    "lô la": "lâu la",
+    "nhao nhao": "nhau nhau",
+    "tổ vi": "tẩu vi",
+    "thưởng sách": "thượng sách",
+    "ngung cùng": "ngông cuồng",
+    "minh man": "miên man",
+    "cáo giả": "cáo già",
+    "sác": "xác",
+    "thành trí": "thành trì",
+    "nhao nhau": "nhau nhau",
+    "cám ơn": "cảm ơn",
+    "trong váng": "choáng váng",
+    "bùn rùn": "bủn rủn",
+    "xư huynh": "sư huynh",
+    "sở quỵt": "xảo huyệt",
+    "ngờ vượt": "ngờ vực",
+    "chối tử": "chối từ",
+    "hí hứng": "hí hửng",
+    "khôn mặt": "khuôn mặt",
+    "cho bụi": "tro bụi",
+    "phu thề": "phu thê",
+    "sữ tượng": "dữ tợn",
+    "náo tàn": "não tàn",
+    "cay rẽ": "cay ré",
+    "lộ lĩu": "lộ liễu",
+    "trôn sống": "chôn sống",
+    "bàng chủ": "bang chủ",
+    "thề thảm": "thê thảm",
+    "cạn lờn": "cạn lời",
+    "trữ chứng": "triệu chứng",
+    "cha xét": "tra xét",
+    "xương xườn": "xương sườn",
+    "hỏii": "hỏi",
+    "chông rộng": "trông rộng",
+    "khiếp phía": "khiếp vía",
+    "sẵn khoái": "sảng khoái",
+    "nghìn0": "nghìn",
+    "sầm út": "sầm uất",
+    "tê nhân viên": "tên nhân viên",
+    "chúng cử": "trúng cử",
+    "nhộm": "nhuộm",
+    "so biển": "sò biển",
+    "quyền sổ": "quyển sổ",
+    "loa mắt": "loá mắt",
+    "xuân xẻ": "suôn sẻ",
+    "dân vườn": "sân vườn",
+    "nối rõ": "nối dõi",
+    "chính xách": "chính sách",
+    "chọc gạo": "chọc ghẹo",
+    "dậy rỗ": "dạy dỗ",
+    "ngang ngóng": "nghe ngóng",
+    "hào sàng": "hào sảng",
+    "mài giữa": "mài giũa",
+    "phòng xách": "phòng sách",
+    "mội": "muội",
+    "muôn nời": "muôn đời",
+    "trinh chiến": "chinh chiến",
+    "dầu xôi": "dầu sôi",
+    "phụ quân": "phu quân",
+    "thống đĩnh": "thống lĩnh",
+    "yêu kém": "yếu kém",
+    "rụng đồng": "ruộng đồng",
+    "mồm tơi": "mùng tơi",
+    "thầm lã": "thẩm lão",
+    "thầm phu": "thẩm phu",
+    "thầm nhị": "thẩm nhị",
+    "chen trúc": "chen chúc",
+    "lò đảo": "lảo đảo",
+    "xách vở": "sách vở",
+    "rè rặt": "dè dặt",
+    "quỳ lại": "quỳ lạy",
+    "bãi kiến": "bái kiến",
+    "ở dễ": "ở rể",
+    "điểm đạm": "điềm đạm",
+    "người người": "ngời ngời",
+    "giao ai": "ra oai",
+    "hán": "hắn",
+    "phét lối": "phách lối",
+    "bửa bãi": "bừa bãi",
+    "trường mực": "chừng mực",
+    "cô ra": "cô gia",
+    "gây gớm": "ghê gớm",
+    "cam vẫn": "căm phẫn",
+    "tạp trủng": "tạp chủng",
+    "lục xoát": "lục soát",
+    "ở dề": "ở rể",
+    "trữ thương": "chữa thương",
+    "chữa chị": "chữa trị",
+    "tay mét": "tái mét",
+    "dỡn": "giỡn",
+    "vùng roi": "vung roi",
+    "bi chức": "vi chức",
+    "xách": "sách",
+    "gia hấn": "gia huấn",
+    "oãn gách": "oán ghét",
+    "trần chọc": "trằn trọc",
+    "con dẻ": "con rể",
+    "nhà phụ": "nhạc phụ",
+    "trích trè": "chích choè",
+    "bá tớc": "bá tước",
+    "vải ván": "vài ván",
+    "dám cực": "dám cược",
+    "thập cửuu": "thập cửu",
+    "giởi trò": "giở trò",
+    "anh hửm": "anh hùng",
+    " id ": " ai đi ",
+    "song sót": "sống sót",
+    "chợt tự": "trật tự",
+    "heavy": "he vy",
+    "engen": "en ghình",
+    "thuận đã": "thuận đà",
+    "tường trắn": "tường chắn",
+    "hắp ảnh": "hắc ảnh",
+    "tiên nhuệ": "tinh nhuệ",
+    "nghiên chiến": "nghênh chiến",
+    "đỗ kiếp": "độ kiếp",
+    "sinh tươi": "xinh tươi",
+    "trơn truyền": "chân truyền",
+    "thạnh thùng": "thẹn thùng",
+    "đồng ngôn": "đồng môn",
+    "trượt phát hiện": "chợt phát hiện",
+    "dực liệu": "dược liệu",
+    "châu mẩy": "chau mày",
+    "mụy": "muội",
+    "một trút": "một chút",
+    "trú tâm": "chú tâm",
+    "màn sang": "màn sáng",
+    "trở đã": "chờ đã",
+    "nhánh dễ": "nhánh rễ",
+    "luyện dan": "luyện đan",
+    "dan kinh": "đan kinh",
+    "ngưng ác": "ngơ ngác",
+    "linh can": "linh căn",
+    "xuất hiếu": "xuất khiếu",
+    "nhất dai": "nhất giai",
+    "phân bịa": "phân biệt",
+    "dưới chướng": "dưới trướng",
+    "phản vệ": "phản phệ",
+    "đảo bới": "đào bới",
+    "chấn phái": "trấn phái",
+    "đồng quy vưu tận": "đồng quy vu tận",
+    "nhất nhờ": "nhắc nhở",
+    "đất xét": "đất sét",
+    "rực sơn": "dược sơn",
+    "tiên rực": "tiên dược",
+    "quy giá": "quý giá",
+    "hôn một tiếng": "hô một tiếng",
+    "sắt được": "rất được",
+    "rục dịch": "rục rịch",
+    "đã tạ": "đa tạ",
+    "linh cân": "linh căn",
+    "quý tiên": "quy tiên",
+    "đã thể": "đã thề",
+    "trời chú": "trời tru",
+    "chết để": "triệt để",
+    "phẩm dai": "phẩm giai",
+    "thanh hèn": "thai nghén",
+    "mẻ chán": "mẻ trán",
+    "trách tiệt": "chết tiệt",
+    "hác kỳ": "hắc kỳ",
+    "sư mũi": "sư muội",
+    "tương khác": "tương khắc",
+    "hết văng": "hất văng",
+    "vẫn xức": "vận sức",
+    "lên lực": "linh lực",
+    "nhầm vào": "nhằm vào",
+    "matu": "ma tu",
+    "chung ky": "trung kỳ",
+    "kim dan": "kim đan",
+    "biết danh": "biệt danh",
+    "đọc xà": "độc xà",
+    "tông tích": "tung tích",
+    "chút cơ": "trúc cơ",
+    "huyết đau": "huyết đao",
+    "tế đau": "tế đao",
+    "thanh đau": "thanh đao",
+    "lai chuyển": "lay chuyển",
+    "nốt trừng": "nuốt chửng",
+    "luyện đau": "luyện đao",
+    "thủ dai": "thù dai",
+    "tính một quả": "tính một quẻ",
+    "thất xát": "thất sát",
+    "thất xác": "thất sát",
+    "tỏa hồn chận": "tỏa hồn trận",
+    "chép móc": "trách móc",
+    "nhãi danh": "nhãi ranh",
+    "ác chủ bài": "át chủ bài",
+    "lão nhân ra": "lão nhân gia",
+    "chỉ mắng": "chửi mắng",
+    "từng thuật": "tường thuật",
+    "hác thủy": "hắc thủy",
+    "gấp rộng": "gấp giọng",
+    "vẫn linh lực": "vận linh lực",
+    "căn đảm": "can đảm",
+    "khóc thết": "khóc thét",
+    "phát bảo": "pháp bảo",
+    "sông mù": "sương mù",
+    "nhắc mép": "nhếch mép",
+    "nhọc cung": "nhọc công",
+    "hung giữ": "hung dữ",
+    "cát hùng": "cát hung",
+    "sai thoại": "giai thoại",
+    "ngoạn núi": "ngọn núi",
+    "trôn thây": "chôn thây",
+    "rồi giao": "dồi dào",
+    "thâm thủ": "thâm thù",
+    "nguyện khí": "nhuệ khí",
+    "tí vết": "tì vết",
+    "chân quý": "trân quý",
+    "chịu hoán": "triệu hoán",
+    "tiêu huyết": "tia huyết",
+    "làm can": "làm càn",
+    "từng đảo": "từng đạo",
+    "sữa người": "sững người",
+    "hòa ai": "hòa ái",
+    "lọt tay": "lọt tai",
+    "song vào": "xông vào",
+    "quy lực": "uy lực",
+    "bỏ lên": "bò lên",
+    "hốt hoàng": "hốt hoảng",
+    "ngay ngóc": "ngây ngốc",
+    "ha hốc": "há hốc",
+    "ưng bướng": "ương bướng",
+    "chấp trưởng": "chấp chưởng",
+    "rừng rừng": "dừng dừng",
+    "nguồn ngụt": "ngùn ngụt",
+    "đong đàm": "long đàm",
+    "sắc ta": "xác ta",
+    "cười khăn": "cười khan",
+    "vang dền": "vang rền",
+    "nói sẵng": "nói xằng",
+    "si sao": "xì xào",
+    "đoàn mệnh": "đoản mệnh",
+    "trung tình": "chung tình",
+    "lúc chức": "lúc trước",
+    "thiếu chết": "thiêu chết",
+    "cúng cùng": "cuống cuồng",
+    "khái hừ": "khẽ hừ",
+    "truyền tính": "truyền tin",
+    "đổ xong đổ bể": "đổ sông đổ bể",
+    "tách trả": "tách trà",
+    "hác động": "hắc động",
+    "quỳ hồn": "quy hồn",
+    "cường dạ": "cường giả",
+    "đám lâu là": "đám lâu la",
+    "cá che": "cá trê",
+    "huyết tới": "huyết tế",
+    "dẫu cá chê": "râu cá trê",
+    "dâu cá chê": "râu cá trê",
+    "sức hiếu": "xuất khiếu",
+    "củng phong": "cuồng phong",
+    "tre ngực": "che ngực",
+    "bi thuật": "bí thuật",
+    "vốt sâu": "vuốt râu",
+    "do xét": "dò xét",
+    "cái trợ": "cái chợ",
+    "ngại làm": "ngại lắm",
+    "cất sữ": "cất giữ",
+    "lướn tiếc": "luyến tiếc",
+    "chùm bao": "trùm bao",
+    "tín gật": "tín vật",
+    "trắn được": "chắn được",
+    "điểm gỡ": "điềm gỡ",
+    "giấu hỏi": "dấu hỏi",
+    "châu già": "trâu già",
+    "trừng mực": "chừng mực",
+    "xuôn sao": "xôn sao",
+    "luyện khí kỷ": "luyện khí kỳ",
+    "song gió": "sóng gió",
+    "bông khỏi": "bom khói",
+    "tiểu quỳ": "tiểu quỷ",
+    "hồn áo": "hồ náo",
+    "kiếm y": "kiếm ý",
+    "chật mở": "chợt mở",
+    "mừng giữa": "mừng rỡ",
+    "hô ly": "hồ ly",
+    "thờ dài": "thở dài",
+    "gồ sửa": "gọt rửa",
+    "tịch nhuệ": "tinh nhuệ",
+    "về sao": "về sau",
+    "cựng ép": "cưỡng ép",
+    "bác tự": "bát tự",
+    "thạo mệnh": "thọ mệnh",
+    "lao mồ hôi": "lau mồ hôi",
+    "xá trận": "sát trận",
+    "khó ngay": "khó nghe",
+    "sướng sờ": "sững sờ",
+    "thưởng phẩm": "thượng phẩm",
+    "tù luyện": "tu luyện",
+    "toàn bổ": "toàn bộ",
+    "đánh ngộ": "đãi ngộ",
+    "lượt lở": "lượn lờ",
+    "sàn sinh": "sản sinh",
+    "điểm hung": "điềm hung",
+    "tỉ thi": "tỉ thí",
+    "xuyên nữa": "suýt nữa",
+    "vứt tay": "phất tay",
+    "tỉnh bờ": "tỉnh bơ",
+    "lúng tung": "lúng túng",
+    "hải tử": "hài tử",
+    "chảm yêu": "trảm yêu",
+    "sơ đao": "giơ đao",
+    "hô rừng": "hô dừng",
+    " đoạ ": " đọa ",
+    "thao gỡ": "tháo gỡ",
+    "hác hác": "hắc hắc",
+    "huynh để": "huynh đệ",
+    "trưởng nghĩa": "trượng nghĩa",
+    "huong chi": "huống chi",
+    "rành rỗi": "rãnh rỗi",
+    "rỗi dành": "dỗ dành",
+    "thoải mãi": "thoải mái",
+    "cạn bã": "cặn bã",
+    "của ngôn": "cuồng ngôn",
+    "một trọi một": "một chọi một",
+    "giốt cục": "rốt cục",
+    "mất tâm": "mất tăm",
+    "ôn ngược": "ôm ngực",
+    "hoàng hốt": "hoảng hốt",
+    "ấu chỉ": "ấu trĩ",
+    "mũi ấy": "muội ấy",
+    " ngưi ": " ngươi ",
+    "ru dẩy": "run rẩy",
+    "chơn chu": "trơn tru",
+    "nguyện rủa": "nguyền rủa",
+    "nhỡ loạn": "nhiễu loạn",
+    "tô chất": "tố chất",
+    "ma gió": "ma giáo",
+    "nhi từ": "nhi tử",
+    "đáng gồm": "đáng gờm",
+    "trênh lệch": "chênh lệch",
+    "giả hoạt": "giảo hoạt",
+    "chém cột": "chém cụt",
+    "ca chết lưới": "cá chết lưới",
+    "trồng cự": "chống cự",
+    "khuôn kiếp": "khốn kiếp",
+    "tiếc viện": "tiếp viện",
+    "báo vũ": "báo thù",
+    "boss": "bót",
+    "đầu đệ": "đồ đệ",
+    "điều trùng": "điêu trùng",
+    "quanh quần": "quanh quẩn",
+    "bất chờ": "bất chợt",
+    "địch nhăn": "địch nhân",
+    "ngoạ nguồn": "ngọn nguồn",
+    " hoà ": " hòa ",
+    " từc ": " tức ",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
@@ -4693,246 +5548,84 @@ loi_chinh_ta = {
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
-    "bác trần": "bắc trần",
-    "tống bục dương": "tống mục dương",
-    "tử mạng": "tử mặc",
-    "linh nam": "lĩnh nam",
-    "trưởng lão kiểu": "trưởng lão kiều",
-    "huyền thân cổ": "huyền thần cổ",
-    "vư thanh": "vu thanh",
-    "sua linh": "xua linh",
-    "tông khánh bằng": "tống khánh bằng",
-    "tiều cảnh": "tiểu cảnh",
-    "lão kiểu": "lão kiều",
-    "từ mạc": "tử mặc",
-    "từ châu": "tử châu",
-    "vĩnh giạ": "vĩnh dạ",
-    "tử mạc": "tử mặc",
-    "phổ ra": "phổ gia",
-    "bạch ra": "bạch gia",
-    "tử trâu": "tử châu",
-    "vĩ dạ": "vĩnh dạ",
-    "tiểu trâu": "tiểu châu",
-    "tình la": "tinh la",
-    "triệu sương": "triệu sơn",
-    "tổng ra": "tống gia",
-    "sửa chân": "sở trần",
-    "hác diệu đường": "hắc diệu đường",
-    "hoàng ra": "hoàng gia",
-    "tổng mục": "tống mục",
-    "tổng khánh": "tống khánh",
-    "diệp tiếu": "diệp thiếu",
-    "diệp thiếu hoảng": "diệp thiếu hoàng",
-    "tổng tà dương": "tống tà dương",
-    "tổng thu": "tống thu",
-    "tống tòa dương": "tống tà dương",
-    "vinh ra": "vinh gia",
-    "diệp ra": "diệp gia",
-    "sở chân": "sở trần",
-    "thiên thành": "thiền thành",
-    "hạ bắt": "hạ bắc",
-    "hạ bác": "hạ bắc",
-    "hạ ra": "hạ gia",
-    "sở trân": "sở trần",
-    "sở trầnn": "sở trân",
-    "tống ra": "tống gia"
+    "ffff": "ffff",
+    "quỷ sa": "quỷ xà",
+    "đào quân": "đao quân",
+    "đào mạch": "đao mạch",
+    "giới kim đan": "dưới kim đan",
+    "ma tú": "ma tu",
+    "già trưởng lão": "giả trưởng lão",
+    "trận hoàng": "trận hoàn",
+    "liễu ra": "liễu gia",
+    "liệu bạch hồng": "liễu bạch hồng",
+    "liệu thanh phong": "liễu thanh phong",
+    "phú mạch": "phù mạch",
+    "khoái mạch": "quái mạch",
+    "ức liền": "ức liên",
+    "ứcc liền": "ức liền",
+    "qua liệt": "quan liệt",
+    "quỷ xa": "quỷ xà",
+    "ra các": "gia các",
+    "ức trí": "ức chi",
+    "quảng lang": "quảng lăng",
+    "vương tố": "vương tú",
+    "kinh lội": "kinh lôi",
+    "hác hồ": "hắc hồ",
+    "ước liên": "ức liên",
+    "bồn tôn": "bổn tôn",
+    "đau này": "đao này",
+    "quan mũ": "quan mỗ",
+    "quan mẫu": "quan mỗ",
+    "học học": "hộc hộc",
+    "thất xá trận": "thất sát trận",
+    "thông tin phong": "thông thiên phong",
+    "xích hoảng đan": "xích hoàng đan",
+    "xích hoảng lưu": "xích hoàng lư",
+    "xích hoàng lưu": "xích hoàng lư",
+    "lục ức trì": "lục ức chi",
+    "ngọc hoa muôn": "ngọc hoa môn",
+    "cua cung cựu": "cuốc cung cự",
+    "điểm xấu": "điềm xấu",
+    "hỏa luyện đan": "hỏa linh đan",
+    "ước chi": "ức chi",
+    "vương mũ": "vương mỗ",
+    "vương mộ": "vương mỗ"
 }
 
 
-# def number_to_vietnamese(number):
-#     if not (0 <= number < 1_000_000_000_000_000):
-#         return "Số nằm ngoài phạm vi hỗ trợ."
-#     words = {
-#         0: "không",
-#         1: "một",
-#         2: "hai",
-#         3: "ba",
-#         4: "bốn",
-#         5: "năm",
-#         6: "sáu",
-#         7: "bảy",
-#         8: "tám",
-#         9: "chín"
-#     }
-#     units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
-
-#     def read_three_digits(num, is_end):
-#         hundreds = num // 100
-#         tens = (num % 100) // 10
-#         ones = num % 10
-#         result = []
-#         # Đọc hàng trăm
-#         if hundreds > 0:
-#             result.append(f"{words[hundreds]} trăm")
-#         elif not is_end and (tens > 0 or ones > 0):
-#             result.append("không trăm")
-#         # Đọc hàng chục và hàng đơn vị
-#         if tens > 1:
-#             result.append(f"{words[tens]} mươi")
-#             if ones == 1:
-#                 result.append("mốt")
-#             elif ones == 5:
-#                 result.append("lăm")
-#             elif ones > 0:
-#                 result.append(words[ones])
-#         elif tens == 1:
-#             result.append("mười")
-#             if ones > 0:
-#                 result.append(words[ones])
-#         elif tens == 0:
-#             if ones > 0:
-#                 if hundreds > 0 or (hundreds == 0 and not is_end):
-#                     result.append("linh")
-#                 result.append(words[ones])
-
-#         return " ".join(result)
-#     parts = []
-#     idx = 0
-#     while number > 0:
-#         num_part = number % 1000
-#         if num_part > 0:
-#             if number < 1000:
-#                 part = read_three_digits(num_part, is_end=True)
-#             else:
-#                 part = read_three_digits(num_part, is_end=False)
-#             if idx > 0:
-#                 part += f" {units[idx]}"
-#             parts.append(part)
-#         number //= 1000
-#         idx += 1
-
-#     return " ".join(reversed(parts))
-
-# def replace_numbers_with_words(text):
-#     def convert(match):
-#         number = int(match.group())
-#         if number == 0:
-#             return "không"
-#         return number_to_vietnamese(number)
-#     pattern = r'\d+'
-#     return re.sub(pattern, convert, text)
-
-def number_to_vietnamese_with_units(text):
-    # Bản đồ đơn vị và cách đọc
-    unit_mapping = {
-        "h": "giờ",
-        "m": "mét",
-        "cm": "xen ti mét",
-        "mm": "mi li mét",
-        "km": "ki lô mét",
-        "s": "giây",
-        "ms": "mi li giây"
-    }
-
-    # Hàm chuyển đổi số thành chữ
-    def number_to_vietnamese(number):
-        if not (0 <= number < 1_000_000_000_000_000):
-            return "Số nằm ngoài phạm vi hỗ trợ."
-        words = {
-            0: "không",
-            1: "một",
-            2: "hai",
-            3: "ba",
-            4: "bốn",
-            5: "năm",
-            6: "sáu",
-            7: "bảy",
-            8: "tám",
-            9: "chín"
-        }
-        units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
-
-        def read_three_digits(num, is_end):
-            hundreds = num // 100
-            tens = (num % 100) // 10
-            ones = num % 10
-            result = []
-            # Đọc hàng trăm
-            if hundreds > 0:
-                result.append(f"{words[hundreds]} trăm")
-            elif not is_end and (tens > 0 or ones > 0):
-                result.append("không trăm")
-            # Đọc hàng chục và hàng đơn vị
-            if tens > 1:
-                result.append(f"{words[tens]} mươi")
-                if ones == 1:
-                    result.append("mốt")
-                elif ones == 5:
-                    result.append("lăm")
-                elif ones > 0:
-                    result.append(words[ones])
-            elif tens == 1:
-                result.append("mười")
-                if ones > 0:
-                    result.append(words[ones])
-            elif tens == 0:
-                if ones > 0:
-                    if hundreds > 0 or (hundreds == 0 and not is_end):
-                        result.append("linh")
-                    result.append(words[ones])
-
-            return " ".join(result)
-
-        parts = []
-        idx = 0
-        while number > 0:
-            num_part = number % 1000
-            if num_part > 0:
-                if number < 1000:
-                    part = read_three_digits(num_part, is_end=True)
-                else:
-                    part = read_three_digits(num_part, is_end=False)
-                if idx > 0:
-                    part += f" {units[idx]}"
-                parts.append(part)
-            number //= 1000
-            idx += 1
-
-        return " ".join(reversed(parts))
-
-    # Hàm xử lý từng cụm số và đơn vị
-    def convert(match):
-        number = int(match.group(1))
-        unit = match.group(2)
-        if unit:
-            unit_word = unit_mapping.get(unit, unit)
-            return f"{number_to_vietnamese(number)} {unit_word}"
-        return number_to_vietnamese(number)
-
-    # Biểu thức chính quy tìm số và số kèm đơn vị
-    pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
-    return re.sub(pattern, convert, text)
-
 def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
+    text = text.lower()
     if language == 'vi':
         for word, replacement in viet_tat.items():
             text = text.replace(word, replacement)
-        text = text.lower()
         for word, replacement in special_word.items():
             text = text.replace(word, replacement)
         if is_loi_chinh_ta:
             for wrong, correct in loi_chinh_ta.items():
                 text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
         text = number_to_vietnamese_with_units(text)
+    elif language == 'en':
+        text = text.lower()
+        text = number_to_english_with_units(text)
     return text.strip()
 
 
-# # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
-# cnt = 1
-# old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\2.txt"
-# # old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1.txt"
+# -------Sửa chính tả trong file txt và xuất ra file txt khác-------
+cnt = 1
+old_txt = "E:\\Python\\developping\\review comic\\test\\HT_1\\1.txt"
+# old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1.txt"
 
-# fol = os.path.dirname(old_txt)
-# file_name = os.path.basename(old_txt).split('.')[0]
-# new_txt = os.path.join(fol, f'{file_name}_1.txt')
-# with open(old_txt, 'r', encoding='utf-8') as fff:
-#     lines = fff.readlines()
-# with open(new_txt, 'w', encoding='utf-8') as ggg:
-#     for line in lines:
-#         if line and not line.strip().isdigit():
-#             line = cleaner_text(line.strip())
-#             ggg.write(f'{cnt}\n{line}\n')
-#             cnt += 1
+fol = os.path.dirname(old_txt)
+file_name = os.path.basename(old_txt).split('.')[0]
+new_txt = os.path.join(fol, f'{file_name}_1.txt')
+with open(old_txt, 'r', encoding='utf-8') as fff:
+    lines = fff.readlines()
+with open(new_txt, 'w', encoding='utf-8') as ggg:
+    for line in lines:
+        if line and not line.strip().isdigit():
+            line = cleaner_text(line.strip())
+            ggg.write(f'{cnt}\n{line}\n')
+            cnt += 1
 
 
 
@@ -5079,7 +5772,7 @@ def adjust_audio_speed(input_folder, output_folder, speed=0.98, volume_factor=1.
 
 # input_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_1"
 # output_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_2"
-input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\4"
-output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\4_1"
+input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1"
+output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1_1"
 # os.makedirs(output_folder, exist_ok=True)
-# adjust_audio_speed(input_folder, output_folder)
+# adjust_audio_speed(input_folder, output_folder, speed=0.97, volume_factor=1.5)
