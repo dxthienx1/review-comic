@@ -445,14 +445,18 @@ def save_to_json_file(data, file_path):
     try:
         if file_path.endswith('.json'):
             with open(file_path, "w", encoding="utf-8") as file:
-                portalocker.lock(file, portalocker.LOCK_EX)
-                json.dump(data, file, indent=3)
-                portalocker.unlock(file)
-        else:
+                with portalocker.Lock(file, portalocker.LOCK_EX):
+                    json.dump(data, file, indent=3)
+
+        elif file_path.endswith('.pkl'):
             with open(file_path, "wb") as file:
-                portalocker.lock(file, portalocker.LOCK_EX)
-                pickle.dump(data, file)
-                portalocker.unlock(file)
+                with portalocker.Lock(file, portalocker.LOCK_EX):
+                    pickle.dump(data, file)
+
+        elif file_path.endswith('.txt'):
+            with open(file_path, "w", encoding="utf-8") as file:
+                with portalocker.Lock(file, portalocker.LOCK_EX):
+                    file.write(f"{data}\n")
     except:
         getlog()
 
@@ -1821,6 +1825,8 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         # Đọc và làm sạch nội dung văn bản
         if txt_path.endswith('.txt'):
             text = get_json_data(txt_path, readline=False)
+        else:
+            text = txt_path
         text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
         text = text.replace('\n\n', '. ')
         text = text.replace('\n', '. ')
@@ -1897,7 +1903,7 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                 thread.join()
 
             list_file_path = "audio_list.txt"
-            with open(list_file_path, "w") as f:
+            with open(list_file_path, "w", encoding="utf-8") as f:
                 for audio_file in temp_audio_files:
                     f.write(f"file '{audio_file}'\n")
 

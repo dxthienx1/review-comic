@@ -1715,7 +1715,7 @@ class MainApp:
                 item("Dừng tất cả tiến trình đang chạy", self.stop_all_process),
                 item("Thoát ứng dụng", self.exit_app),
             )
-            self.icon = pystray.Icon("Super Social Media", image, "Super Social Media", menu)
+            self.icon = pystray.Icon("Review Truyện", image, "Review Truyện", menu)
             tray_thread = threading.Thread(target=self.icon.run_detached)
             tray_thread.daemon = True
             tray_thread.start()
