@@ -2177,6 +2177,21 @@ def number_to_english_with_units(text):
 
 
 #-----------------commond-------------------------------
+def get_custom_model(folder):
+    custom_model = os.path.join(folder, 'model.pth')
+    if os.path.exists(custom_model):
+        return custom_model
+    custom_model = os.path.join(folder, 'best_model.pth')
+    if os.path.exists(custom_model):
+        return custom_model
+    models = get_file_in_folder_by_type(folder, '.pth', start_with='best_model_', noti=False) or []
+    if len(models) > 0:
+        return os.path.join(folder, models[-1])
+    models = get_file_in_folder_by_type(folder, '.pth', start_with='checkpoint_') or []
+    if len(models) > 0:
+        return os.path.join(folder, models[-1])
+    return None
+
 
 def load_config():
     if os.path.exists(config_path):

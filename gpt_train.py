@@ -77,8 +77,8 @@ def train_gpt(config_xtts):
     CHECKPOINTS_OUT_PATH = os.path.join(Path.cwd(), "models", f"{version}")
     os.makedirs(CHECKPOINTS_OUT_PATH, exist_ok=True)
 
-    DVAE_CHECKPOINT_LINK = "https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/main/dvae.pth"
-    MEL_NORM_LINK = "https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/main/mel_stats.pth"
+    DVAE_CHECKPOINT_LINK = "https://coqui.gateway.scarf.sh/hf-coqui/review comic/main/dvae.pth"
+    MEL_NORM_LINK = "https://coqui.gateway.scarf.sh/hf-coqui/review comic/main/mel_stats.pth"
 
     DVAE_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(DVAE_CHECKPOINT_LINK))
     MEL_NORM_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(MEL_NORM_LINK))
@@ -93,10 +93,10 @@ def train_gpt(config_xtts):
         print(" > Downloading DVAE files!")
         ModelManager._download_model_files([MEL_NORM_LINK, DVAE_CHECKPOINT_LINK], CHECKPOINTS_OUT_PATH, progress_bar=True)
 
-    TOKENIZER_FILE_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/{version}/vocab.json"
-    XTTS_CHECKPOINT_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/{version}/model.pth"
-    XTTS_CONFIG_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/{version}/config.json"
-    XTTS_SPEAKER_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/XTTS-v2/{version}/speakers_xtts.pth"
+    TOKENIZER_FILE_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/review comic/{version}/vocab.json"
+    XTTS_CHECKPOINT_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/review comic/{version}/model.pth"
+    XTTS_CONFIG_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/review comic/{version}/config.json"
+    XTTS_SPEAKER_LINK = f"https://coqui.gateway.scarf.sh/hf-coqui/review comic/{version}/speakers_xtts.pth"
     TOKENIZER_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(TOKENIZER_FILE_LINK))
     XTTS_CHECKPOINT = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(XTTS_CHECKPOINT_LINK))
     XTTS_CONFIG_FILE = os.path.join(CHECKPOINTS_OUT_PATH, os.path.basename(XTTS_CONFIG_LINK))

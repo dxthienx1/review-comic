@@ -30,7 +30,7 @@
     "eval_batch_size": 2,
     "grad_clip": 0.0,
     "scheduler_after_epoch": true,
-    "lr": 5e-05,
+    "lr": 5e-06,
     "optimizer": "AdamW",
     "optimizer_params": {
         "betas": [

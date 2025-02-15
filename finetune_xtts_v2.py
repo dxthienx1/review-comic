@@ -5,8 +5,9 @@ config_xtts = get_json_data(config_xtts_path)
 output_path = os.path.join(current_dir, config_xtts.get('output_path'))
 dataset_path = os.path.join(current_dir, config_xtts.get('dataset_path'))
 config_xtts['dataset_path'] = dataset_path
-pretrain_model = os.path.join(current_dir, config_xtts.get('pretrain_model'))
-config_xtts['pretrain_model'] = pretrain_model
+custom_model_folder = os.path.join(current_dir, config_xtts.get('custom_model'))
+custom_model = get_custom_model(custom_model_folder)
+config_xtts['custom_model'] = custom_model
 
 def clear_gpu_cache():
     if torch.cuda.is_available():
@@ -35,7 +36,7 @@ def train_model(config_xtts):
     return config_path, vocab_file, ft_xtts_checkpoint, speaker_xtts_path, speaker_reference_new_path
 
 def optimize_model(clear_train_data=None):
-    out_path = Path(config_xtts.get('output_path'))
+    out_path = Path(output_path)
     ready_dir = out_path / "ready"
     run_dir = out_path / "run"
     dataset_dir = out_path / "dataset"
@@ -60,6 +61,7 @@ def optimize_model(clear_train_data=None):
     return ft_xtts_checkpoint
 
 def load_params():
+    dataset_path = Path(dataset_path)
     if not dataset_path.exists():
         raise Exception(f"Output folder does not exist at {dataset_path}")
     eval_train = dataset_path / "train.csv"
