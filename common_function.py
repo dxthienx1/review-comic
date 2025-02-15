@@ -1819,7 +1819,8 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                     break
                 idx += 1
         # Đọc và làm sạch nội dung văn bản
-        text = get_json_data(txt_path, readline=False)
+        if txt_path.endswith('.txt'):
+            text = get_json_data(txt_path, readline=False)
         text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
         text = text.replace('\n\n', '. ')
         text = text.replace('\n', '. ')
@@ -2335,13 +2336,60 @@ special_word = {
 }
 
 viet_tat = {
+    " ID ": " ai đi ",
+    " IP ": " ai pi ",
+    " ADN ": " ây đi en ",
+    " AND ": " ây đi en ",
+    " DNA ": " đi en ây ",
+    " IT ": " ai ti ",
+    " AI ": " ây ai ",
+    " VPN ": " vi pi en ",
+    " HTTPS ": " hát tê tê pê ếch ",
+    " HTTP ": " hát tê tê pê ",
+    " WHO ": " vê kép hát ô ",
+    " GDP ": " gi đi pi ",
+    " CPI ": " xi pi ai ",
+    " IPO ": " ai pi ô ",
+    " KPI ": " cây pi ai ",
+    " GPS ": " gi pi ếch ",
+    " USB ": " diu ếch bi ",
+    " API ": " ây pi ai ",
+    " GPT ": " gi pi ti ",
+    " QR ": " qui rờ ",
+    " UBND ": " ủy ban nhân dân ",
+    " HĐND ": " hội đồng nhân dân ",
+    " MTTQ ": " mặt trận tổ quốc ",
+    " KT-XH ": " kinh tế xã hội ",
+    " ĐBQH ": " đại biểu quốc hội ",
+    " THCS ": " trung học cơ sở ",
+    " THPT ": " trung học phổ thông ",
+    " KH-CN ": " khoa học công nghệ ",
+    " TCKT ": " tài chính kế toán ",
+    " KHKT ": " khoa học kỹ thuật ",
+    " CNTT ": " công nghệ thông tin ",
+    " CNPM ": " công nghệ phần mềm ",
+    " KH&CN ": " khoa học và công nghệ ",
+    " CTTĐT ": " cổng thông tin điện tử ",
+    " MXH ": " mạng xã hội ",
+    " GPLX ": " giấy phép lái xe ",
+    " STK ": " số tài khoản ",
+    " NĐ-CP ": " nờ đê xê pê ",
+    " fff ": " fff "
+}
+
+loi_chinh_ta = {
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
     " id ": " ai đi ",
-    " ip ": " ai pi ",
     " adn ": " ây đi en ",
     " and ": " ây đi en ",
     " dna ": " đi en ây ",
-    " it ": " ai ti ",
-    " ai ": " ây ai ",
     " vpn ": " vi pi en ",
     " https ": " hát tê tê pê ếch ",
     " http ": " hát tê tê pê ",
@@ -2373,19 +2421,7 @@ viet_tat = {
     " gplx ": " giấy phép lái xe ",
     " stk ": " số tài khoản ",
     " nđ-cp ": " nờ đê xê pê ",
-    " fff ": " fff "
-}
-
-loi_chinh_ta = {
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "Haiz":"hai da",
+    "haiz":"hai da",
     "laser":"la gie",
     "lazer":"la gie",
     "laze":"la gie",
@@ -2420,11 +2456,11 @@ loi_chinh_ta = {
     "ok": "ô kê",
     "zombie": "giom bi",
     "topping": "top ping",
-    "full": "phun",
+    " full": " phun",
     "shipper": "síp pơ",
     "virus": "vi rút",
-    "app": "áp",
-    "iq": "ai kiêu",
+    " app ": " áp ",
+    " iq ": "ai kiêu",
     "email": "y meo",
     "game": "ghem",
     "himalaya": "hi ma lay a",
@@ -5541,6 +5577,61 @@ loi_chinh_ta = {
     "ngoạ nguồn": "ngọn nguồn",
     " hoà ": " hòa ",
     " từc ": " tức ",
+    " tuỳ ": " tùy ",
+    "sắp quỷ": "sắp quỳ",
+    "gạ gấm": "gạ gẫm",
+    "tiền đầu": "tiền đồ",
+    "ra giấu": "ra dấu",
+    "nhai răng": "nhe răng",
+    "tần phá": "tàn phá",
+    "bóp dù": "bóp dú",
+    "cạn bá": "cặn bã",
+    "xa đoạn": "xa đọa",
+    "rắc dưới": "rác rưởi",
+    "trung quy": "chung quy",
+    "mục giữa": "mục rữa",
+    "nhốm": "nhuốm",
+    "nhíu mảnh": "nhíu mày",
+    "đỏ ứng": "đỏ ửng",
+    "lấy đả": "lấy đà",
+    "ủỉnh": "uỳnh",
+    "hỏng súng": "họng súng",
+    "viper": "víp pơ",
+    "lời biếng": "lười biếng",
+    "phức tay": "phất tay",
+    "lau vụt": "lao vụt",
+    "hết to": "hét to",
+    "tuyếc rằng": "tiếc rằng",
+    "giữ điểm": "dứt điểm",
+    "xuất thẳng": "sút thẳng",
+    "ôm chán": "ôm trán",
+    "dài phẫu": "giải phẫu",
+    "vector": "vét tơ",
+    "đèo nói": "đéo nói",
+    "loi trôi": "loi choi",
+    "bồng bốp": "bôm bốp",
+    "chản ra": "tràn ra",
+    " hero ": " hê rô ",
+    " killer ": " kiu lơ ",
+    "mản che": "màn che",
+    "chấn nản": "chán nản",
+    "bật sợi": "bật dậy",
+    "tiên lửa": "tia lửa",
+    "lau vút": "lao vút",
+    " mếp ": " mép ",
+    "chuột nhất": "chuột nhắt",
+    "cây dìu": "cây rìu",
+    "khủyểu": "khuỷu",
+    "xức điểm": "dứt điểm",
+    "tuy luyện": "tôi luyện",
+    "binh bốc": "binh bốp",
+    "lên hoàng cước": "liên hoàng cước",
+    "vật vãnh": "vặt vãnh",
+    "rước điểm": "dứt điểm",
+    "thê cơ": "thế cơ",
+    "giữ chữ": "dự trữ",
+    "đổ sát": "đồ sát",
+    "đeo có": "đéo có",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
@@ -5549,6 +5640,30 @@ loi_chinh_ta = {
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
+    "ffff": "ffff",
+    "ffff": "ffff",
+    "ffff": "ffff",
+    "ffff": "ffff",
+    "ffff": "ffff",
+    "ffff": "ffff",
+    "ffff": "ffff",
+    "elder": "eo đờ",
+    "iuna": "i u na",
+    "herocure": "hê rô kiu lơ",
+    "aiwa": "ai qua",
+    "ngáo đã": "ngáo đá",
+    "trao ngáo": "chao ngáo",
+    "chào ngáo": "chao ngáo",
+    "engle": "en ghình",
+    "engine": "en ghình",
+    "đầu môi": "đầu moi",
+    "chào ngáo đá": "chao ngáo đá",
+    "chảm không": "trảm không",
+    "mạc phạm": "mạc phàm",
+    "mục linh tức": "mục linh tuyết",
+    "mục chác": "mục trác",
+    "mục lão già": "mục lão gia",
+    "mạc pham": "mạc phàm",
     "quỷ sa": "quỷ xà",
     "đào quân": "đao quân",
     "đào mạch": "đao mạch",
@@ -5594,10 +5709,10 @@ loi_chinh_ta = {
 
 
 def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
-    text = text.lower()
     if language == 'vi':
         for word, replacement in viet_tat.items():
             text = text.replace(word, replacement)
+        text = text.lower()
         for word, replacement in special_word.items():
             text = text.replace(word, replacement)
         if is_loi_chinh_ta:
@@ -5610,22 +5725,22 @@ def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
     return text.strip()
 
 
-# -------Sửa chính tả trong file txt và xuất ra file txt khác-------
-cnt = 1
-old_txt = "E:\\Python\\developping\\review comic\\test\\HT_1\\1.txt"
+# # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
+# cnt = 1
 # old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1.txt"
+# # old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1.txt"
 
-fol = os.path.dirname(old_txt)
-file_name = os.path.basename(old_txt).split('.')[0]
-new_txt = os.path.join(fol, f'{file_name}_1.txt')
-with open(old_txt, 'r', encoding='utf-8') as fff:
-    lines = fff.readlines()
-with open(new_txt, 'w', encoding='utf-8') as ggg:
-    for line in lines:
-        if line and not line.strip().isdigit():
-            line = cleaner_text(line.strip())
-            ggg.write(f'{cnt}\n{line}\n')
-            cnt += 1
+# fol = os.path.dirname(old_txt)
+# file_name = os.path.basename(old_txt).split('.')[0]
+# new_txt = os.path.join(fol, f'{file_name}_1.txt')
+# with open(old_txt, 'r', encoding='utf-8') as fff:
+#     lines = fff.readlines()
+# with open(new_txt, 'w', encoding='utf-8') as ggg:
+#     for line in lines:
+#         if line and not line.strip().isdigit():
+#             line = cleaner_text(line.strip())
+#             ggg.write(f'{cnt}\n{line}\n')
+#             cnt += 1
 
 
 
@@ -5772,7 +5887,7 @@ def adjust_audio_speed(input_folder, output_folder, speed=0.98, volume_factor=1.
 
 # input_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_1"
 # output_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_2"
-input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1"
-output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1_1"
+input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam"
+output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam_1"
 # os.makedirs(output_folder, exist_ok=True)
-# adjust_audio_speed(input_folder, output_folder, speed=0.97, volume_factor=1.5)
+# adjust_audio_speed(input_folder, output_folder, speed=0.99, volume_factor=0.8)

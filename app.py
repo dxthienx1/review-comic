@@ -378,6 +378,7 @@ class MainApp:
 
     def export_text_story_to_video(self):
         try:
+            ffff = "Bạn đang nghe truyện tại kênh Tiên Giới Review, đừng quên lai và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
             start_time = time()
             is_merge_videos = False
             thread_number = self.thread_number_var.get().strip()
@@ -399,9 +400,13 @@ class MainApp:
                 return False
 
             images = get_file_in_folder_by_type(folder_story, file_type='.jpg', noti=False) or []
+            if len(images) == 0:
+                print("Phải có ít nhất 1 ảnh để ghép vào video")
+                return False
             output_folder = os.path.join(folder_story, 'output')
             os.makedirs(output_folder, exist_ok=True)
-
+            current_image = os.path.join(folder_story, images[0])
+            file_name = ""
             for i, txt_file in enumerate(txt_files):
                 t = time()
                 file_name = txt_file.replace('.txt', '')
@@ -409,10 +414,12 @@ class MainApp:
                 output_audio_path = os.path.join(output_folder, f'{file_name}.wav')
                 # Chuyển đổi text thành audio
                 text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=output_audio_path, thread_number=thread_number)
-                try:
-                    img_path = os.path.join(folder_story, images[i])
-                except IndexError:
-                    img_path = None
+                img_path = os.path.join(folder_story, f'{file_name}.jpg')
+   
+                if os.path.exists(img_path):
+                    current_image = img_path
+                else:
+                    img_path = current_image
                 if os.path.exists(output_audio_path):
                     print(f'Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
                     if img_path and os.path.exists(img_path):
@@ -423,6 +430,12 @@ class MainApp:
                         run_command_ffmpeg(command=command)
                 else:
                     print(f'Warning: xuất file {txt_path} sang audio không thành công !!!')
+            if file_name:
+                end_file_wav = os.path.join(output_folder, f'{file_name}_end.wav')
+                end_file_mp4 = os.path.join(output_folder, f'{file_name}_end.mp4')
+                text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=end_file_wav)
+                command = f"ffmpeg -y -loop 1 -i \"{current_image}\" -i \"{end_file_wav}\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest \"{end_file_mp4}\""
+                run_command_ffmpeg(command=command)
             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
             if is_merge_videos:
                 merge_videos_use_ffmpeg(output_folder, export_file_name)
