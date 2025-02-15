@@ -3,7 +3,6 @@ test*/
 oauth/
 download_folder/
 finish/
-import/
 dist/
 build/
 hook/
@@ -18,22 +17,18 @@ app.py-*.json
 output.txt
 test.py
 luu_tam.py
-config.json
 ff.html
 download_info.json
-*.json
 *.txt
 *.pem
 *.mp3
 *.mp4
 *.wav
-# venv/
+*.pth
 vietnamese_dataset/
 dataset/
 finetune_models/
-main/
 output/
-models/
 scripts/
 wavs/
 eval/
@@ -43,3 +38,4 @@ best_model*.pth
 *.pyc
 *.log
 test*.py
+/config.json
