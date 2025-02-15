@@ -37,6 +37,7 @@ class MainApp:
             self.is_edit_audio_window = False
             self.is_combine_video_window = False
             self.is_rename_file_by_index_window = False
+            self.is_convert_jpg_to_png = False
             self.is_remove_char_in_file_name_window = False
             self.is_extract_image_from_video_window = False
             self.is_editing_video = False
@@ -378,7 +379,7 @@ class MainApp:
 
     def export_text_story_to_video(self):
         try:
-            ffff = "Bạn đang nghe truyện tại kênh Tiên Giới Review, đừng quên lai và đăng ký để ủng hộ nhóm mình và không bỏ lỡ các tập tiếp theo nhé."
+            ffff = "Bạn đang nghe truyện tại kênh Tiên Giới Review, đừng quên lai và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
             start_time = time()
             is_merge_videos = False
             thread_number = self.thread_number_var.get().strip()
@@ -399,7 +400,7 @@ class MainApp:
                 print(f'Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
                 return False
 
-            images = get_file_in_folder_by_type(folder_story, file_type='.jpg', noti=False) or []
+            images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
             if len(images) == 0:
                 print("Phải có ít nhất 1 ảnh để ghép vào video")
                 return False
@@ -414,7 +415,7 @@ class MainApp:
                 output_audio_path = os.path.join(output_folder, f'{file_name}.wav')
                 # Chuyển đổi text thành audio
                 text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=output_audio_path, thread_number=thread_number)
-                img_path = os.path.join(folder_story, f'{file_name}.jpg')
+                img_path = os.path.join(folder_story, f'{file_name}.png')
    
                 if os.path.exists(img_path):
                     current_image = img_path
@@ -426,7 +427,8 @@ class MainApp:
                         is_merge_videos = True
                         output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
                         # Ghép ảnh và âm thanh thành video
-                        command = f"ffmpeg -y -loop 1 -i \"{img_path}\" -i \"{output_audio_path}\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest \"{output_video_path}\""
+                        command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
+                        print(command)
                         run_command_ffmpeg(command=command)
                 else:
                     print(f'Warning: xuất file {txt_path} sang audio không thành công !!!')
@@ -434,7 +436,7 @@ class MainApp:
                 end_file_wav = os.path.join(output_folder, f'{file_name}_end.wav')
                 end_file_mp4 = os.path.join(output_folder, f'{file_name}_end.mp4')
                 text_to_speech_with_xtts_v2(ffff, speaker_wav, language, output_path=end_file_wav)
-                command = f"ffmpeg -y -loop 1 -i \"{current_image}\" -i \"{end_file_wav}\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest \"{end_file_mp4}\""
+                command = f'ffmpeg -y -loop 1 -i "{current_image}" -i "{end_file_wav}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{end_file_mp4}"'
                 run_command_ffmpeg(command=command)
             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
             if is_merge_videos:
@@ -807,6 +809,7 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
         create_button(self.root, text="Đổi tên file/thư mục theo chỉ số", command=self.open_rename_file_by_index_window, width=self.width)
+        create_button(self.root, text="Đổi file jpg sang png", command=self.open_convert_jpg_to_png_window, width=self.width)
         create_button(self.root, text="Xóa ký tự trong tên file", command=self.open_remove_char_in_file_name_window, width=self.width)
         create_button(self.root, text="Trích xuất ảnh từ video", command=self.extract_image_from_video_window, width=self.width)
         create_button(self.root, text="Chụp ảnh vùng được chọn và lưu", command=take_screenshot, width=self.width)
@@ -1686,6 +1689,7 @@ class MainApp:
         self.edit_image_window = False
         self.export_video_window = False
         self.is_extract_sub_image_audio_from_video_window = False
+        self.is_convert_jpg_to_png = False
         self.clear_after_action()
         clear_widgets(self.root)
         self.videos_edit_folder_var = None
@@ -1841,6 +1845,11 @@ class MainApp:
                 self.width = 500
                 self.height_window = 361
                 self.is_rename_file_by_index_window = False
+            elif self.is_convert_jpg_to_png:
+                self.root.title("Convert Image Format")
+                self.width = 500
+                self.height_window = 315
+                self.is_convert_jpg_to_png = False
             elif self.is_remove_char_in_file_name_window:
                 self.root.title("Remove Char in Files")
                 self.width = 500
@@ -1854,7 +1863,7 @@ class MainApp:
             elif self.is_other_window:
                 self.root.title("Other")
                 self.width = 500
-                self.height_window = 303
+                self.height_window = 347
                 self.is_other_window = False
             elif self.is_other_download_window:
                 self.root.title("Download Video")
@@ -1901,6 +1910,26 @@ class MainApp:
         self.file_name_extension_var.insert(0, '.wav')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
         create_button(frame=self.root, text="Bắt Đầu Đổi Tên", command= self.rename_file_by_index)
+        create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
+        self.show_window()
+
+    def open_convert_jpg_to_png_window(self):
+        def start_convert_jpg_to_png():
+            img_from_format = self.img_from_format_var.get()
+            img_to_format = self.img_to_format_var.get()
+            videos_folder = self.videos_edit_folder_var.get()
+            if check_folder(videos_folder):
+                convert_jpg_to_png(videos_folder, img_from_format, img_to_format)
+
+        self.reset()
+        self.is_convert_jpg_to_png = True
+        self.setting_window_size()
+        self.img_from_format_var = self.create_settings_input(text="Định dạng gốc của ảnh", values=["jpg", "jpeg", "png", "bmp", "tiff", "webp"], left=0.4, right=0.6)
+        self.img_to_format_var = self.create_settings_input(text="Định dạng muốn chuyển đổi", values=["jpg", "jpeg", "png", "bmp", "tiff", "webp"], left=0.4, right=0.6)
+        self.img_from_format_var.set("jpg")
+        self.img_to_format_var.set("png")
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa Ảnh", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        create_button(frame=self.root, text="Bắt Đầu Đổi Định Dạng Ảnh", command= start_convert_jpg_to_png)
         create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
         self.show_window()
 

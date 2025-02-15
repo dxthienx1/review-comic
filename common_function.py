@@ -737,6 +737,37 @@ def rename_files_by_index(folder_path, base_name="", extension="", start_index=1
         except:
             print(f"Đổi tên file {old_file_path} không thành công")
 
+def convert_jpg_to_png(input_folder, from_format='jpg', to_format='png'):
+    try:
+        output_folder = os.path.join(input_folder, 'png_images')
+        os.makedirs(output_folder, exist_ok=True)
+        list_images = get_file_in_folder_by_type(input_folder, f'.{from_format}')
+        for file in list_images:
+            input_path = os.path.join(input_folder, file)
+            
+            # Lấy phần mở rộng của file
+            ext = os.path.splitext(file)[1].lower()
+            
+            # Các định dạng ảnh hỗ trợ
+            supported_formats = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"]
+            
+            # Kiểm tra nếu file là ảnh hợp lệ
+            if ext in supported_formats:
+                output_path = os.path.join(output_folder, os.path.splitext(file)[0] + f".{to_format}")
+                
+                try:
+                    with Image.open(input_path) as img:
+                        # Nếu chuyển sang JPG, cần loại bỏ kênh alpha (nền trong suốt)
+                        if to_format.lower() in ["jpg", "jpeg"]:
+                            img = img.convert("RGB")
+
+                        img.save(output_path, to_format.upper())
+                    print(f"✅ Đã chuyển {file} → {os.path.basename(output_path)}")
+                except Exception as e:
+                    print(f"❌ Lỗi khi chuyển {file}: {e}")
+    except:
+        getlog()
+
 def remove_char_in_file_name(folder_path, chars_want_to_remove, extension=None):
     if not extension:
         extension = '.mp4'
@@ -2247,7 +2278,7 @@ def load_config():
             "video_get_audio_url": "",
 
             "language_tts": "vi",
-            "speed_talk": "vi",
+            "speed_talk": "1",
         }
         save_to_json_file(config, config_path)
     return config
