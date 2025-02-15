@@ -378,7 +378,7 @@ class MainApp:
 
     def export_text_story_to_video(self):
         try:
-            ffff = "Bạn đang nghe truyện tại kênh Tiên Giới Review, đừng quên lai và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
+            ffff = "Bạn đang nghe truyện tại kênh Tiên Giới Review, đừng quên lai và đăng ký để ủng hộ nhóm mình và không bỏ lỡ các tập tiếp theo nhé."
             start_time = time()
             is_merge_videos = False
             thread_number = self.thread_number_var.get().strip()
@@ -433,7 +433,7 @@ class MainApp:
             if file_name:
                 end_file_wav = os.path.join(output_folder, f'{file_name}_end.wav')
                 end_file_mp4 = os.path.join(output_folder, f'{file_name}_end.mp4')
-                text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=end_file_wav)
+                text_to_speech_with_xtts_v2(ffff, speaker_wav, language, output_path=end_file_wav)
                 command = f"ffmpeg -y -loop 1 -i \"{current_image}\" -i \"{end_file_wav}\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest \"{end_file_mp4}\""
                 run_command_ffmpeg(command=command)
             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
