@@ -418,26 +418,23 @@ def remove_file(file_path):
         pass
 
 def get_json_data(file_path="", readline=True):
+    if not os.path.exists(file_path):
+        print(f"Lỗi: File {file_path} không tồn tại.")
+        return None
     try:
-        if os.path.exists(file_path):
+        p = None
+        mode = "rb" if file_path.endswith(".pkl") else "r"
+        encoding = None if file_path.endswith(".pkl") else "utf-8"
+        with open(file_path, mode, encoding=encoding) as file:
+            portalocker.lock(file, portalocker.LOCK_SH)
             if file_path.endswith('.json'):
-                with open(file_path, "r", encoding="utf-8") as file:
-                    portalocker.lock(file, portalocker.LOCK_SH)
-                    p = json.load(file)
-                    portalocker.unlock(file)
+                p = json.load(file)
             elif file_path.endswith('.pkl'):
-                with open(file_path, "rb") as file:
-                    portalocker.lock(file, portalocker.LOCK_SH)
-                    p = pickle.load(file)
-                    portalocker.unlock(file)
+                p = pickle.load(file)
             elif file_path.endswith('.txt'):
-                with open(file_path, "r", encoding="utf-8") as file:
-                    if readline:
-                        p = file.readlines()
-                    else:
-                        p = file.read()
+                p = file.readlines() if readline else file.read()
         return p
-    except:
+    except Exception as e:
         getlog()
         return None
 
@@ -445,33 +442,21 @@ def save_to_json_file(data, file_path):
     try:
         if file_path.endswith('.json'):
             with open(file_path, "w", encoding="utf-8") as file:
-                with portalocker.Lock(file, portalocker.LOCK_EX):
-                    json.dump(data, file, indent=3)
+                portalocker.lock(file, portalocker.LOCK_EX)
+                json.dump(data, file, indent=3)
 
         elif file_path.endswith('.pkl'):
             with open(file_path, "wb") as file:
-                with portalocker.Lock(file, portalocker.LOCK_EX):
-                    pickle.dump(data, file)
+                portalocker.lock(file, portalocker.LOCK_EX)
+                pickle.dump(data, file)
 
         elif file_path.endswith('.txt'):
             with open(file_path, "w", encoding="utf-8") as file:
-                with portalocker.Lock(file, portalocker.LOCK_EX):
-                    file.write(f"{data}\n")
+                portalocker.lock(file, portalocker.LOCK_EX)
+                file.write(f"{data}\n")
     except:
         getlog()
 
-
-def get_txt_data(file_path):
-    if not os.path.isfile(file_path):
-        return None
-    with open(file_path, "r", encoding="utf-8") as file:
-        content = file.read()
-    return content
-
-def save_list_to_txt(data_list, file_path):
-    with open(file_path, "w", encoding="utf-8") as file:
-        for item in data_list:
-            file.write(f"{item}\n")
 
 def getlog(lock=None):
     try:
@@ -1736,7 +1721,19 @@ def get_speaker_wav_path(language):
         return None
     return speaker_wav_path
 
-
+def change_audio_speed(input_audio, output_audio, speed=1.0):
+    if speed != 1.0:
+        try:
+            codec = "pcm_s16le" if input_audio.endswith(".wav") else "aac"
+            command = [
+                "ffmpeg", "-y", "-i", input_audio,
+                "-filter:a", f"atempo={speed}",
+                "-c:a", codec, output_audio
+            ]
+            run_command_ffmpeg(command)
+        except:
+            getlog()
+            print(f"Không thể tăng tốc audio {input_audio} với tốc độ {speed}")
 
 def merge_images(image_paths, output_path, direction='vertical'):
     images = [Image.open(img_path) for img_path in image_paths]
