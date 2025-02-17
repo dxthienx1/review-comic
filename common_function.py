@@ -1833,12 +1833,12 @@ def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, spe
 def get_ref_speaker_by_language(language):
     if language == 'vi': 
         speaker_wav = os.path.join(current_dir, "models\\ref_data\\vi.wav")
-    if language == 'en':
+    elif language == 'en':
         speaker_wav = os.path.join(current_dir, "models\\ref_data\\en.wav")
-    if language == 'zh':
+    elif language == 'zh':
         speaker_wav = os.path.join(current_dir, "models\\ref_data\\zh.wav")
     else:
-        print(f'{thatbai} Ngôn ngữ không được hỗ trợ')
+        print(f'{thatbai} Ngôn ngữ không được hỗ trợ: {language}')
         return None
     return speaker_wav
 
