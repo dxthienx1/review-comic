@@ -37,6 +37,7 @@ class MainApp:
             self.is_edit_audio_window = False
             self.is_combine_video_window = False
             self.is_rename_file_by_index_window = False
+            self.is_merge_txt_file = False
             self.is_convert_jpg_to_png = False
             self.is_remove_char_in_file_name_window = False
             self.is_extract_image_from_video_window = False
@@ -82,7 +83,7 @@ class MainApp:
         create_button(frame=self.root, text="Tải truyện chữ", command=self.open_download_text_story_window)
         create_button(frame=self.root, text="Tải truyện tranh", command=self.open_download_image_window)
         create_button(frame=self.root, text="Lấy phụ đề từ ảnh", command=self.open_edit_image_window)
-        create_button(frame=self.root, text="Xuất video từ phụ đề truyện", command=self.export_video_from_subtitles_window)
+        create_button(frame=self.root, text="Xuất video từ file txt và ảnh đi kèm", command=self.export_video_from_subtitles_window)
         create_button(frame=self.root, text="Tải video", command=self.open_other_download_video_window)
         create_button(frame=self.root, text="Xử lý video", command=self.open_edit_video_menu)
         create_button(frame=self.root, text="Xử lý audio", command=self.open_edit_audio_window)
@@ -366,6 +367,7 @@ class MainApp:
         self.export_video_window = True
         self.show_window()
         self.setting_window_size()
+        self.channel_name_var = self.create_settings_input(text="Xuất video cho kênh", config_key="current_channel", values=self.config["channels"], left=0.3, right=0.7)
         self.language_var = self.create_settings_input(text="Ngôn ngữ", config_key="language_tts", values=self.support_languages, left=0.3, right=0.7)
         self.language_var.set('vi')
         self.speed_talk_var = self.create_settings_input(text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
@@ -380,11 +382,17 @@ class MainApp:
 
     def export_text_story_to_video(self):
         try:
-            end_text = "Bạn đang nghe truyện tại kênh Tiên Giới Review, đừng quên like và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
             start_time = time()
             is_merge_videos = False
             thread_number = self.thread_number_var.get().strip()
+            channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
+            if language == 'vi':
+                end_text = f"Bạn đang xem truyện tại kênh {channel_name}, đừng quên like và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
+            elif language == 'en':
+                end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
+            else:
+                end_text = None
             speed_talk = self.speed_talk_var.get().strip()
             if speed_talk:
                 try:
@@ -398,6 +406,10 @@ class MainApp:
             if not check_folder(folder_story):
                 print(f"Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
                 return False
+            self.config["current_channel"] = channel_name
+            if channel_name not in self.config["channels"]:
+                self.config["channels"].append(channel_name)
+            self.save_config()
             txt_files = get_file_in_folder_by_type(folder_story, file_type='.txt') or []
             if len(txt_files) == 0:
                 print(f'Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
@@ -416,6 +428,9 @@ class MainApp:
                 t = time()
                 file_name = txt_file.replace('.txt', '')
                 txt_path = os.path.join(folder_story, txt_file)
+                if end_text:
+                    if i == len(txt_files) - 1:
+                        append_text_to_txt_file(txt_path, end_text)
                 if speed_talk == 1.0:
                     temp_audio_path = os.path.join(output_folder, f'{file_name}.wav')
                 else:
@@ -447,17 +462,6 @@ class MainApp:
                 else:
                     print(f'{thatbai} xuất file {txt_path} sang audio không thành công !!!')
 
-            if end_text:
-                end_file_wav = os.path.join(output_folder, f'{file_name}_end.wav')
-                end_file_mp4 = os.path.join(output_folder, f'{file_name}_end.mp4')
-                text_to_speech_with_xtts_v2(end_text, speaker_wav, language, output_path=end_file_wav)
-                if speed_talk != 1:
-                    temp_end_audio = os.path.join(output_folder, f'speed_{file_name}_end.wav')
-                    if change_audio_speed(end_file_wav, temp_end_audio, speed_talk):
-                        end_file_wav = temp_end_audio
-                command = f'ffmpeg -y -loop 1 -i "{current_image}" -i "{end_file_wav}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{end_file_mp4}"'
-                run_command_ffmpeg(command)
-
             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
             if is_merge_videos:
                 if len(txt_files) > 1:
@@ -473,80 +477,6 @@ class MainApp:
         except:
             getlog()
             return False
-
-    # def export_text_story_to_video(self):
-    #     try:
-    #         ffff = "Bạn đang nghe truyện tại kênh Tiên Giới Review, đừng quên lai và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
-    #         start_time = time()
-    #         is_merge_videos = False
-    #         thread_number = self.thread_number_var.get().strip()
-    #         language = self.language_var.get().strip()
-    #         speaker_wav = os.path.join(current_dir, "models\\ref_data\\vi.wav")
-    #         if language == 'en':
-    #             speaker_wav = os.path.join(current_dir, "models\\ref_data\\en.wav")
-    #         if language == 'zh':
-    #             speaker_wav = os.path.join(current_dir, "models\\ref_data\\zh.wav")
-
-    #         folder_story = self.videos_edit_folder_var.get().strip()
-    #         if not check_folder(folder_story):
-    #             print(f"Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
-    #             return False
-
-    #         txt_files = get_file_in_folder_by_type(folder_story, file_type='.txt') or []
-    #         if len(txt_files) == 0:
-    #             print(f'Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
-    #             return False
-
-    #         images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
-    #         if len(images) == 0:
-    #             print("Phải có ít nhất 1 ảnh để ghép vào video")
-    #             return False
-    #         output_folder = os.path.join(folder_story, 'output')
-    #         os.makedirs(output_folder, exist_ok=True)
-    #         current_image = os.path.join(folder_story, images[0])
-    #         file_name = ""
-    #         for i, txt_file in enumerate(txt_files):
-    #             t = time()
-    #             file_name = txt_file.replace('.txt', '')
-    #             txt_path = os.path.join(folder_story, txt_file)
-    #             output_audio_path = os.path.join(output_folder, f'{file_name}.wav')
-    #             # Chuyển đổi text thành audio
-    #             text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=output_audio_path, thread_number=thread_number)
-    #             img_path = os.path.join(folder_story, f'{file_name}.png')
-   
-    #             if os.path.exists(img_path):
-    #                 current_image = img_path
-    #             else:
-    #                 img_path = current_image
-    #             if os.path.exists(output_audio_path):
-    #                 print(f'Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
-    #                 if img_path and os.path.exists(img_path):
-    #                     is_merge_videos = True
-    #                     output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
-    #                     # Ghép ảnh và âm thanh thành video
-    #                     command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
-    #                     print(command)
-    #                     run_command_ffmpeg(command=command)
-    #             else:
-    #                 print(f'Warning: xuất file {txt_path} sang audio không thành công !!!')
-    #         if file_name:
-    #             end_file_wav = os.path.join(output_folder, f'{file_name}_end.wav')
-    #             end_file_mp4 = os.path.join(output_folder, f'{file_name}_end.mp4')
-    #             text_to_speech_with_xtts_v2(ffff, speaker_wav, language, output_path=end_file_wav)
-    #             command = f'ffmpeg -y -loop 1 -i "{current_image}" -i "{end_file_wav}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{end_file_mp4}"'
-    #             run_command_ffmpeg(command=command)
-    #         export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
-    #         if is_merge_videos:
-    #             merge_videos_use_ffmpeg(output_folder, export_file_name)
-    #             print("Xuất video hoàn tất.")
-    #         else:
-    #             merge_audio_use_ffmpeg(output_folder, export_file_name)
-    #             print("Xuất audio hoàn tất.")
-    #         print(f'Tổng thời gian xử lý: {time() - start_time}s')
-    #         return True
-    #     except:
-    #         getlog()
-    #         return False
 
     def export_video_from_subtitles(self):
         try:
@@ -909,12 +839,27 @@ class MainApp:
         create_button(self.root, text="Đổi file jpg sang png", command=self.open_convert_jpg_to_png_window, width=self.width)
         create_button(self.root, text="Xóa ký tự trong tên file", command=self.open_remove_char_in_file_name_window, width=self.width)
         create_button(self.root, text="Trích xuất ảnh từ video", command=self.extract_image_from_video_window, width=self.width)
+        create_button(self.root, text="Gộp file txt trong thư mục", command=self.merge_txt_file_in_folder_window, width=self.width)
         create_button(self.root, text="Chụp ảnh vùng được chọn và lưu", command=take_screenshot, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
  
 
 #---------------------------------------------edit audio-------------------------------------------
-        
+
+    def merge_txt_file_in_folder_window(self):
+        def start_merge_txt_file():
+            videos_folder = self.videos_edit_folder_var.get()
+            if check_folder(videos_folder):
+                merge_txt_files(videos_folder)
+
+        self.reset()
+        self.is_merge_txt_file = True
+        self.setting_window_size()
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File .txt", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        create_button(frame=self.root, text="Bắt Đầu Gộp File", command= start_merge_txt_file)
+        create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
+        self.show_window()
+
     def open_edit_audio_option(self):
         def start_thread_edit_audio():
             def start_edit_audio():
@@ -1774,6 +1719,7 @@ class MainApp:
         self.is_text_to_mp3_window = False
         self.is_combine_video_window = False
         self.is_rename_file_by_index_window = False
+        self.is_merge_txt_file = False
         self.is_remove_char_in_file_name_window = False
         self.is_extract_image_from_video_window = False
         self.is_other_window = False
@@ -1942,6 +1888,11 @@ class MainApp:
                 self.width = 500
                 self.height_window = 361
                 self.is_rename_file_by_index_window = False
+            elif self.is_merge_txt_file:
+                self.root.title("Rename Files")
+                self.width = 500
+                self.height_window = 220
+                self.is_merge_txt_file = False
             elif self.is_convert_jpg_to_png:
                 self.root.title("Convert Image Format")
                 self.width = 500
@@ -1960,7 +1911,7 @@ class MainApp:
             elif self.is_other_window:
                 self.root.title("Other")
                 self.width = 500
-                self.height_window = 347
+                self.height_window = 390
                 self.is_other_window = False
             elif self.is_other_download_window:
                 self.root.title("Download Video")
@@ -1980,7 +1931,7 @@ class MainApp:
             elif self.export_video_window:
                 self.root.title("Xuất video từ phụ đề")
                 self.width = 500
-                self.height_window = 410
+                self.height_window = 457
                 self.export_video_window = False              
             elif self.is_extract_sub_image_audio_from_video_window:
                 self.root.title("Lấy âm thanh/ phụ đề/ ảnh từ video")

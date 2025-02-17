@@ -1854,7 +1854,6 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         tts_list = []
         for i in range(thread_number):
             tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
-        # Tạo tên file nếu không có output_path
         if not output_path:
             idx = 1
             while True:
@@ -1873,7 +1872,6 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         
         if readline:
             def split_text_into_chunks(text, max_length):
-                """Chia đoạn văn bản thành các phần nhỏ hơn max_length, ngắt ngay dấu "," hoặc khoảng trống gần đoạn giữa câu nhất."""
                 chunks = []
                 while len(text) > max_length:
                     # Tìm vị trí gần giữa câu nhất dựa trên dấu ","
@@ -2221,8 +2219,33 @@ def number_to_english_with_units(text):
     pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
     return re.sub(pattern, convert, text)
 
+def merge_txt_files(input_folder):
+    try:
+        txt_files = get_file_in_folder_by_type(input_folder, '.txt') or []
+        if len(txt_files) < 2:
+            print(f'Phải có ít nhất 2 file .txt trong thư mục {input_folder} để gộp file')
+            return
+        output_file = os.path.join(input_folder, f'sum_content_{len(txt_files)}_file.txt')
+        with open(output_file, 'w', encoding='utf-8') as outfile:
+            for file_name in txt_files:
+                file_path = os.path.join(input_folder, file_name)
+                with open(file_path, 'r', encoding='utf-8') as infile:
+                    outfile.write(infile.read() + '\n')  # Ghi nội dung và xuống dòng
+        print(f"Đã gộp xong vào file: {output_file}")
+    except:
+        getlog()
 
-#-----------------commond-------------------------------
+def append_text_to_txt_file(file_path, text, is_noti=True):
+    try:
+        with open(file_path, 'a', encoding='utf-8') as file:
+            file.write('\n' + text)
+        if is_noti:
+            print(f"Đã thêm đoạn text vào file: {file_path}")
+    except:
+        getlog()
+
+#------------------------------------------------commond--------------------------------------------------
+
 def get_custom_model(folder):
     custom_model = os.path.join(folder, 'model.pth')
     if os.path.exists(custom_model):
@@ -2288,6 +2311,8 @@ def load_config():
 
             "language_tts": "vi",
             "speed_talk": "1",
+            "current_channel": "Tiên Giới Review",
+            "channels": ["Tiên Giới Review"]
         }
         save_to_json_file(config, config_path)
     return config
@@ -5693,6 +5718,11 @@ loi_chinh_ta = {
     "giữ chữ": "dự trữ",
     "đổ sát": "đồ sát",
     "đeo có": "đéo có",
+    " a4 ": " a bốn ",
+    " a3 ": " a ba ",
+    " a2 ": " a hai ",
+    " a1 ": " a một ",
+    " a0 ": " a không ",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
@@ -5705,67 +5735,7 @@ loi_chinh_ta = {
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
-    "elder": "eo đờ",
-    "iuna": "i u na",
-    "herocure": "hê rô kiu lơ",
-    "aiwa": "ai qua",
-    "ngáo đã": "ngáo đá",
-    "trao ngáo": "chao ngáo",
-    "chào ngáo": "chao ngáo",
-    "engle": "en ghình",
-    "engine": "en ghình",
-    "đầu môi": "đầu moi",
-    "chào ngáo đá": "chao ngáo đá",
-    "chảm không": "trảm không",
-    "mạc phạm": "mạc phàm",
-    "mục linh tức": "mục linh tuyết",
-    "mục chác": "mục trác",
-    "mục lão già": "mục lão gia",
-    "mạc pham": "mạc phàm",
-    "quỷ sa": "quỷ xà",
-    "đào quân": "đao quân",
-    "đào mạch": "đao mạch",
-    "giới kim đan": "dưới kim đan",
-    "ma tú": "ma tu",
-    "già trưởng lão": "giả trưởng lão",
-    "trận hoàng": "trận hoàn",
-    "liễu ra": "liễu gia",
-    "liệu bạch hồng": "liễu bạch hồng",
-    "liệu thanh phong": "liễu thanh phong",
-    "phú mạch": "phù mạch",
-    "khoái mạch": "quái mạch",
-    "ức liền": "ức liên",
-    "ứcc liền": "ức liền",
-    "qua liệt": "quan liệt",
-    "quỷ xa": "quỷ xà",
-    "ra các": "gia các",
-    "ức trí": "ức chi",
-    "quảng lang": "quảng lăng",
-    "vương tố": "vương tú",
-    "kinh lội": "kinh lôi",
-    "hác hồ": "hắc hồ",
-    "ước liên": "ức liên",
-    "bồn tôn": "bổn tôn",
-    "đau này": "đao này",
-    "quan mũ": "quan mỗ",
-    "quan mẫu": "quan mỗ",
-    "học học": "hộc hộc",
-    "thất xá trận": "thất sát trận",
-    "thông tin phong": "thông thiên phong",
-    "xích hoảng đan": "xích hoàng đan",
-    "xích hoảng lưu": "xích hoàng lư",
-    "xích hoàng lưu": "xích hoàng lư",
-    "lục ức trì": "lục ức chi",
-    "ngọc hoa muôn": "ngọc hoa môn",
-    "cua cung cựu": "cuốc cung cự",
-    "điểm xấu": "điềm xấu",
-    "hỏa luyện đan": "hỏa linh đan",
-    "ước chi": "ức chi",
-    "vương mũ": "vương mỗ",
-    "vương mộ": "vương mỗ"
+    "ffff": "ffff"
 }
 
 
