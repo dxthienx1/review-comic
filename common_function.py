@@ -110,6 +110,8 @@ RIGHT = 'right'
 CENTER = 'center'
 
 max_lenth_text = 250
+thanhcong = "✅"
+thatbai = "❌"
 
 def load_ffmpeg():
     def get_ffmpeg_dir():
@@ -1725,15 +1727,13 @@ def change_audio_speed(input_audio, output_audio, speed=1.0):
     if speed != 1.0:
         try:
             codec = "pcm_s16le" if input_audio.endswith(".wav") else "aac"
-            command = [
-                "ffmpeg", "-y", "-i", input_audio,
-                "-filter:a", f"atempo={speed}",
-                "-c:a", codec, output_audio
-            ]
+            command = [ "ffmpeg", "-y", "-i", input_audio, "-filter:a", f"atempo={speed}", "-c:a", codec, output_audio ]
             run_command_ffmpeg(command)
+            return True
         except:
             getlog()
             print(f"Không thể tăng tốc audio {input_audio} với tốc độ {speed}")
+    return False
 
 def merge_images(image_paths, output_path, direction='vertical'):
     images = [Image.open(img_path) for img_path in image_paths]
@@ -1829,6 +1829,18 @@ def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, spe
         print(f" --> Thêm phụ đề và chuyển thanh giọng nói thành công --> {output_video_path}")
     except:
         print("Có lỗi khi thêm phụ đề và chuyển thành giọng nói !!!")
+
+def get_ref_speaker_by_language(language):
+    if language == 'vi': 
+        speaker_wav = os.path.join(current_dir, "models\\ref_data\\vi.wav")
+    if language == 'en':
+        speaker_wav = os.path.join(current_dir, "models\\ref_data\\en.wav")
+    if language == 'zh':
+        speaker_wav = os.path.join(current_dir, "models\\ref_data\\zh.wav")
+    else:
+        print(f'{thatbai} Ngôn ngữ không được hỗ trợ')
+        return None
+    return speaker_wav
 
 def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1"):
     try:

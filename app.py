@@ -391,17 +391,13 @@ class MainApp:
                     speed_talk = float(speed_talk)
                 except:
                     speed_talk = 1.0
-            speaker_wav = os.path.join(current_dir, "models\\ref_data\\vi.wav")
-            if language == 'en':
-                speaker_wav = os.path.join(current_dir, "models\\ref_data\\en.wav")
-            if language == 'zh':
-                speaker_wav = os.path.join(current_dir, "models\\ref_data\\zh.wav")
-
+            speaker_wav = get_ref_speaker_by_language(language)
+            if not speaker_wav:
+                return
             folder_story = self.videos_edit_folder_var.get().strip()
             if not check_folder(folder_story):
                 print(f"Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
                 return False
-
             txt_files = get_file_in_folder_by_type(folder_story, file_type='.txt') or []
             if len(txt_files) == 0:
                 print(f'Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
@@ -423,15 +419,16 @@ class MainApp:
                 if speed_talk == 1.0:
                     temp_audio_path = os.path.join(output_folder, f'{file_name}.wav')
                 else:
-                    temp_audio_path = os.path.join(output_folder, f'temp_{file_name}.wav')
+                    temp_audio_path = os.path.join(output_folder, f'speed_{file_name}.wav')
 
                 text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number)
-                
+
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
                 else:
                     output_audio_path = os.path.join(output_folder, f'{file_name}.wav')
-                    change_audio_speed(temp_audio_path, output_audio_path, speed_talk)
+                    if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
+                        output_audio_path = temp_audio_path
 
                 img_path = os.path.join(folder_story, f'{file_name}.png')
                 if os.path.exists(img_path):
@@ -447,19 +444,17 @@ class MainApp:
 
                         command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
                         run_command_ffmpeg(command)
-
                 else:
-                    print(f'Warning: xuất file {txt_path} sang audio không thành công !!!')
+                    print(f'{thatbai} xuất file {txt_path} sang audio không thành công !!!')
 
             if end_text:
                 end_file_wav = os.path.join(output_folder, f'{file_name}_end.wav')
                 end_file_mp4 = os.path.join(output_folder, f'{file_name}_end.mp4')
-
                 text_to_speech_with_xtts_v2(end_text, speaker_wav, language, output_path=end_file_wav)
                 if speed_talk != 1:
-                    temp_end_audio = os.path.join(output_folder, f'temp_{file_name}_end.wav')
-                    change_audio_speed(end_file_wav, temp_audio_path, speed_talk)
-                    end_file_wav = temp_end_audio
+                    temp_end_audio = os.path.join(output_folder, f'speed_{file_name}_end.wav')
+                    if change_audio_speed(end_file_wav, temp_end_audio, speed_talk):
+                        end_file_wav = temp_end_audio
                 command = f'ffmpeg -y -loop 1 -i "{current_image}" -i "{end_file_wav}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{end_file_mp4}"'
                 run_command_ffmpeg(command)
 
