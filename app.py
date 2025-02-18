@@ -452,25 +452,26 @@ class MainApp:
                     img_path = current_image
 
                 if os.path.exists(output_audio_path):
-                    print(f'Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
+                    print(f'{thanhcong} Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
                     if img_path and os.path.exists(img_path):
                         is_merge_videos = True
                         output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
-
+                        print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
                         command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
                         run_command_ffmpeg(command)
                 else:
-                    print(f'{thatbai} xuất file {txt_path} sang audio không thành công !!!')
+                    print(f'{thatbai} xuất file {txt_path} sang audio không thành công ---> Dừng chương trình !!!')
+                    return
 
             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
             if is_merge_videos:
                 if len(txt_files) > 1:
                     merge_videos_use_ffmpeg(output_folder, export_file_name)
-                print("Xuất video hoàn tất.")
+                print("  -->  Xuất video hoàn tất.")
             else:
                 if len(txt_files) > 1:
                     merge_audio_use_ffmpeg(output_folder, export_file_name)
-                print("Xuất audio hoàn tất.")
+                print("  -->  Xuất audio hoàn tất.")
 
             print(f'Tổng thời gian xử lý: {time() - start_time}s')
             return True

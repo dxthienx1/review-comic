@@ -2304,13 +2304,12 @@ def load_config():
             "aecho": "100",
 
             "audio_edit_path": "", 
-            "speed_talk": "1.0", 
             "convert_multiple_record": False, 
             "video_get_audio_path": "", 
             "video_get_audio_url": "",
 
             "language_tts": "vi",
-            "speed_talk": "1",
+            "speed_talk": "1.1",
             "current_channel": "Tiên Giới Review",
             "channels": ["Tiên Giới Review"]
         }
