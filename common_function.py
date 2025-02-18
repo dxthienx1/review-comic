@@ -2310,8 +2310,8 @@ def load_config():
 
             "language_tts": "vi",
             "speed_talk": "1.1",
-            "current_channel": "Tiên Giới Review",
-            "channels": ["Tiên Giới Review"]
+            "current_channel": "Tiên Giới Audio",
+            "channels": ["Tiên Giới Audio"]
         }
         save_to_json_file(config, config_path)
     return config
@@ -2470,7 +2470,7 @@ loi_chinh_ta = {
     "fff":"",
     "fff":"",
     "fff":"",
-    "fff":"",
+    " audio ":" au đi ô ",
     " id ": " ai đi ",
     " adn ": " ây đi en ",
     " and ": " ây đi en ",
