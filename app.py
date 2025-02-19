@@ -429,12 +429,15 @@ class MainApp:
                 file_name = txt_file.replace('.txt', '')
                 txt_path = os.path.join(folder_story, txt_file)
                 if end_text:
+                    print(f'Lời chào: {end_text}')
                     if i == len(txt_files) - 1:
-                        append_text_to_txt_file(txt_path, end_text)
+                        with open(txt_path, 'a', encoding='utf-8') as ggg:
+                            ggg.write('\n' + end_text)
+                        print(f'Đã thêm lời chào vào file {txt_file}')
                 if speed_talk == 1.0:
                     temp_audio_path = os.path.join(output_folder, f'{file_name}.wav')
                 else:
-                    temp_audio_path = os.path.join(output_folder, f'speed_{file_name}.wav')
+                    temp_audio_path = os.path.join(output_folder, f'origin_{file_name}.wav')
 
                 text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number)
 
@@ -508,69 +511,6 @@ class MainApp:
             getlog()
             print("Có lỗi trong quá trình xử lý các file phụ đề")
             self.xtts = None
-
-    # def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=None, type_image='png', main_file_path=None, trim_duration=0.3):
-    #     try:
-    #         pitch = 1.0
-    #         try:
-    #             speed_talk = float(speed_talk)
-    #             if speed_talk <= 0:
-    #                 speed_talk = 1.0
-    #         except:
-    #             speed_talk = 1.0
-    #         file_name = os.path.basename(os.path.normpath(chapter_folder))
-    #         subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
-    #         temp_folder = os.path.join(chapter_folder, 'temp_folder')
-    #         os.makedirs(temp_folder, exist_ok=True)
-    #         with open(subtitle_path, 'r', encoding='utf-8') as f:
-    #             lines = f.readlines()
-    #         cnt, idx = 0, 0
-    #         crop_filter = "crop=in_w:min(in_h\\,1080):0:(in_h-min(in_h\\,1080))/2"
-    #         while idx < len(lines):
-    #             cnt += 1
-    #             if lines[idx].strip().isdigit():
-    #                 image_name = f"{lines[idx].strip()}.{type_image}"
-    #                 image_path = os.path.join(chapter_folder, image_name)
-    #                 idx += 1
-                
-    #             content = lines[idx].strip()
-    #             audio_path = os.path.join(temp_folder, f"audio_{cnt}.wav")
-    #             idx += 1
-    #             if not text_to_audio_with_xtts(self.xtts, content, audio_path, language):
-    #                 cnt -= 1
-    #                 continue
-    #             audio_info = get_audio_info(audio_path)
-    #             if not audio_info:
-    #                 continue
-    #             duration = float(audio_info.get("duration", 0))
-    #             if pitch != 1.0 or trim_duration:
-    #                 adjusted_audio_path = os.path.join(temp_folder, f"audio_adjusted_{cnt}.wav")
-    #                 audio_filters = [f"rubberband=pitch={pitch}"]
-
-    #                 if trim_duration and duration > trim_duration:
-    #                     duration = duration - trim_duration
-    #                     audio_filters.append(f"atrim=0:{duration}")
-    #                 subprocess.run([
-    #                     'ffmpeg', '-loglevel', 'quiet', '-y', '-i', audio_path,
-    #                     '-filter:a', ','.join(audio_filters),
-    #                     adjusted_audio_path
-    #                 ])
-    #                 remove_file(audio_path)
-    #                 audio_path = adjusted_audio_path
-    #             video_path = os.path.join(temp_folder, f"video_{cnt}.mp4")
-    #             ffm_command = [
-    #                 'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
-    #                 '-vf', f"{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
-    #                 '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-t', str(duration),
-    #                 '-c:a', 'aac', '-b:a', '128k', '-shortest', video_path
-    #             ]
-    #             run_command_ffmpeg(ffm_command, False)
-    #         merge_videos_use_ffmpeg(temp_folder, file_name)
-    #         with open(main_file_path, 'w') as main_file:
-    #             main_file.write(f"file '{video_path}'\n")
-    #     except:
-    #         print(f'--->>> Có thể bị lỗi ở dòng thứ {idx}: {lines[idx]}')
-    #         getlog()
 
     def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=None, type_image='png', main_file_path=None, trim_duration=0.3):
         try:

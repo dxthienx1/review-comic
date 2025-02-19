@@ -2235,15 +2235,6 @@ def merge_txt_files(input_folder):
     except:
         getlog()
 
-def append_text_to_txt_file(file_path, text, is_noti=True):
-    try:
-        with open(file_path, 'a', encoding='utf-8') as file:
-            file.write('\n' + text)
-        if is_noti:
-            print(f"Đã thêm đoạn text vào file: {file_path}")
-    except:
-        getlog()
-
 #------------------------------------------------commond--------------------------------------------------
 
 def get_custom_model(folder):
