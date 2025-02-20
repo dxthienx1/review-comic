@@ -48,8 +48,8 @@ import csv
 import queue
 
 print(f'is_cuda_available: {torch.cuda.is_available()}')
-device = "cpu"
-# device = "cuda" if torch.cuda.is_available() else "cpu"
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # def get_disk_serial():
 #     c = wmi.WMI()
@@ -1853,7 +1853,7 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         output_folder = os.path.dirname(output_path)
         tts_list = []
         for i in range(thread_number):
-            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
+            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
         if not output_path:
             idx = 1
             while True:
