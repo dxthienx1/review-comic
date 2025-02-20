@@ -358,10 +358,10 @@ class MainApp:
                 self.is_stop_edit = False
                 is_comic = self.story_type_var.get() == 'Yes'
                 if is_comic:
-                    self.edit_thread = threading.Thread(target=self.export_video_from_subtitles)
+                    export_thread = threading.Thread(target=self.export_video_from_subtitles)
                 else:
-                    self.edit_thread = threading.Thread(target=self.export_text_story_to_video)
-                self.edit_thread.start()
+                    export_thread = threading.Thread(target=self.export_text_story_to_video)
+                export_thread.start()
         
         self.reset()
         self.export_video_window = True
