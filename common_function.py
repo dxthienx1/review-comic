@@ -1850,28 +1850,29 @@ def get_ref_speaker_by_language(language):
     return speaker_wav
 
 #Chạy bằng threading
-def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1", device="cpu"):
+def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1"):
     try:
         try:
             thread_number = int(thread_number)
         except:
             thread_number = 1
-        num_cpus = multiprocessing.cpu_count()
-        thread_number = min(thread_number, num_cpus)
-        if num_cpus == 0:
-            thread_number = 1
-        else:
-            thread_number = num_cpus + 1
-        
-        print(f'Thread number: {thread_number}')
-        model_path = os.path.join(current_dir, "models\\last_version")
-        xtts_config_path = os.path.join(current_dir, "models\\last_version\\config.json")
-        output_folder = os.path.dirname(output_path)
+        num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+
+        model_path = os.path.join(current_dir, "models", "last_version")
+        xtts_config_path = os.path.join(model_path, "config.json")
+        output_folder = os.path.dirname(output_path) if output_path else os.getcwd()
+
         tts_list = []
-        for i in range(thread_number):
-            if i == thread_number - 1 and num_cpus == 1:
-                device = "cpu"
+
+        # Chia thread cho GPU (nếu có)
+        for i in range(num_gpus):
+            device = f"cuda:{i}"  # Nếu có nhiều GPU, chia từng cái
             tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+
+        tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
+
+        print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
+
         if not output_path:
             idx = 1
             while True:
