@@ -1858,8 +1858,12 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
             thread_number = 1
         num_cpus = multiprocessing.cpu_count()
         thread_number = min(thread_number, num_cpus)
-        if num_cpus == 1:
-            thread_number = 2
+        if num_cpus == 0:
+            thread_number = 1
+        else:
+            thread_number = num_cpus + 1
+        
+        print(f'Thread number: {thread_number}')
         model_path = os.path.join(current_dir, "models\\last_version")
         xtts_config_path = os.path.join(current_dir, "models\\last_version\\config.json")
         output_folder = os.path.dirname(output_path)
