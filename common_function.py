@@ -1850,7 +1850,7 @@ def get_ref_speaker_by_language(language):
     return speaker_wav
 
 #Chạy bằng threading
-def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1"):
+def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1", device="cpu"):
     try:
         try:
             thread_number = int(thread_number)

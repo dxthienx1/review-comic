@@ -439,7 +439,7 @@ class MainApp:
                 else:
                     temp_audio_path = os.path.join(output_folder, f'origin_{file_name}.wav')
 
-                text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number)
+                text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number, device=device)
 
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
