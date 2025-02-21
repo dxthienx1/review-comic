@@ -1864,7 +1864,7 @@ def process_tts(task_queue, model_path, config_path, speaker_wav, language, devi
                 split_sentences=False
             )
             print(f'✅ Đã xuất file tạm: {temp_audio_path}')
-        except Empty:
+        except queue.Empty:
             break
         except Exception as e:
             print(f'❌ Lỗi trong process_tts: {e}')
