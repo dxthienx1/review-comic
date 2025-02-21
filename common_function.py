@@ -1850,43 +1850,41 @@ def get_ref_speaker_by_language(language):
     return speaker_wav
 
 # Chạy bằng Process
-def process_tts(task_queue, tts, speaker_wav, language):
+def process_tts(task_queue, model_path, config_path, speaker_wav, language, device):
+    """ Tiến trình xử lý TTS """
+    tts = TTS(model_path=model_path, config_path=config_path).to(device)  # Khởi tạo TTS trong tiến trình con
     while not task_queue.empty():
         try:
             text_chunk, temp_audio_path = task_queue.get_nowait()
-            tts.tts_to_file( text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False )
-            print(f'Đã xuất file tạm: {temp_audio_path}')
-        except queue.Empty:
+            tts.tts_to_file(
+                text=text_chunk,
+                speaker_wav=speaker_wav,
+                language=language,
+                file_path=temp_audio_path,
+                split_sentences=False
+            )
+            print(f'✅ Đã xuất file tạm: {temp_audio_path}')
+        except Empty:
             break
+        except Exception as e:
+            print(f'❌ Lỗi trong process_tts: {e}')
 
 # Hàm chính
 def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1"):
     try:
-        # Kiểm tra số luồng khả dụng
         num_gpus = torch.cuda.device_count()
         num_cpus = multiprocessing.cpu_count()
         is_gpu_available = num_gpus > 0
-
-        # Xác định số luồng tối đa
-        max_threads = num_gpus if is_gpu_available else num_cpus
+        max_threads = num_gpus if is_gpu_available else min(num_cpus, 4)  # Hạn chế CPU tối đa 4 luồng để tránh quá tải
         thread_number = int(thread_number) if str(thread_number).isdigit() else 1
         thread_number = min(thread_number, max_threads)
 
         print(f'--> Sử dụng {thread_number} luồng trên {"GPU" if is_gpu_available else "CPU"}')
 
-        # Đường dẫn model
         model_path = os.path.join(os.getcwd(), "models", "last_version")
         xtts_config_path = os.path.join(model_path, "config.json")
         output_folder = os.path.dirname(output_path) if output_path else os.getcwd()
 
-        # Khởi tạo danh sách TTS (chỉ tạo một lần)
-        tts_list = []
-        for i in range(thread_number):
-            device = f"cuda:{i % num_gpus}" if is_gpu_available else "cpu"
-            tts = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
-            tts_list.append(tts)
-
-        # Xác định output file
         if not output_path:
             idx = 1
             while True:
@@ -1900,49 +1898,18 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         text = cleaner_text(text, is_loi_chinh_ta=False, language=language).replace('\n\n', '. ').replace('\n', '. ')
 
         if readline:
-            def split_text_into_chunks(text, max_length):
-                chunks = []
-                while len(text) > max_length:
-                    split_point = text[:max_length].rfind(",")
-                    if split_point == -1:
-                        split_point = text[:max_length].rfind(" ")
-                        if split_point == -1:
-                            split_point = max_length
-                    chunks.append(text[:split_point].strip() + '.')
-                    text = text[split_point + 1:].strip()
-                if text:
-                    chunks.append(text)
-                return chunks
-
-            all_lines = [line.strip() for line in text.split('.') if line.strip() and line.strip() not in ['.', '…']]
-            total_texts = []
-            temp_text = ""
-
-            for line in all_lines:
-                line = cleaner_text(line, is_loi_chinh_ta=False)
-                if len(line) > max_lenth_text:
-                    total_texts.extend(split_text_into_chunks(line, max_lenth_text))
-                else:
-                    sum_text = f"{temp_text} {line}".strip() if temp_text else line
-                    if len(sum_text) < min_lenth_text:
-                        temp_text = sum_text
-                        continue
-                    total_texts.append(sum_text)
-                    temp_text = ""
-
-            # Tạo hàng đợi dùng Manager().Queue() để tránh lỗi multiprocessing.Queue()
             with multiprocessing.Manager() as manager:
                 task_queue = manager.Queue()
                 temp_audio_files = []
-                for idx, text_chunk in enumerate(total_texts, start=1):
+                for idx, text_chunk in enumerate(text.split("."), start=1):
                     temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                     task_queue.put((text_chunk, temp_audio_path))
                     temp_audio_files.append(temp_audio_path)
 
-                # Chạy song song bằng Process
                 processes = []
-                for i, tts in enumerate(tts_list):
-                    p = multiprocessing.Process(target=process_tts, args=(task_queue, tts, speaker_wav, language))
+                for i in range(thread_number):
+                    device = f"cuda:{i % num_gpus}" if is_gpu_available else "cpu"
+                    p = multiprocessing.Process(target=process_tts, args=(task_queue, model_path, xtts_config_path, speaker_wav, language, device))
                     processes.append(p)
                     p.start()
 
@@ -1953,29 +1920,27 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                 list_file_path = os.path.join(output_folder, "audio_list.txt")
                 with open(list_file_path, "w", encoding="utf-8") as f:
                     for audio_file in temp_audio_files:
-                        f.write(f"file '{audio_file}'\n")
+                        if os.path.exists(audio_file):  # Kiểm tra file tồn tại trước khi ghi vào danh sách
+                            f.write(f"file '{audio_file}'\n")
 
                 ffmpeg_command = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_path]
                 run_command_ffmpeg(ffmpeg_command, hide=True)
 
                 # Xóa file tạm
                 for temp_audio_file in temp_audio_files:
-                    os.remove(temp_audio_file)
-                os.remove(list_file_path)
+                    if os.path.exists(temp_audio_file):
+                        os.remove(temp_audio_file)
+                if os.path.exists(list_file_path):
+                    os.remove(list_file_path)
 
         else:
-            tts_list[0].tts_to_file(
-                text=text,
-                speaker_wav=speaker_wav,
-                language=language,
-                file_path=output_path,
-                split_sentences=True
-            )
+            tts = TTS(model_path=model_path, config_path=xtts_config_path).to("cuda:0" if is_gpu_available else "cpu")
+            tts.tts_to_file(text=text, speaker_wav=speaker_wav, language=language, file_path=output_path, split_sentences=True)
 
-        print(f'Xuất file cuối: {output_path}')
+        print(f'✅ Xuất file cuối: {output_path}')
     
     except Exception as e:
-        print(f"Lỗi: {e}")
+        print(f"❌ Lỗi: {e}")
         getlog()
 
 # #Chạy bằng threading

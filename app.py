@@ -1992,9 +1992,9 @@ class MainApp:
 
     def text_to_mp3(self, voice=None, speed=1):
         pass
-
-app = MainApp()
-try:
-    app.root.mainloop()
-except:
-    pass
+if __name__ == "__main__":
+    app = MainApp()
+    try:
+        app.root.mainloop()
+    except:
+        pass
