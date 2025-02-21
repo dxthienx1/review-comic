@@ -5713,7 +5713,7 @@ loi_chinh_ta = {
     " a2 ": " a hai ",
     " a1 ": " a một ",
     " a0 ": " a không ",
-    "ffff": "ffff",
+    "hòan": "hoàn",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
