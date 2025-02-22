@@ -47,15 +47,15 @@ import csv
 import queue
 import torch
 
-print(torch.__version__)  # Kiểm tra phiên bản PyTorch
-print(torch.version.cuda)  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
-print(torch.backends.cudnn.enabled)  # Kiểm tra xem cuDNN có được kích hoạt không
+print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
+print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
+print(f'is_cudnn_available: {torch.backends.cudnn.enabled}')  # Kiểm tra xem cuDNN có được kích hoạt không
+print(f'is_cuda_available: {torch.cuda.is_available()}')
 print(f"Số GPU khả dụng: {torch.cuda.device_count()}")
 for i in range(torch.cuda.device_count()):
     print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
-print(f'is_cuda_available: {torch.cuda.is_available()}')
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(device)
+print(f'device: {device}')
 
 # def get_disk_serial():
 #     c = wmi.WMI()
