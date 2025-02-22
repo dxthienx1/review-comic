@@ -46,7 +46,6 @@ from PyQt5.QtGui import QPainter, QPen, QGuiApplication
 import csv
 import queue
 import torch
-import multiprocessing
 
 print(torch.__version__)  # Kiểm tra phiên bản PyTorch
 print(torch.version.cuda)  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
