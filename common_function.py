@@ -1866,10 +1866,9 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         # Chia thread cho GPU (nếu có)
         for i in range(num_gpus):
             device = f"cuda:{i}"  # Nếu có nhiều GPU, chia từng cái
-            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path, gpu=True).to(device))
         for i in range(thread_number):
-            device = "cpu"  # Nếu có nhiều GPU, chia từng cái
-            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
 
         print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
 
@@ -1951,13 +1950,20 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                         try:
                             tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
                         except:
-                            tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                            try:
+                                tts = TTS(model_path=model_path, config_path=xtts_config_path).to('cpu')
+                                tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                            except:
+                                print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
+                                print(f'{thatbai} text: {text_chunk}')
+                                continue
                         try:
                             torch.cuda.empty_cache()
                         except:
-                            pass
+                            continue
                         print(f'Đã xuất file tạm {temp_audio_path}')
                     except queue.Empty:
+                        getlog()
                         break
 
             # Tạo các luồng để xử lý song song
