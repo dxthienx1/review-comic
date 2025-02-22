@@ -46,12 +46,12 @@ from PyQt5.QtGui import QPainter, QPen, QGuiApplication
 import csv
 import queue
 import torch
+
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
 print(f'is_cudnn_available: {torch.backends.cudnn.enabled}')  # Kiểm tra xem cuDNN có được kích hoạt không
 print(f'is_cuda_available: {torch.cuda.is_available()}')
 print(f"Số GPU khả dụng: {torch.cuda.device_count()}")
-print("Số CPU khả dụng:", os.cpu_count())
 for i in range(torch.cuda.device_count()):
     print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -1864,14 +1864,14 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         tts_list = []
 
         # Chia thread cho GPU (nếu có)
-        if num_gpus > 0:
-            for i in range(num_gpus + thread_number):
-                device = f"cuda:{i%num_gpus}"  # Nếu có nhiều GPU, chia từng cái
-                tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+        for i in range(num_gpus):
+            device = f"cuda:{i}"  # Nếu có nhiều GPU, chia từng cái
+            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+        for i in range(thread_number):
+            device = "cpu"  # Nếu có nhiều GPU, chia từng cái
+            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
 
-        tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
-
-        print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus + thread_number} trên GPU, {len(tts_list) - num_gpus - thread_number} trên CPU")
+        print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
 
         if not output_path:
             idx = 1
