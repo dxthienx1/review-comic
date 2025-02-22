@@ -1944,7 +1944,18 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                 while not task_queue.empty():
                     try:
                         text_chunk, temp_audio_path = task_queue.get_nowait()
-                        tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                        try:
+                            torch.cuda.empty_cache()
+                        except:
+                            pass
+                        try:
+                            tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                        except:
+                            tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                        try:
+                            torch.cuda.empty_cache()
+                        except:
+                            pass
                         print(f'Đã xuất file tạm {temp_audio_path}')
                     except queue.Empty:
                         break
@@ -1961,7 +1972,8 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
             list_file_path = "audio_list.txt"
             with open(list_file_path, "w", encoding="utf-8") as f:
                 for audio_file in temp_audio_files:
-                    f.write(f"file '{audio_file}'\n")
+                    if os.path.exists(audio_file):
+                        f.write(f"file '{audio_file}'\n")
 
             ffmpeg_command = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_path]
             run_command_ffmpeg(ffmpeg_command, hide=True)
@@ -2516,6 +2528,7 @@ loi_chinh_ta = {
     " gplx ": " giấy phép lái xe ",
     " stk ": " số tài khoản ",
     " nđ-cp ": " nờ đê xê pê ",
+    "haizz":"hai da",
     "haiz":"hai da",
     "laser":"la gie",
     "lazer":"la gie",
