@@ -1867,8 +1867,8 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         for i in range(num_gpus):
             device = f"cuda:{i}"  # Nếu có nhiều GPU, chia từng cái
             tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
-
-        tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
+        for i in range(thread_number):
+            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
 
         print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
 
