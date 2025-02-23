@@ -1337,12 +1337,7 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
 
 def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, videos_path=None, fast_combine=True):
     ti = time()
-    if fast_combine:
-        print("..........................")
-        print("Bắt đầu nối nhanh video...")
-    else:
-        print("Bắt đầu nối video...")
-
+    print("Bắt đầu nối video...")
     temp_file_path = os.path.join(videos_folder, "temp.txt")
     max_fps = 24
     if not videos_path:

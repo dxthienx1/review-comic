@@ -469,12 +469,10 @@ class MainApp:
 
             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
             if is_merge_videos:
-                if len(txt_files) > 1:
-                    merge_videos_use_ffmpeg(output_folder, export_file_name)
+                merge_videos_use_ffmpeg(output_folder, export_file_name)
                 print("  -->  Xuất video hoàn tất.")
             else:
-                if len(txt_files) > 1:
-                    merge_audio_use_ffmpeg(output_folder, export_file_name)
+                merge_audio_use_ffmpeg(output_folder, export_file_name)
                 print("  -->  Xuất audio hoàn tất.")
 
             print(f'Tổng thời gian xử lý: {time() - start_time}s')
