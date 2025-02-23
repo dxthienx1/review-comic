@@ -461,7 +461,7 @@ class MainApp:
                         output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
                         print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
                         command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
-                        if run_command_ffmpeg(command):
+                        if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                 else:
                     print(f'{thatbai} xuất file {txt_path} sang audio không thành công ---> Dừng chương trình !!!')

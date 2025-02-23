@@ -1386,7 +1386,7 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
         file_path = f"{output_folder}\\merge_video.mp4"
     command = connect_video(temp_file_path, file_path, fast_connect=fast_combine, max_fps=max_fps)
     try:
-        run_command_ffmpeg(command)
+        run_command_ffmpeg(command, False)
         try:
             remove_file(temp_file_path)
             if is_delete:
@@ -1423,7 +1423,7 @@ def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True):
         file_path = f"{output_folder}\\merge_audio.{file_type}"
     command = connect_audio(temp_file_path, file_path, fast_connect=fast_combine)
     try:
-        if run_command_ffmpeg(command):
+        if run_command_ffmpeg(command, False):
             try:
                 remove_file(temp_file_path)
             except:
@@ -1456,7 +1456,7 @@ def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=N
 
 def connect_audio(temp_file_path, output_file_path, fast_connect=True):
     if fast_connect:
-        print("---> đang nối nhanh audio...")
+        print("---> đang nối audio...")
         command = [
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
             '-c:a', 'libmp3lame', '-b:a', '192k', '-y', output_file_path, '-loglevel', 'quiet'
