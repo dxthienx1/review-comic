@@ -423,6 +423,21 @@ class MainApp:
             os.makedirs(output_folder, exist_ok=True)
             current_image = os.path.join(folder_story, images[0])
             file_name = ""
+            thread_number = int(thread_number) if thread_number.isdigit() else 1
+            num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+            if thread_number + num_gpus == 0:
+                thread_number = 1
+            model_path = os.path.join(current_dir, "models", "last_version")
+            xtts_config_path = os.path.join(model_path, "config.json")
+            
+            tts_list = []
+            for i in range(num_gpus):
+                device = f"cuda:{i}"  # Nếu có nhiều GPU, chia từng cái
+                tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path, gpu=True).to(device))
+            for i in range(thread_number):
+                tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
+
+            print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
 
             for i, txt_file in enumerate(txt_files):
                 t = time()
@@ -445,7 +460,7 @@ class MainApp:
                 else:
                     img_path = current_image
 
-                if not text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number):
+                if not text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list):
                     return
 
                 if speed_talk == 1.0:

@@ -1861,44 +1861,18 @@ def split_text_into_chunks(text, max_length):
 
 
 #Chạy bằng threading
-def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1"):
+def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, tts_list=[]):
     try:
-        try:
-            thread_number = int(thread_number)
-        except:
-            thread_number = 1
-        num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
-
-        model_path = os.path.join(current_dir, "models", "last_version")
-        xtts_config_path = os.path.join(model_path, "config.json")
-        output_folder = os.path.dirname(output_path) if output_path else os.getcwd()
-
-        tts_list = []
-
-        # Chia thread cho GPU (nếu có)
-        for i in range(num_gpus):
-            device = f"cuda:{i}"  # Nếu có nhiều GPU, chia từng cái
-            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path, gpu=True).to(device))
-        for i in range(thread_number):
-            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
-
-        print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
-
         if not output_path:
-            idx = 1
-            while True:
-                output_path = f"test_{idx}.wav"
-                if not os.path.exists(output_path):
-                    break
-                idx += 1
+            print(f'Chưa có tên file sau khi xuất video')
+            return False
+        output_folder = os.path.dirname(output_path) if output_path else os.getcwd()
         # Đọc và làm sạch nội dung văn bản
         if txt_path.endswith('.txt'):
             text = get_json_data(txt_path, readline=False)
         else:
             text = txt_path
         text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
-        text = text.replace('\n\n', '. ')
-        text = text.replace('\n', '. ')
         
         if readline:
             all_lines = text.split('.')
@@ -1915,7 +1889,7 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                 if not line.endswith('.') and not line.endswith(','):
                     line = f'{line}.'
                 
-                line = cleaner_text(line, is_loi_chinh_ta=False)
+                line = cleaner_text(line, is_loi_chinh_ta=False, language=language)
                 if len(line) > max_lenth_text:
                     total_texts.extend(split_text_into_chunks(line, max_lenth_text))
                 else:
@@ -1934,28 +1908,23 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                     temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                     task_queue.put((text_chunk, temp_audio_path))
                     temp_audio_files.append(temp_audio_path)
-            cnt_err = 0
+
             def process_tts(tts, speaker_wav, language):
                 while not task_queue.empty():
                     try:
                         text_chunk, temp_audio_path = task_queue.get_nowait()
-                        torch.cuda.empty_cache()
                         try:
+                            torch.cuda.empty_cache()
                             tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
                         except:
                             try:
-                                torch.cuda.empty_cache()
-                                temp_tts = TTS(model_path=model_path, config_path=xtts_config_path).to('cpu')
-                                temp_tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
-                                temp_tts = None
-                                cnt_err += 1
-                                if cnt_err > 5:
-                                    break
+                                #chuyển tts qua dùng cpu
+                                tts.to("cpu")
+                                tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
                             except:
                                 print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
                                 print(f'{thatbai} text: {text_chunk}')
                                 break
-                        torch.cuda.empty_cache()
                         print(f'Đã xuất file tạm {temp_audio_path}')
                     except:
                         getlog()
@@ -2520,6 +2489,12 @@ special_word = {
     "+++":"",
     "++":"",
     "+":"",
+    "~~~":"",
+    "~~":"",
+    "~":"",
+    "\n\n\n":".",
+    "\n\n":".",
+    "\n":".",
     "/": " ",
     "(": ".",
     ")": ".",
@@ -2556,7 +2531,6 @@ special_word = {
     "#": " ",
     "   ": " ",
     "  ": " ",
-    "~": " đến ",
     "$": " đô",
     "vnđ": "đồng",
     "%": " phần trăm",
