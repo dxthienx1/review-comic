@@ -1395,12 +1395,12 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
     except:
         return False, "Có lỗi trong quá trình gộp video"
 
-def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True):
+def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True, file_start_with=""):
     print("Bắt đầu nối audio...")
     temp_file_path = os.path.join(audios_folder, "temp.txt")
-    audios = get_file_in_folder_by_type(audios_folder, file_type=".mp3") or []
+    audios = get_file_in_folder_by_type(audios_folder, file_type=".mp3", start_with=file_start_with) or []
     if len(audios) == 0:
-        audios = get_file_in_folder_by_type(audios_folder, file_type=".wav") or []
+        audios = get_file_in_folder_by_type(audios_folder, file_type=".wav", start_with=file_start_with) or []
         if len(audios) == 0:
             return
     if len(audios) <= 1:
@@ -1843,8 +1843,155 @@ def get_ref_speaker_by_language(language):
         return None
     return speaker_wav
 
-#Chạy bằng threading
-def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1"):
+def split_text_into_chunks(text, max_length):
+    chunks = []
+    while len(text) > max_length:
+        # Tìm vị trí gần giữa câu nhất dựa trên dấu ","
+        split_point = text[:max_length].rfind(",")
+        if split_point == -1:  # Nếu không tìm thấy dấu ","
+            split_point = text[:max_length].rfind(" ")  # Tìm khoảng trống gần đoạn giữa
+            if split_point == -1:
+                split_point = max_length  # Chia tại max_length
+        first_text = text[:split_point].strip()
+        chunks.append(f'{first_text}.')
+        text = text[split_point + 1:].strip()
+    if text:  # Thêm phần còn lại nếu có
+        chunks.append(f'{text}')
+    return chunks
+
+
+# #Chạy bằng threading
+# def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1"):
+#     try:
+#         try:
+#             thread_number = int(thread_number)
+#         except:
+#             thread_number = 1
+#         num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+
+#         model_path = os.path.join(current_dir, "models", "last_version")
+#         xtts_config_path = os.path.join(model_path, "config.json")
+#         output_folder = os.path.dirname(output_path) if output_path else os.getcwd()
+
+#         tts_list = []
+
+#         # Chia thread cho GPU (nếu có)
+#         for i in range(num_gpus):
+#             device = f"cuda:{i}"  # Nếu có nhiều GPU, chia từng cái
+#             tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path, gpu=True).to(device))
+#         for i in range(thread_number):
+#             tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to("cpu"))
+
+#         print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
+
+#         if not output_path:
+#             idx = 1
+#             while True:
+#                 output_path = f"test_{idx}.wav"
+#                 if not os.path.exists(output_path):
+#                     break
+#                 idx += 1
+#         # Đọc và làm sạch nội dung văn bản
+#         if txt_path.endswith('.txt'):
+#             text = get_json_data(txt_path, readline=False)
+#         else:
+#             text = txt_path
+#         text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
+#         text = text.replace('\n\n', '. ')
+#         text = text.replace('\n', '. ')
+        
+#         if readline:
+#             all_lines = text.split('.')
+#             lines = [line.strip() for line in all_lines if line.strip() and line.strip() != '.' and line.strip() != '…']
+#             total_texts = []
+#             temp_text = ""
+#             temp_audio_files = []  # Danh sách chứa các file audio nhỏ
+#             for line in lines:
+#                 line = line.strip()
+#                 if not line:
+#                     continue
+#                 if '\n' in line:
+#                     line = line.replace('\n', '. ')
+#                 if not line.endswith('.') and not line.endswith(','):
+#                     line = f'{line}.'
+                
+#                 line = cleaner_text(line, is_loi_chinh_ta=False)
+#                 if len(line) > max_lenth_text:
+#                     total_texts.extend(split_text_into_chunks(line, max_lenth_text))
+#                 else:
+#                     sum_text = temp_text + ' ' + line if temp_text else line
+#                     if len(sum_text) < min_lenth_text:
+#                         temp_text = sum_text
+#                         continue
+#                     else:
+#                         line = sum_text
+#                         temp_text = ""
+#                     total_texts.append(line)
+#             # Hàng đợi lưu các đoạn văn bản cần xử lý
+#             task_queue = queue.Queue()
+#             for idx, text_chunk in enumerate(total_texts, start=1):
+#                 if text_chunk:
+#                     temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
+#                     task_queue.put((text_chunk, temp_audio_path))
+#                     temp_audio_files.append(temp_audio_path)
+#             cnt_err = 0
+#             def process_tts(tts, speaker_wav, language):
+#                 while not task_queue.empty():
+#                     try:
+#                         text_chunk, temp_audio_path = task_queue.get_nowait()
+#                         torch.cuda.empty_cache()
+#                         try:
+#                             tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+#                         except:
+#                             try:
+#                                 torch.cuda.empty_cache()
+#                                 temp_tts = TTS(model_path=model_path, config_path=xtts_config_path).to('cpu')
+#                                 temp_tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+#                                 temp_tts = None
+#                                 cnt_err += 1
+#                                 if cnt_err > 5:
+#                                     break
+#                             except:
+#                                 print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
+#                                 print(f'{thatbai} text: {text_chunk}')
+#                                 break
+#                         torch.cuda.empty_cache()
+#                         print(f'Đã xuất file tạm {temp_audio_path}')
+#                     except:
+#                         getlog()
+#                         break
+
+#             # Tạo các luồng để xử lý song song
+#             list_threads = []
+#             for tts in tts_list:
+#                 list_threads.append(threading.Thread(target=process_tts, args=(tts, speaker_wav, language)))
+#             for thread in list_threads:
+#                 thread.start()
+#             for thread in list_threads:
+#                 thread.join()
+
+#             list_file_path = "audio_list.txt"
+#             with open(list_file_path, "w", encoding="utf-8") as f:
+#                 for audio_file in temp_audio_files:
+#                     if os.path.exists(audio_file):
+#                         f.write(f"file '{audio_file}'\n")
+
+#             ffmpeg_command = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_path]
+#             run_command_ffmpeg(ffmpeg_command, hide=True)
+
+#             for temp_audio_file in temp_audio_files:
+#                 if os.path.exists(temp_audio_file):
+#                     os.remove(temp_audio_file)
+#             if os.path.exists(list_file_path):
+#                 os.remove(list_file_path)
+#         else:
+#             tts_list[0].tts_to_file( text=text, speaker_wav=speaker_wav, language=language, file_path=output_path, split_sentences=True )
+#         print(f'Xuất file tạm: {output_path}')
+#         return True
+#     except:
+#         getlog()
+#         return False
+def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1", batch_size=5):
     try:
         try:
             thread_number = int(thread_number)
@@ -1884,22 +2031,6 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         text = text.replace('\n', '. ')
         
         if readline:
-            def split_text_into_chunks(text, max_length):
-                chunks = []
-                while len(text) > max_length:
-                    # Tìm vị trí gần giữa câu nhất dựa trên dấu ","
-                    split_point = text[:max_length].rfind(",")
-                    if split_point == -1:  # Nếu không tìm thấy dấu ","
-                        split_point = text[:max_length].rfind(" ")  # Tìm khoảng trống gần đoạn giữa
-                        if split_point == -1:
-                            split_point = max_length  # Chia tại max_length
-
-                    first_text = text[:split_point].strip()
-                    chunks.append(f'{first_text}.')
-                    text = text[split_point + 1:].strip()
-                if text:  # Thêm phần còn lại nếu có
-                    chunks.append(f'{text}')
-                return chunks
             all_lines = text.split('.')
             lines = [line.strip() for line in all_lines if line.strip() and line.strip() != '.' and line.strip() != '…']
             total_texts = []
@@ -1926,9 +2057,12 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                         line = sum_text
                         temp_text = ""
                     total_texts.append(line)
+            batches = [total_texts[i:i + batch_size] for i in range(0, len(total_texts), batch_size)]
+            temp_audio_files = []
+            batch_texts = [" ".join(batch) for batch in batches]
             # Hàng đợi lưu các đoạn văn bản cần xử lý
             task_queue = queue.Queue()
-            for idx, text_chunk in enumerate(total_texts, start=1):
+            for idx, text_chunk in enumerate(batch_texts):
                 if text_chunk:
                     temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                     task_queue.put((text_chunk, temp_audio_path))
@@ -1939,25 +2073,22 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
                     try:
                         text_chunk, temp_audio_path = task_queue.get_nowait()
                         try:
-                            torch.cuda.empty_cache()
-                        except:
-                            pass
-                        try:
-                            tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                            if torch.cuda.is_available() and 'cuda' in str(tts.device):
+                                torch.cuda.empty_cache()
+                                with torch.amp.autocast('cuda', dtype=torch.float32):
+                                    tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=True)
+                            else:
+                                tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=True)
                         except:
                             try:
-                                tts = TTS(model_path=model_path, config_path=xtts_config_path).to('cpu')
-                                tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                                torch.cuda.empty_cache()
+                                tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=True)
                             except:
                                 print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
                                 print(f'{thatbai} text: {text_chunk}')
-                                continue
-                        try:
-                            torch.cuda.empty_cache()
-                        except:
-                            continue
+                                break
                         print(f'Đã xuất file tạm {temp_audio_path}')
-                    except queue.Empty:
+                    except:
                         getlog()
                         break
 
@@ -1987,9 +2118,13 @@ def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=Non
         else:
             tts_list[0].tts_to_file( text=text, speaker_wav=speaker_wav, language=language, file_path=output_path, split_sentences=True )
         print(f'Xuất file tạm: {output_path}')
-    except Exception as e:
-        print(f"Lỗi: {e}")
+        return True
+    except:
         getlog()
+        return False
+
+
+
 
 def take_screenshot(name="1"):
     is_first = True
@@ -2267,6 +2402,26 @@ def merge_txt_files(input_folder):
     except:
         getlog()
 
+
+def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', speed=1.1, img_path="", file_name="1"):
+    try:
+        merge_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}.wav")
+        output_video_path = os.path.join(input_folder, f"{file_name}.mp4")
+        merge_audio_use_ffmpeg(input_folder, file_name, file_start_with=file_start_with)
+        temp_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}_speed.wav")
+        command_audio = [ 'ffmpeg', '-i', merge_audio_path, '-filter:a', f"atempo={speed},volume={1}", '-vn', temp_audio_path, '-y' ]
+        run_command_ffmpeg(command_audio, False)
+
+        if os.path.exists(temp_audio_path):
+            print("✅ Âm thanh đã được xử lý xong!")
+            command_video = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{temp_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
+            run_command_ffmpeg(command_video, False)
+            os.remove(temp_audio_path)
+            print("✅ Video đã được tạo thành công!")
+        else:
+            print("❌ Lỗi trong quá trình xử lý âm thanh!")
+    except:
+        getlog()
 #------------------------------------------------commond--------------------------------------------------
 
 def get_custom_model(folder):
@@ -5746,7 +5901,7 @@ loi_chinh_ta = {
     " a2 ": " a hai ",
     " a1 ": " a một ",
     " a0 ": " a không ",
-    "hòan": "hoàn",
+    "uhm": "ườm",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",

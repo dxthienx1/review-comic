@@ -439,7 +439,15 @@ class MainApp:
                 else:
                     temp_audio_path = os.path.join(output_folder, f'origin_{file_name}.wav')
 
-                text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number)
+                img_path = os.path.join(folder_story, f'{file_name}.png')
+                if os.path.exists(img_path):
+                    current_image = img_path
+                else:
+                    img_path = current_image
+
+                if not text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number):
+                    errror_handdle_with_temp_audio(output_folder, "temp_audio_", speed=speed_talk, img_path=img_path, file_name=file_name)
+                    return
 
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
@@ -447,12 +455,6 @@ class MainApp:
                     output_audio_path = os.path.join(output_folder, f'{file_name}.wav')
                     if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
                         output_audio_path = temp_audio_path
-
-                img_path = os.path.join(folder_story, f'{file_name}.png')
-                if os.path.exists(img_path):
-                    current_image = img_path
-                else:
-                    img_path = current_image
 
                 if os.path.exists(output_audio_path):
                     print(f'{thanhcong} Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
