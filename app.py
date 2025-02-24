@@ -446,7 +446,6 @@ class MainApp:
                     img_path = current_image
 
                 if not text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, thread_number=thread_number):
-                    errror_handdle_with_temp_audio(output_folder, "temp_audio_", speed=speed_talk, img_path=img_path, file_name=file_name)
                     return
 
                 if speed_talk == 1.0:
