@@ -379,7 +379,7 @@ class MainApp:
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_subtitles_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
-    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, tts_list=[], start_idx=0):
+    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, tts_list=[], start_idx=0, end_text=""):
         try:
             self.stop_audio_file = None
             if not output_path:
@@ -420,6 +420,9 @@ class MainApp:
                             line = sum_text
                             temp_text = ""
                         total_texts.append(line)
+                if end_text:
+                    print(f'Lời chào: {end_text}')
+                    total_texts.append(end_text.lower())
                 # Hàng đợi lưu các đoạn văn bản cần xử lý
                 task_queue = queue.Queue()
                 for idx, text_chunk in enumerate(total_texts):
@@ -435,13 +438,14 @@ class MainApp:
                         try:
                             text_chunk, temp_audio_path = task_queue.get_nowait()
                             try:
-                                torch.cuda.empty_cache()
                                 tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
                             except:
                                 try:
                                     getlog()
-                                    sleep(60)
-                                    tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                                    self.stop_audio_file = temp_audio_path
+                                    os.system("taskkill /f /im nvcontainer.exe")
+                                    os.system("net stop nvsvc && net start nvsvc")
+                                    break
                                 except:
                                     print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
                                     print(f'{thatbai} text: {text_chunk}')
@@ -547,12 +551,7 @@ class MainApp:
                 t = time()
                 file_name = txt_file.replace('.txt', '')
                 txt_path = os.path.join(folder_story, txt_file)
-                if end_text:
-                    print(f'Lời chào: {end_text}')
-                    if i == len(txt_files) - 1:
-                        with open(txt_path, 'a', encoding='utf-8') as ggg:
-                            ggg.write('\n' + end_text)
-                        print(f'Đã thêm lời chào vào file {txt_file}')
+
                 if speed_talk == 1.0:
                     temp_audio_path = os.path.join(output_folder, f'{file_name}.wav')
                 else:
@@ -564,13 +563,15 @@ class MainApp:
                 else:
                     img_path = current_image
                 cnt_err = 0
-                if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx):
+                if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, end_text=end_text):
                     if not self.stop_audio_file:
                         return
                     cnt_err += 1
                     sleep(60)
+                    num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+                    device = 'cuda:0' if num_gpus > 0 else 'cpu'
                     tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
-                    if cnt_err > 10:
+                    if cnt_err > 5:
                         print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
                         return
                     self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=self.stop_audio_file)
