@@ -443,8 +443,8 @@ class MainApp:
                                 try:
                                     getlog()
                                     self.stop_audio_file = temp_audio_path
-                                    os.system("taskkill /f /im nvcontainer.exe")
-                                    os.system("net stop nvsvc && net start nvsvc")
+                                    os.system("nvidia-smi --gpu-reset")
+                                    sleep(10)
                                     break
                                 except:
                                     print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
@@ -567,11 +567,9 @@ class MainApp:
                     if not self.stop_audio_file:
                         return
                     cnt_err += 1
-                    sleep(60)
-                    num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
-                    device = 'cuda:0' if num_gpus > 0 else 'cpu'
-                    tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
-                    if cnt_err > 5:
+                    sleep(30)
+                    tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to('cpu')
+                    if cnt_err > 1:
                         print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
                         return
                     self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=self.stop_audio_file)
