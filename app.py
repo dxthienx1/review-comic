@@ -572,7 +572,10 @@ class MainApp:
                     if cnt_err > 1:
                         print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
                         return
-                    self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=self.stop_audio_file)
+                    file_name_err = self.stop_audio_file.replace('.wav', '')
+                    start_idx = int(file_name_err.split('_')[-1])
+                    print(f'Bắt đầu lại với file audio thứ {start_idx}')
+                    self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx)
 
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
