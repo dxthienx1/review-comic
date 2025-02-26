@@ -570,6 +570,7 @@ class MainApp:
             print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
 
             for i, txt_file in enumerate(txt_files):
+                print(f'  --->  Bắt đầu chuyển text sang audio: {txt_file}')
                 t = time()
                 file_name = txt_file.replace('.txt', '')
                 txt_path = os.path.join(folder_story, txt_file)
