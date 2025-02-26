@@ -1347,7 +1347,7 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
         if len(videos) <= 1:
             return False, "Phải có ít nhất 2 video trong videos folder"
         videos_path = []
-        with open(temp_file_path, 'w') as f:
+        with open(temp_file_path, 'w', encoding='utf-8') as f:
             for video in videos:
                 if video.endswith('.mp4'):
                     video_path = os.path.join(videos_folder, video)
@@ -2274,10 +2274,11 @@ def merge_txt_files(input_folder):
         getlog()
 
 
-def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', speed=1.1, img_path="", file_name="1"):
+def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', speed=1.1, img_path="", file_name="1", output_video_path=None):
     try:
         merge_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}.wav")
-        output_video_path = os.path.join(input_folder, f"{file_name}.mp4")
+        if not output_video_path:
+            output_video_path = os.path.join(input_folder, f"{file_name}.mp4")
         merge_audio_use_ffmpeg(input_folder, file_name, file_start_with=file_start_with)
         temp_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}_speed.wav")
         command_audio = [ 'ffmpeg', '-i', merge_audio_path, '-filter:a', f"atempo={speed},volume={1}", '-vn', temp_audio_path, '-y' ]

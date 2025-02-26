@@ -440,12 +440,13 @@ class MainApp:
                 # Hàng đợi lưu các đoạn văn bản cần xử lý
                 task_queue = queue.Queue()
                 for idx, text_chunk in enumerate(total_texts):
+                    temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
+                    temp_audio_files.append(temp_audio_path)
                     if idx < start_idx:
                         continue
                     if text_chunk:
-                        temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                         task_queue.put((text_chunk, temp_audio_path))
-                        temp_audio_files.append(temp_audio_path)
+                        
 
                 def process_tts(tts, speaker_wav, language):
                     while not task_queue.empty():
@@ -457,7 +458,6 @@ class MainApp:
                                 try:
                                     getlog()
                                     self.stop_audio_file = temp_audio_path
-                                    os.system("nvidia-smi --gpu-reset")
                                     sleep(10)
                                     break
                                 except:
