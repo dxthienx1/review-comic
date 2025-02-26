@@ -948,13 +948,21 @@ class MainApp:
     def merge_txt_file_in_folder_window(self):
         def start_merge_txt_file():
             videos_folder = self.videos_edit_folder_var.get()
+            try:
+                group_file = int(self.group_file_var.get().strip())
+            except:
+                group_file = 5000
+            if group_file < 2:
+                group_file = 5000
             if check_folder(videos_folder):
-                merge_txt_files(videos_folder)
+                merge_txt_files(videos_folder, group_file=group_file)
 
         self.reset()
         self.is_merge_txt_file = True
         self.setting_window_size()
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File .txt", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        self.group_file_var = self.create_settings_input(text="Số file mỗi lần gộp", values=['all', '20', '50'], left=0.4, right=0.6)
+        self.group_file_var.set('20')
         create_button(frame=self.root, text="Bắt Đầu Gộp File", command= start_merge_txt_file)
         create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
         self.show_window()
@@ -1996,7 +2004,7 @@ class MainApp:
             elif self.is_merge_txt_file:
                 self.root.title("Rename Files")
                 self.width = 500
-                self.height_window = 220
+                self.height_window = 267
                 self.is_merge_txt_file = False
             elif self.is_convert_jpg_to_png:
                 self.root.title("Convert Image Format")

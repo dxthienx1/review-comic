@@ -2257,19 +2257,35 @@ def number_to_english_with_units(text):
     pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
     return re.sub(pattern, convert, text)
 
-def merge_txt_files(input_folder):
+def merge_txt_files(input_dir, output_dir=None, group_file=50):
     try:
-        txt_files = get_file_in_folder_by_type(input_folder, '.txt') or []
+        txt_files = get_file_in_folder_by_type(input_dir, '.txt') or []
         if len(txt_files) < 2:
-            print(f'Phải có ít nhất 2 file .txt trong thư mục {input_folder} để gộp file')
+            print(f'Phải có ít nhất 2 file .txt trong thư mục {input_dir} để gộp file')
             return
-        output_file = os.path.join(input_folder, f'sum_content_{len(txt_files)}_file.txt')
-        with open(output_file, 'w', encoding='utf-8') as outfile:
-            for file_name in txt_files:
-                file_path = os.path.join(input_folder, file_name)
-                with open(file_path, 'r', encoding='utf-8') as infile:
-                    outfile.write(infile.read() + '\n')  # Ghi nội dung và xuống dòng
-        print(f"Đã gộp xong vào file: {output_file}")
+        if not output_dir:
+            output_dir = os.path.join(input_dir, 'output')
+            os.makedirs(output_dir, exist_ok=True)
+        # Chia danh sách file thành từng nhóm 20 file
+        for i in range(0, len(txt_files), group_file):
+            batch_files = txt_files[i:i+group_file]
+            merged_content = ""
+            
+            for file in batch_files:
+                with open(os.path.join(input_dir, file), 'r', encoding='utf-8') as f:
+                    merged_content += f.read() + '\n'
+            
+            # Tạo tên file đầu ra từ file đầu và cuối trong batch
+            first_file_name = os.path.splitext(batch_files[0])[0]
+            last_file_name = os.path.splitext(batch_files[-1])[0]
+            output_filename = f'{first_file_name}_{last_file_name}.txt'
+            output_path = os.path.join(output_dir, output_filename)
+            
+            # Ghi nội dung đã ghép vào tệp mới
+            with open(output_path, 'w', encoding='utf-8') as out_file:
+                out_file.write(merged_content)
+            
+            print(f"Đã tạo {output_filename}")
     except:
         getlog()
 
