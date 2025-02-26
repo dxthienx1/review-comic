@@ -453,6 +453,7 @@ class MainApp:
                         try:
                             text_chunk, temp_audio_path = task_queue.get_nowait()
                             try:
+                                torch.cuda.empty_cache()
                                 tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
                             except:
                                 try:
