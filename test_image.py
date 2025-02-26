@@ -13,7 +13,7 @@ def merge_txt_files(input_dir, output_dir=None, group_file=50):
         
         for file in batch_files:
             with open(os.path.join(input_dir, file), 'r', encoding='utf-8') as f:
-                merged_content += f.read() + '\n'  # Đọc nội dung và nối thêm dòng mới
+                merged_content += f.read() + '\n'
         
         # Tạo tên file đầu ra từ file đầu và cuối trong batch
         first_file_name = os.path.splitext(batch_files[0])[0]

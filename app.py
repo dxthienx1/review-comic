@@ -378,7 +378,7 @@ class MainApp:
         start_idx = "0"
         if folder_story:
             temp_output_folder = os.path.join(folder_story, 'temp_output')
-            temp_files = get_file_in_folder_by_type(temp_output_folder, '.wav', start_with='temp_audio_') or []
+            temp_files = get_file_in_folder_by_type(temp_output_folder, '.wav', start_with='temp_audio_', noti=False) or []
             if len(temp_files) > 0:
                 err_file = temp_files[-1]
                 file_name_err = err_file.replace('.wav', '')
@@ -597,10 +597,10 @@ class MainApp:
                         print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
                         return False
                     file_name_err = self.stop_audio_file.replace('.wav', '')
-                    start_idx_err = int(file_name_err.split('_')[-1])
-                    print(f'Bắt đầu lại với file audio thứ {start_idx_err}')
+                    start_idx = int(file_name_err.split('_')[-1])
+                    print(f'Bắt đầu lại với file audio thứ {start_idx}')
                     self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx)
-
+                start_idx = 0
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
                 else:
