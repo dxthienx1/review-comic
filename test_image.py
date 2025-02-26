@@ -1,14 +1,14 @@
 from common_function import *
 
-def merge_txt_files(input_dir, output_dir=None):
+def merge_txt_files(input_dir, output_dir=None, group_file=50):
     # Lấy danh sách tất cả các tệp .txt trong thư mục
     txt_files = get_file_in_folder_by_type(input_dir, '.txt') or []
     if not output_dir:
         output_dir = os.path.join(input_dir, 'output')
         os.makedirs(output_dir, exist_ok=True)
     # Chia danh sách file thành từng nhóm 20 file
-    for i in range(0, len(txt_files), 20):
-        batch_files = txt_files[i:i+20]
+    for i in range(0, len(txt_files), group_file):
+        batch_files = txt_files[i:i+group_file]
         merged_content = ""
         
         for file in batch_files:
