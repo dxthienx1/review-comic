@@ -374,8 +374,22 @@ class MainApp:
         self.story_type_var = self.create_settings_input(text="Đây là truyện tranh", values=['Yes', 'No'], left=0.3, right=0.7)
         self.story_type_var.set('No')
         self.start_idx_var = self.create_settings_input(text="Chỉ số bắt đầu", values=['0', '1', '2'], left=0.3, right=0.7)
-        self.start_idx_var.set('0')
-        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa truyện", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
+        folder_story = self.config['folder_story'] if self.config['folder_story'] else None
+        start_idx = "0"
+        if folder_story:
+            temp_output_folder = os.path.join(folder_story, 'temp_output')
+            temp_files = get_file_in_folder_by_type(temp_output_folder, '.wav', start_with='temp_audio_') or []
+            if len(temp_files) > 0:
+                err_file = temp_files[-1]
+                file_name_err = err_file.replace('.wav', '')
+                start_idx = int(file_name_err.split('_')[-1]) + 1
+        self.start_idx_var.set(start_idx)
+        self.is_merge_var = self.create_settings_input(text="Có gộp video không?", values=['Yes', 'No'], left=0.3, right=0.7)
+        self.is_merge_var.set('No')
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Thư mục chứa truyện", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
+        self.output_folder_var = create_frame_button_and_input(self.root,text="Thư mục xuất video", command=self.choose_videos_output_folder, width=self.width, left=0.3, right=0.7)
+        self.videos_edit_folder_var.insert(0, self.config['folder_story'])
+        self.output_folder_var.insert(0, self.config['output_folder'])
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_subtitles_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
@@ -513,11 +527,19 @@ class MainApp:
             speaker_wav = get_ref_speaker_by_language(language)
             if not speaker_wav:
                 return
+            
+            is_merge = self.is_merge_var.get().strip() == "Yes"
+            output_folder = self.output_folder_var.get().strip()
             folder_story = self.videos_edit_folder_var.get().strip()
             if not check_folder(folder_story):
                 print(f"Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
                 return False
+            if not check_folder(output_folder):
+                print(f"Thư mục {output_folder} không hợp lệ hoặc không tồn tại.")
+                return False
             self.config["current_channel"] = channel_name
+            self.config["output_folder"] = output_folder
+            self.config["folder_story"] = folder_story
             if channel_name not in self.config["channels"]:
                 self.config["channels"].append(channel_name)
             self.save_config()
@@ -530,8 +552,8 @@ class MainApp:
             if len(images) == 0:
                 print("Phải có ít nhất 1 ảnh để ghép vào video")
                 return False
-            output_folder = os.path.join(folder_story, 'output')
-            os.makedirs(output_folder, exist_ok=True)
+            temp_output_folder = os.path.join(folder_story, 'temp_output')
+            os.makedirs(temp_output_folder, exist_ok=True)
             current_image = os.path.join(folder_story, images[0])
             file_name = ""
             start_idx = int(start_idx) if start_idx.isdigit() else 0
@@ -553,9 +575,9 @@ class MainApp:
                 txt_path = os.path.join(folder_story, txt_file)
 
                 if speed_talk == 1.0:
-                    temp_audio_path = os.path.join(output_folder, f'{file_name}.wav')
+                    temp_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
                 else:
-                    temp_audio_path = os.path.join(output_folder, f'origin_{file_name}.wav')
+                    temp_audio_path = os.path.join(temp_output_folder, f'origin_{file_name}.wav')
 
                 img_path = os.path.join(folder_story, f'{file_name}.png')
                 if os.path.exists(img_path):
@@ -565,13 +587,15 @@ class MainApp:
                 cnt_err = 0
                 if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, end_text=end_text):
                     if not self.stop_audio_file:
-                        return
+                        return False
+                    self.config['stop_audio_file'] = self.stop_audio_file
+                    self.save_config()
                     cnt_err += 1
                     sleep(30)
                     tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to('cpu')
                     if cnt_err > 1:
                         print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
-                        return
+                        return False
                     file_name_err = self.stop_audio_file.replace('.wav', '')
                     start_idx = int(file_name_err.split('_')[-1])
                     print(f'Bắt đầu lại với file audio thứ {start_idx}')
@@ -580,7 +604,7 @@ class MainApp:
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
                 else:
-                    output_audio_path = os.path.join(output_folder, f'{file_name}.wav')
+                    output_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
                     if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
                         output_audio_path = temp_audio_path
 
@@ -593,19 +617,24 @@ class MainApp:
                         command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
+                            remove_file(txt_path)
+                            remove_file(temp_audio_path)
+                            remove_file(output_audio_path)
                 else:
                     print(f'{thatbai} xuất file {txt_path} sang audio không thành công ---> Dừng chương trình !!!')
-                    return
+                    return False
 
             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
-            if is_merge_videos:
-                merge_videos_use_ffmpeg(output_folder, export_file_name)
-                print("  -->  Xuất video hoàn tất.")
-            else:
-                merge_audio_use_ffmpeg(output_folder, export_file_name)
-                print("  -->  Xuất audio hoàn tất.")
+            if is_merge:
+                if is_merge_videos:
+                    merge_videos_use_ffmpeg(output_folder, export_file_name)
+                    print("  -->  Xuất video hoàn tất.")
+                else:
+                    merge_audio_use_ffmpeg(output_folder, export_file_name)
+                    print("  -->  Xuất audio hoàn tất.")
 
             print(f'Tổng thời gian xử lý: {time() - start_time}s')
+            self.stop_audio_file = None
             return True
         except:
             getlog()
@@ -1726,6 +1755,12 @@ class MainApp:
             self.videos_edit_folder_var.delete(0, ctk.END)
             self.videos_edit_folder_var.insert(0, videos_edit_folder)
 
+    def choose_videos_output_folder(self):
+        output_folder = filedialog.askdirectory()
+        if self.output_folder_var:
+            self.output_folder_var.delete(0, ctk.END)
+            self.output_folder_var.insert(0, output_folder)
+
     def choose_videos_edit_file(self):
         videos_edit_path = choose_file()
         self.videos_edit_path_var.delete(0, ctk.END)
@@ -2001,7 +2036,7 @@ class MainApp:
             elif self.export_video_window:
                 self.root.title("Xuất video từ phụ đề")
                 self.width = 500
-                self.height_window = 457
+                self.height_window = 553
                 self.export_video_window = False              
             elif self.is_extract_sub_image_audio_from_video_window:
                 self.root.title("Lấy âm thanh/ phụ đề/ ảnh từ video")

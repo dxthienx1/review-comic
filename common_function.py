@@ -1335,7 +1335,7 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
 
 
 
-def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, videos_path=None, fast_combine=True):
+def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, videos_path=None, fast_combine=True, output_folder=None):
     ti = time()
     print("Bắt đầu nối video...")
     temp_file_path = os.path.join(videos_folder, "temp.txt")
@@ -1372,8 +1372,8 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
                     max_fps = fps
                 if video_path.endswith('.mp4'):
                     f.write(f"file '{video_path}'\n")
-        
-    output_folder = f"{videos_folder}\\merge_videos"
+    if not output_folder:
+        output_folder = f"{videos_folder}\\merge_videos"
     os.makedirs(output_folder, exist_ok=True)
     if file_name:
         file_path = f"{output_folder}\\{file_name}.mp4"
@@ -1395,7 +1395,7 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
     except:
         return False, "Có lỗi trong quá trình gộp video"
 
-def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True, file_start_with=""):
+def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True, file_start_with="", output_folder=None):
     print("Bắt đầu nối audio...")
     temp_file_path = os.path.join(audios_folder, "temp.txt")
     audios = get_file_in_folder_by_type(audios_folder, file_type=".mp3", start_with=file_start_with) or []
@@ -1410,7 +1410,8 @@ def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True, fil
         for audio in audios:
             audio_path = os.path.join(audios_folder, audio)
             f.write(f"file '{audio_path}'\n")
-    output_folder = f"{audios_folder}\\merge_audios"
+    if not output_folder:
+        output_folder = f"{audios_folder}\\merge_audios"
     os.makedirs(output_folder, exist_ok=True)
     if file_name:
         file_path = f"{output_folder}\\{file_name}.{file_type}"
@@ -2313,6 +2314,10 @@ def get_custom_model(folder):
 def load_config():
     if os.path.exists(config_path):
         config = get_json_data(config_path)
+        if 'output_folder' not in config:
+            config['output_folder'] = ""
+        if 'folder_story' not in config:
+            config['folder_story'] = ""
     else:
         config = {
             "download_folder":"",
@@ -2358,10 +2363,12 @@ def load_config():
 
             "language_tts": "vi",
             "speed_talk": "1.1",
+            "folder_story": "",
+            "output_folder": "",
             "current_channel": "Tiên Giới Audio",
             "channels": ["Tiên Giới Audio"]
         }
-        save_to_json_file(config, config_path)
+    save_to_json_file(config, config_path)
     return config
 
 supported_languages = {
@@ -5971,7 +5978,7 @@ def adjust_audio_speed(input_folder, output_folder, speed=0.98, volume_factor=1.
 
 # input_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_1"
 # output_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_2"
-input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam"
-output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam_1"
+# input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam"
+# output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam_1"
 # os.makedirs(output_folder, exist_ok=True)
 # adjust_audio_speed(input_folder, output_folder, speed=0.99, volume_factor=0.8)
