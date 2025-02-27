@@ -2266,9 +2266,10 @@ def merge_txt_files(input_dir, output_dir=None, group_file=50):
         if not output_dir:
             output_dir = os.path.join(input_dir, 'output')
             os.makedirs(output_dir, exist_ok=True)
-        # Chia danh sách file thành từng nhóm 20 file
-        for i in range(0, len(txt_files), group_file):
-            batch_files = txt_files[i:i+group_file]
+        step_count = min(len(txt_files, group_file))
+        # Chia danh sách file thành từng nhóm step_count file
+        for i in range(0, len(txt_files), step_count):
+            batch_files = txt_files[i:i+step_count]
             merged_content = ""
             
             for file in batch_files:

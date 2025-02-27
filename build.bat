@@ -1,2 +1,2 @@
 @echo off
-pyinstaller --onefile --add-data "import/icon.ico;." --add-data "import/icon.png;." --add-data "private_key.pem;." --add-data "common_function.py;." --add-data "facebook.py;." --add-data "youtube.py;." --add-data "tiktok.py;." --collect-data selenium_stealth --hidden-import=imageio_ffmpeg.binaries --icon "import/icon.ico" app.py
+pyinstaller --onefile --add-data "import/icon.ico;." --add-data "import/icon.png;." --add-data "common_function.py;." --collect-data selenium_stealth --hidden-import=imageio_ffmpeg.binaries --icon "import/icon.ico" app.py
