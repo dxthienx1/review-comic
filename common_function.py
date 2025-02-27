@@ -1847,19 +1847,24 @@ def get_ref_speaker_by_language(language):
 def split_text_into_chunks(text, max_length):
     chunks = []
     while len(text) > max_length:
-        # Tìm vị trí gần giữa câu nhất dựa trên dấu ","
-        split_point = text[:max_length].rfind(",")
-        if split_point == -1:  # Nếu không tìm thấy dấu ","
-            split_point = text[:max_length].rfind(" ")  # Tìm khoảng trống gần đoạn giữa
+        mid_point = max_length // 2
+        before_mid = text[:max_length]
+
+        # Tìm dấu "," gần nhất với mid_point
+        split_point = before_mid.rfind(",", 0, mid_point + (max_length // 4))
+        if split_point == -1:
+            split_point = before_mid.rfind(" ", 0, mid_point + (max_length // 4))
             if split_point == -1:
                 split_point = max_length  # Chia tại max_length
+
         first_text = text[:split_point].strip()
         chunks.append(f'{first_text}.')
         text = text[split_point + 1:].strip()
-    if text:  # Thêm phần còn lại nếu có
-        chunks.append(f'{text}')
-    return chunks
 
+    if text:
+        chunks.append(f'{text}')
+    
+    return chunks
 
 # #dùng batch_text
 # def text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, thread_number="1", batch_size=5):

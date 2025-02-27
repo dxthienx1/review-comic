@@ -440,13 +440,17 @@ class MainApp:
                 print(f'  --->  Tổng số câu cần xử lý: {len(total_texts)}')
                 # Hàng đợi lưu các đoạn văn bản cần xử lý
                 task_queue = queue.Queue()
+                current_text_chunk = ""
                 for idx, text_chunk in enumerate(total_texts):
                     temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                     temp_audio_files.append(temp_audio_path)
                     if idx < start_idx:
                         continue
                     if text_chunk:
-                        task_queue.put((text_chunk, temp_audio_path))
+                        current_text_chunk += text_chunk
+                        if len(current_text_chunk) >= min_lenth_text:
+                            task_queue.put((current_text_chunk, temp_audio_path))
+                            current_text_chunk = ""
                         
 
                 def process_tts(tts, speaker_wav, language):
