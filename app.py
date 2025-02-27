@@ -444,9 +444,10 @@ class MainApp:
                 for idx, text_chunk in enumerate(total_texts):
                     temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                     if idx < start_idx:
+                        temp_audio_files.append(temp_audio_path)
                         continue
+                    current_text_chunk += text_chunk
                     if text_chunk:
-                        current_text_chunk += text_chunk
                         if len(current_text_chunk) >= min_lenth_text:
                             task_queue.put((current_text_chunk, temp_audio_path))
                             temp_audio_files.append(temp_audio_path)
@@ -623,7 +624,11 @@ class MainApp:
                         is_merge_videos = True
                         output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
                         print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
-                        command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
+                        if torch.cuda.is_available():
+                            print("---> Dùng GPU để xuất video...")
+                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", output_video_path ]
+                        else:
+                            command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_file(txt_path)

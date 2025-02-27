@@ -1431,15 +1431,25 @@ def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True, fil
 
 
 def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=None):
+    print("---> đang nối video...")
     if fast_connect:
-        print("---> đang nối nhanh video...")
         command = [
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
             '-vf', 'fps=30', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
             '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', output_file_path
         ]
+        if torch.cuda.is_available():
+            print("---> Dùng GPU để nối video...")
+            command = [
+                "ffmpeg", "-f", "concat", "-safe", "0", "-i", temp_file_path,
+                "-vf", "fps=30",
+                "-c:v", "h264_nvenc",  # Sử dụng GPU
+                "-cq", "23",  # Chất lượng tương đương CRF 23
+                "-preset", "p4",  # Thay thế "veryfast" bằng preset tối ưu cho NVENC
+                "-c:a", "aac", "-b:a", "192k",
+                "-movflags", "+faststart", "-y", output_file_path
+            ]
     else:
-        print("---> đang nối video...")
         if max_fps:
             command = [
                 'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, '-c:v', 'libx264', '-c:a', 'aac', '-r', f'{max_fps}', '-y', output_file_path
