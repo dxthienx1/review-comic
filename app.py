@@ -609,6 +609,8 @@ class MainApp:
                     output_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
                     if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
                         output_audio_path = temp_audio_path
+                    else:
+                        remove_file(temp_audio_path)
 
                 if os.path.exists(output_audio_path):
                     print(f'{thanhcong} Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
@@ -620,7 +622,6 @@ class MainApp:
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_file(txt_path)
-                            remove_file(temp_audio_path)
                             remove_file(output_audio_path)
                 else:
                     print(f'{thatbai} xuất file {txt_path} sang audio không thành công ---> Dừng chương trình !!!')
