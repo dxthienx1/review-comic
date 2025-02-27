@@ -437,6 +437,7 @@ class MainApp:
                 if end_text:
                     print(f'Lời chào: {end_text}')
                     total_texts.append(end_text.lower())
+                print(f'  --->  Tổng số câu cần xử lý: {len(total_texts)}')
                 # Hàng đợi lưu các đoạn văn bản cần xử lý
                 task_queue = queue.Queue()
                 for idx, text_chunk in enumerate(total_texts):
