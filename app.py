@@ -627,10 +627,10 @@ class MainApp:
                         print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            # command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", output_video_path ]
-                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", "-threads", "4", output_video_path ]
+                            # command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", output_video_path ]
+                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path ]
                         else:
-                            command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest -threads 4 "{output_video_path}"'
+                            command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_file(txt_path)

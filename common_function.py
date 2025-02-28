@@ -1303,7 +1303,7 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
                 ]
             else:
                 command = [
-                    'ffmpeg', '-progress', 'pipe:1', '-i', input_video_path, '-ss', str(start), '-to', str(end), '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '192k', '-y', segment_file_path, '-loglevel', 'quiet'
+                    'ffmpeg', '-progress', 'pipe:1', '-i', input_video_path, '-ss', str(start), '-to', str(end), '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', '-b:a', '128k', '-y', segment_file_path, '-loglevel', 'quiet'
                 ]
             run_command_with_progress(command, duration)
 
@@ -1436,7 +1436,7 @@ def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=N
         command = [
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
             '-vf', 'fps=25', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
-            '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', output_file_path
+            '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', output_file_path
         ]
         if torch.cuda.is_available():
             print("---> Dùng GPU để nối video...")
@@ -1446,7 +1446,7 @@ def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=N
                 "-c:v", "h264_nvenc",  # Sử dụng GPU
                 "-cq", "23",  # Chất lượng tương đương CRF 23
                 "-preset", "p4",  # Thay thế "veryfast" bằng preset tối ưu cho NVENC
-                "-c:a", "aac", "-b:a", "192k",
+                "-c:a", "aac", "-b:a", "128k",
                 "-movflags", "+faststart", "-y", output_file_path
             ]
     else:
@@ -1465,13 +1465,13 @@ def connect_audio(temp_file_path, output_file_path, fast_connect=True):
         print("---> đang nối audio...")
         command = [
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
-            '-c:a', 'libmp3lame', '-b:a', '192k', '-y', output_file_path, '-loglevel', 'quiet'
+            '-c:a', 'libmp3lame', '-b:a', '128k', '-y', output_file_path, '-loglevel', 'quiet'
         ]
     else:
         print("---> đang nối audio...")
         command = [
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
-            '-c:a', 'libmp3lame', '-b:a', '192k', '-y', output_file_path, '-loglevel', 'quiet'
+            '-c:a', 'libmp3lame', '-b:a', '128k', '-y', output_file_path, '-loglevel', 'quiet'
         ]
     return command
     
@@ -1583,8 +1583,8 @@ def edit_audio_ffmpeg(input_audio_folder, start_cut="0", end_cut="0", pitch_fact
             metadata = {"artist": "None", "album": "None", "title": "None", "encoder": "FFmpeg 6.0"}
             original_sample_rate = int(streams_info.get("sample_rate", 0))
             sample_rate = 24000  # Đảm bảo tần số lấy mẫu là 24 kHz cho huấn luyện
-            original_bitrate = streams_info.get("bit_rate", "192k")
-            bitrate = "256k" if original_bitrate == "192000" else "192k"
+            original_bitrate = streams_info.get("bit_rate", "128k")
+            bitrate = "192k" if original_bitrate == "192000" else "128k"
             channels = 1  # Chuyển thành mono (1 kênh)
             volume = "4dB"
             eq_adjust = "equalizer=f=120:width_type=h:width=300:g=7, equalizer=f=1000:width_type=h:width=300:g=-1"
@@ -2318,7 +2318,7 @@ def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', s
 
         if os.path.exists(temp_audio_path):
             print("✅ Âm thanh đã được xử lý xong!")
-            command_video = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{temp_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
+            command_video = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{temp_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest "{output_video_path}"'
             run_command_ffmpeg(command_video, False)
             os.remove(temp_audio_path)
             print("✅ Video đã được tạo thành công!")
