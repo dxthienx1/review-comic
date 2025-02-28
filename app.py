@@ -358,7 +358,7 @@ class MainApp:
                 self.is_stop_edit = False
                 is_comic = self.story_type_var.get() == 'Yes'
                 if is_comic:
-                    export_thread = threading.Thread(target=self.export_video_from_subtitles)
+                    export_thread = threading.Thread(target=self.export_comic_video_from_subtitles)
                 else:
                     export_thread = threading.Thread(target=self.export_text_story_to_video)
                 export_thread.start()
@@ -626,7 +626,8 @@ class MainApp:
                         print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", output_video_path ]
+                            # command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", output_video_path ]
+                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", output_video_path ]
                         else:
                             command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
                         if run_command_ffmpeg(command, False):
@@ -653,7 +654,7 @@ class MainApp:
             getlog()
             return False
 
-    def export_video_from_subtitles(self):
+    def export_comic_video_from_subtitles(self):
         try:
             main_folder = self.videos_edit_folder_var.get()
             main_txt_path = os.path.join(main_folder, 'total_video_file.txt')
@@ -700,7 +701,7 @@ class MainApp:
                 lines = f.readlines()
             cnt, idx = 0, 0
             crop_filter = "crop=in_w:min(in_h\\,1080):0:(in_h-min(in_h\\,1080))/2"
-            max_height = 1080  # Chiều cao tối đa hiển thị
+            max_height = 1080
             
             while idx < len(lines):
                 cnt += 1
@@ -726,11 +727,8 @@ class MainApp:
                     if trim_duration and duration > trim_duration:
                         duration = duration - trim_duration
                         audio_filters.append(f"atrim=0:{duration}")
-                    subprocess.run([
-                        'ffmpeg', '-loglevel', 'quiet', '-y', '-i', audio_path,
-                        '-filter:a', ','.join(audio_filters),
-                        adjusted_audio_path
-                    ])
+                    commond = [ 'ffmpeg', '-y', '-i', audio_path, '-filter:a', ','.join(audio_filters), adjusted_audio_path ]
+                    run_command_ffmpeg(commond, False)
                     remove_file(audio_path)
                     audio_path = adjusted_audio_path
                 
@@ -745,12 +743,25 @@ class MainApp:
                     resize_filter = "scale=iw:ih"  # Không thay đổi kích thước nếu ảnh đã đủ cao
 
                 video_path = os.path.join(temp_folder, f"video_{cnt}.mp4")
-                ffm_command = [
-                    'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
-                    '-vf', f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
-                    '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-t', str(duration),
-                    '-c:a', 'aac', '-b:a', '128k', '-shortest', video_path
-                ]
+                if torch.cuda.is_available():
+                    ffm_command = [
+                        "ffmpeg", "-y", "-loop", "1", "-i", image_path, "-i", audio_path,
+                        "-vf", f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
+                        "-map", "0:v", "-map", "1:a",
+                        "-c:v", "h264_nvenc",  # Dùng GPU
+                        "-cq", "23",  # Chất lượng tương đương CRF 23
+                        "-preset", "p4",  # Preset tối ưu cho NVENC
+                        "-t", str(duration),
+                        "-c:a", "aac", "-b:a", "128k",
+                        "-shortest", video_path
+                    ]
+                else:
+                    ffm_command = [
+                        'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
+                        '-vf', f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
+                        '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-t', str(duration),
+                        '-c:a', 'aac', '-b:a', '128k', '-shortest', video_path
+                    ]
                 run_command_ffmpeg(ffm_command, False)
             merge_videos_use_ffmpeg(temp_folder, file_name)
             with open(main_file_path, 'w') as main_file:

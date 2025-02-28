@@ -1435,14 +1435,14 @@ def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=N
     if fast_connect:
         command = [
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
-            '-vf', 'fps=30', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
+            '-vf', 'fps=25', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
             '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', output_file_path
         ]
         if torch.cuda.is_available():
             print("---> Dùng GPU để nối video...")
             command = [
                 "ffmpeg", "-f", "concat", "-safe", "0", "-i", temp_file_path,
-                "-vf", "fps=30",
+                "-vf", "fps=25",
                 "-c:v", "h264_nvenc",  # Sử dụng GPU
                 "-cq", "23",  # Chất lượng tương đương CRF 23
                 "-preset", "p4",  # Thay thế "veryfast" bằng preset tối ưu cho NVENC
