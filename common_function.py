@@ -1872,7 +1872,10 @@ def split_text_into_chunks(text, max_length):
         text = text[split_point + 1:].strip()
 
     if text:
-        chunks.append(f'{text}')
+        if not text.endswith('.'):
+            chunks.append(f'{text}.')
+        else:
+            chunks.append(f'{text}')
     
     return chunks
 
@@ -2431,9 +2434,9 @@ special_word = {
     "~~~":"",
     "~~":"",
     "~":"",
-    "\n\n\n":".",
-    "\n\n":".",
-    "\n":".",
+    # "\n\n\n":".",
+    # "\n\n":".",
+    # "\n":".",
     "/": " ",
     "(": ".",
     ")": ".",

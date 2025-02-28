@@ -408,32 +408,42 @@ class MainApp:
             text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
             
             if readline:
-                all_lines = text.split('.')
-                lines = [line.strip() for line in all_lines if line.strip() and line.strip() != '.' and line.strip() != '…']
+                # Bước 1: Tách từng dòng trước
+                lines = text.split('\n')
+
+                # Bước 2: Tách từng câu trong mỗi dòng
+                sentences = []
+                for line in lines:
+                    sub_sentences = line.split('.')
+                    for sub in sub_sentences:
+                        sub = sub.strip()
+                        if sub and sub != '.' and sub != '…':  # Lọc bỏ dấu câu đơn lẻ
+                            sentences.append(f'{sub}.')
+
                 total_texts = []
                 temp_text = ""
                 temp_audio_files = []  # Danh sách chứa các file audio nhỏ
-                for line in lines:
-                    line = line.strip()
-                    if not line:
+
+                for sentence in sentences:
+                    sentence = sentence.strip()
+                    if not sentence:
                         continue
-                    if '\n' in line:
-                        line = line.replace('\n', '. ')
-                    if not line.endswith('.') and not line.endswith(','):
-                        line = f'{line}.'
+                    if not sentence.endswith('.') and not sentence.endswith(','):
+                        sentence = f'{sentence}.'
+                    sentence = cleaner_text(sentence, is_loi_chinh_ta=False, language=language)
                     
-                    line = cleaner_text(line, is_loi_chinh_ta=False, language=language)
-                    if len(line) > max_lenth_text:
-                        total_texts.extend(split_text_into_chunks(line, max_lenth_text))
+                    if len(sentence) > max_lenth_text:
+                        total_texts.extend(split_text_into_chunks(sentence, max_lenth_text))
                     else:
-                        sum_text = temp_text + ' ' + line if temp_text else line
+                        sum_text = temp_text + ' ' + sentence if temp_text else sentence
                         if len(sum_text) < min_lenth_text:
                             temp_text = sum_text
                             continue
                         else:
-                            line = sum_text
+                            sentence = sum_text
                             temp_text = ""
-                        total_texts.append(line)
+                        total_texts.append(sentence)
+                        
                 if end_text:
                     print(f'Lời chào: {end_text}')
                     total_texts.append(end_text.lower())
