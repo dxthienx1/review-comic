@@ -117,9 +117,6 @@ class MainApp:
                 return
             base_url = self.download_text_story_var.get()
             if not base_url.startswith('http://vietnamthuquan'):
-                if '<idx>' not in base_url:
-                    print(f'Link tải truyện phải thay <idx> vào vị trí chương truyện. Ví dụ link chương 2 là https://metruyenchu.vn/thieu-gia-bi-bo-roi/chuong-2-32C8 thì chuyển thành https://metruyenchu.vn/thieu-gia-bi-bo-roi/chuong-<idx>-32C8')
-                    return
                 is_use_profile = True
             else:
                 is_use_profile = False
@@ -146,26 +143,98 @@ class MainApp:
                 driver = get_driver(show=True)
             sleep(3)
             driver.get(base_url)
-            sum_txt_path = os.path.join(main_folder, f'sum_content.txt')
             list_linkes = []
-            sum_content = ""
             start_down = True
             for i in range(start_chapter, end_chapter+1):
-                if 'http://vietnamthuquan' in base_url:
-                    txt_path = sum_txt_path
-                else:
-                    txt_path = os.path.join(main_folder, f'{i}.txt')
+                txt_path = os.path.join(main_folder, f'{i}.txt')
+                chapter_content = ""
                 with open(txt_path, 'w', encoding='utf-8') as file:
-                    link = base_url.replace('<idx>', str(i))
-                    if link not in list_linkes:
-                        chapter_content = ""
-                        driver.get(link)
-                        sleep(2)
-                        if start_down:
-                            sleep(8)
-                            start_down = False
-                        if 'https://metruyenchu' in  link:
-                            xpath = get_xpath('article', 'chapter-content', contain=True)
+                    if '<idx>' in base_url:
+                        link = base_url.replace('<idx>', str(i))
+                        if link not in list_linkes:
+                            driver.get(link)
+                            sleep(2)
+                            if start_down:
+                                sleep(8)
+                                start_down = False
+                            if 'https://metruyenchu' in  link:
+                                xpath = get_xpath('article', 'chapter-content', contain=True)
+                                ele = get_element_by_xpath(driver, xpath)
+                                if ele:
+                                    list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                    if len(list_contents) > 0:
+                                        for p_ele in list_contents:
+                                            content = p_ele.text
+                                            chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                            elif 'https://novelbin.com' in  link:
+                                xpath = get_xpath_by_multi_attribute('div', ['id="chr-content"'])
+                                ele = get_element_by_xpath(driver, xpath)
+                                if ele:
+                                    list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                    if len(list_contents) > 0:
+                                        for p_ele in list_contents:
+                                            content = p_ele.text
+                                            chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                            elif 'http://vietnamthuquan' in  link:
+                                xpath_links = "//div[contains(@onclick, 'chuongid')]"
+                                all_links = get_element_by_xpath(driver, xpath_links, multiple=True)
+                                for i, link_chapter in enumerate(all_links):
+                                    txt_path1 = os.path.join(main_folder, f'{i+1}.txt')
+                                    with open(txt_path1, 'w', encoding='utf-8') as file:
+                                        link_chapter.click()
+                                        sleep(4)
+                                        xpath = get_xpath('div', 'chuhoavn')
+                                        ele = get_element_by_xpath(driver, xpath)
+                                        if ele:
+                                            chapter_content = ele.text
+                                        if chapter_content:
+                                            file.write(f'{chapter_content}')
+                                            chapter_content = ""
+                                        else:
+                                            print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
+                                            break
+                                return
+                            elif 'https://banlong.us/' in  link:
+                                xpath = get_xpath('div', 'published-content', contain=True)
+                                ele = get_element_by_xpath(driver, xpath)
+                                if ele:
+                                    list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                    if len(list_contents) > 0:
+                                        for p_ele in list_contents:
+                                            content = p_ele.text
+                                            chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                            elif 'https://truyenyy' in  link:
+                                xpath = get_xpath('div', 'chap-content', contain=True)
+                                ele = get_element_by_xpath(driver, xpath)
+                                if ele:
+                                    list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                    if len(list_contents) > 0:
+                                        for p_ele in list_contents:
+                                            content = p_ele.text
+                                            chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                            elif 'https://truyenfull' in  link or 'https://truyenhoan' in link:
+                                xpath = get_xpath('div', 'chapter-c', contain=True)
+                                ele = get_element_by_xpath(driver, xpath)
+                                if ele:
+                                    ads_contents = ele.find_elements(By.XPATH, "./*")
+                                    ads_texts = [e.text.strip() for e in ads_contents if e.text.strip()]
+                                    content = ele.text
+                                    for ad_text in ads_texts:
+                                        content = content.replace(ad_text, '')
+                                    if content:
+                                        liness = content.split('\n')
+                                        lines = [line.strip() for line in liness if line.strip()]
+                                        for content in lines:
+                                            chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+
+                            if chapter_content:
+                                file.write(f'{chapter_content}')
+                            else:
+                                print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
+                                break
+                    else:
+                        if 'https://novelbin.com' in  base_url:
+                            xpath = get_xpath_by_multi_attribute('div', ['id="chr-content"'])
                             ele = get_element_by_xpath(driver, xpath)
                             if ele:
                                 list_contents = ele.find_elements(By.XPATH, './/p') or []
@@ -173,70 +242,15 @@ class MainApp:
                                     for p_ele in list_contents:
                                         content = p_ele.text
                                         chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
-                        if 'http://vietnamthuquan' in  link:
-                            xpath_links = "//div[contains(@onclick, 'chuongid')]"
-                            all_links = get_element_by_xpath(driver, xpath_links, multiple=True)
-                            for i, link_chapter in enumerate(all_links):
-                                txt_path1 = os.path.join(main_folder, f'{i+1}.txt')
-                                with open(txt_path1, 'w', encoding='utf-8') as file:
-                                    link_chapter.click()
-                                    sleep(4)
-                                    xpath = get_xpath('div', 'chuhoavn')
-                                    ele = get_element_by_xpath(driver, xpath)
-                                    if ele:
-                                        chapter_content = ele.text
                                     if chapter_content:
                                         file.write(f'{chapter_content}')
-                                        sum_content = f'{sum_content}\n{chapter_content}' if sum_content else chapter_content
-                                        chapter_content = ""
                                     else:
                                         print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
                                         break
-                            with open(sum_txt_path, 'w', encoding='utf-8') as file:
-                                file.write(sum_content)
-                            self.close_driver()
-                            return
-                        if 'https://banlong.us/' in  link:
-                            xpath = get_xpath('div', 'published-content', contain=True)
-                            ele = get_element_by_xpath(driver, xpath)
-                            if ele:
-                                list_contents = ele.find_elements(By.XPATH, './/p') or []
-                                if len(list_contents) > 0:
-                                    for p_ele in list_contents:
-                                        content = p_ele.text
-                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
-                        elif 'https://truyenyy' in  link:
-                            xpath = get_xpath('div', 'chap-content', contain=True)
-                            ele = get_element_by_xpath(driver, xpath)
-                            if ele:
-                                list_contents = ele.find_elements(By.XPATH, './/p') or []
-                                if len(list_contents) > 0:
-                                    for p_ele in list_contents:
-                                        content = p_ele.text
-                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
-                        elif 'https://truyenfull' in  link or 'https://truyenhoan' in link:
-                            xpath = get_xpath('div', 'chapter-c', contain=True)
-                            ele = get_element_by_xpath(driver, xpath)
-                            if ele:
-                                ads_contents = ele.find_elements(By.XPATH, "./*")
-                                ads_texts = [e.text.strip() for e in ads_contents if e.text.strip()]
-                                content = ele.text
-                                for ad_text in ads_texts:
-                                    content = content.replace(ad_text, '')
-                                if content:
-                                    liness = content.split('\n')
-                                    lines = [line.strip() for line in liness if line.strip()]
-                                    for content in lines:
-                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
-
-                        if chapter_content:
-                            file.write(f'{chapter_content}')
-                            sum_content = f'{sum_content}\n{chapter_content}' if sum_content else chapter_content
-                        else:
-                            print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
-                            break
-            with open(sum_txt_path, 'w', encoding='utf-8') as file:
-                file.write(sum_content)
+                                    next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
+                                    if next_chap_ele:
+                                        next_chap_ele.click()
+                                        sleep(3)
         except:
             print(f'Lỗi khi lấy nội dung từ web {base_url}!!!')
             getlog()
@@ -408,16 +422,13 @@ class MainApp:
             text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
             
             if readline:
-                # Bước 1: Tách từng dòng trước
                 lines = text.split('\n')
-
-                # Bước 2: Tách từng câu trong mỗi dòng
                 sentences = []
                 for line in lines:
                     sub_sentences = line.split('.')
                     for sub in sub_sentences:
                         sub = sub.strip()
-                        if sub and sub != '.' and sub != '…':  # Lọc bỏ dấu câu đơn lẻ
+                        if sub and sub != '.' and sub != '…':
                             sentences.append(f'{sub}.')
 
                 total_texts = []
@@ -443,7 +454,7 @@ class MainApp:
                             sentence = sum_text
                             temp_text = ""
                         total_texts.append(sentence)
-                        
+
                 if end_text:
                     print(f'Lời chào: {end_text}')
                     total_texts.append(end_text.lower())
@@ -463,7 +474,6 @@ class MainApp:
                             temp_audio_files.append(temp_audio_path)
                             current_text_chunk = ""
                         
-
                 def process_tts(tts, speaker_wav, language):
                     while not task_queue.empty():
                         try:
@@ -637,7 +647,6 @@ class MainApp:
                         print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            # command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", output_video_path ]
                             command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path ]
                         else:
                             command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'

@@ -220,7 +220,10 @@ def get_driver_with_profile(target_gmail='default', show=True):
         options.add_experimental_option('excludeSwitches', ['enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
         driver = webdriver.Chrome(options=options)
-        driver.maximize_window()
+        try:
+            driver.maximize_window()
+        except:
+            pass
         return driver
     else:
         print(f'Không tìm thấy profile cho tài khoản google {target_gmail}')
