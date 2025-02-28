@@ -577,6 +577,7 @@ class MainApp:
             print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
 
             for i, txt_file in enumerate(txt_files):
+                one_file_start_time = time()
                 print(f'  --->  Bắt đầu chuyển text sang audio: {txt_file}')
                 t = time()
                 file_name = txt_file.replace('.txt', '')
@@ -627,13 +628,14 @@ class MainApp:
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
                             # command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", output_video_path ]
-                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", output_video_path ]
+                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", "-threads", "4", output_video_path ]
                         else:
-                            command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest "{output_video_path}"'
+                            command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -shortest -threads 4 "{output_video_path}"'
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_file(txt_path)
                             remove_file(output_audio_path)
+                            print(f'Tổng thời gian xử lý file {txt_file} là {time() - one_file_start_time}s')
                 else:
                     print(f'{thatbai} xuất file {txt_path} sang audio không thành công ---> Dừng chương trình !!!')
                     return False
