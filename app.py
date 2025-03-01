@@ -308,7 +308,6 @@ class MainApp:
                                 continue
                             else:
                                 print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
-                                remove_file(txt_path)
                                 break
         except:
             remove_file(txt_path)
