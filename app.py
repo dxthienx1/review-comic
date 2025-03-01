@@ -253,7 +253,7 @@ class MainApp:
                                 remove_file(txt_path)
                                 break
             else:
-                for i in range(0, end_chapter-start_chapter):
+                for i in range(0, end_chapter-start_chapter+1):
                     txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
                     chapter_content = ""
                     with open(txt_path, 'w', encoding='utf-8') as file:
