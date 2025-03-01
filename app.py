@@ -147,11 +147,11 @@ class MainApp:
             start_down = True
             cnt_err = 0
             if '<idx>' in base_url:
-                for i in range(start_chapter, end_chapter+1):
-                    txt_path = os.path.join(main_folder, f'{i}.txt')
+                for i in range(0, end_chapter):
+                    txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
                     chapter_content = ""
                     with open(txt_path, 'w', encoding='utf-8') as file:
-                        link = base_url.replace('<idx>', str(i))
+                        link = base_url.replace('<idx>', str(start_chapter))
                         if link not in list_linkes:
                             driver.get(link)
                             sleep(2)
@@ -184,7 +184,7 @@ class MainApp:
                                         print(f'Xác minh capcha')
                                         sleep(5)
                                         cnt_err += 1
-                                        i -= 1
+                                        start_chapter -= 1
                                         continue
                                     else:
                                         break
@@ -203,6 +203,7 @@ class MainApp:
                                         if chapter_content:
                                             file.write(f'{chapter_content}')
                                             chapter_content = ""
+                                            start_chapter += 1
                                         else:
                                             print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
                                             break
@@ -243,8 +244,9 @@ class MainApp:
                             if chapter_content.strip():
                                     file.write(f'{chapter_content.strip()}')
                                     cnt_err = 0
+                                    start_chapter += 1
                             else:
-                                print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
+                                print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
                                 remove_file(txt_path)
                                 break
             else:
