@@ -145,11 +145,11 @@ class MainApp:
             driver.get(base_url)
             list_linkes = []
             start_down = True
-            for i in range(start_chapter, end_chapter+1):
-                txt_path = os.path.join(main_folder, f'{i}.txt')
-                chapter_content = ""
-                with open(txt_path, 'w', encoding='utf-8') as file:
-                    if '<idx>' in base_url:
+            if '<idx>' in base_url:
+                for i in range(start_chapter, end_chapter+1):
+                    txt_path = os.path.join(main_folder, f'{i}.txt')
+                    chapter_content = ""
+                    with open(txt_path, 'w', encoding='utf-8') as file:
                         link = base_url.replace('<idx>', str(i))
                         if link not in list_linkes:
                             driver.get(link)
@@ -232,7 +232,11 @@ class MainApp:
                             else:
                                 print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
                                 break
-                    else:
+            else:
+                for i in range(0, end_chapter-start_chapter):
+                    txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
+                    chapter_content = ""
+                    with open(txt_path, 'w', encoding='utf-8') as file:
                         if 'https://novelbin.com' in  base_url:
                             xpath = get_xpath_by_multi_attribute('div', ['id="chr-content"'])
                             ele = get_element_by_xpath(driver, xpath)
@@ -242,15 +246,16 @@ class MainApp:
                                     for p_ele in list_contents:
                                         content = p_ele.text
                                         chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
-                                    if chapter_content:
-                                        file.write(f'{chapter_content}')
-                                    else:
-                                        print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
-                                        break
                                     next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
                                     if next_chap_ele:
                                         next_chap_ele.click()
                                         sleep(3)
+                        if chapter_content:
+                            file.write(f'{chapter_content}')
+                            start_chapter += 1
+                        else:
+                            print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
+                            break
         except:
             print(f'Lỗi khi lấy nội dung từ web {base_url}!!!')
             getlog()
