@@ -287,7 +287,7 @@ class MainApp:
                                     next_xpath = get_xpath_by_multi_attribute('a', ['id="next_chap"'])
                                     next_ele = get_element_by_xpath(driver, next_xpath)
                                     if next_ele:
-                                        scroll_into_view(next_ele)
+                                        scroll_into_view(driver, next_ele)
                                         next_ele.click()
                                         sleep(3)
 
