@@ -270,7 +270,7 @@ class MainApp:
                                     if next_chap_ele:
                                         next_chap_ele.click()
                                         sleep(3)
-                        elif 'https://truyenfull' in  link or 'https://truyenhoan' in link:
+                        elif 'https://truyenfull' in  base_url or 'https://truyenhoan' in base_url:
                             xpath = get_xpath('div', 'chapter-c', contain=True)
                             ele = get_element_by_xpath(driver, xpath)
                             if ele:
