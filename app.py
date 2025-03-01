@@ -147,6 +147,7 @@ class MainApp:
             start_down = True
             cnt_err = 0
             first_content = ""
+            txt_path = ""
             if '<idx>' in base_url:
                 for i in range(0, end_chapter):
                     txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
@@ -269,6 +270,26 @@ class MainApp:
                                     if next_chap_ele:
                                         next_chap_ele.click()
                                         sleep(3)
+                            elif 'https://truyenfull' in  link or 'https://truyenhoan' in link:
+                                xpath = get_xpath('div', 'chapter-c', contain=True)
+                                ele = get_element_by_xpath(driver, xpath)
+                                if ele:
+                                    ads_contents = ele.find_elements(By.XPATH, "./*")
+                                    ads_texts = [e.text.strip() for e in ads_contents if e.text.strip()]
+                                    content = ele.text
+                                    for ad_text in ads_texts:
+                                        content = content.replace(ad_text, '')
+                                    if content:
+                                        liness = content.split('\n')
+                                        lines = [line.strip() for line in liness if line.strip()]
+                                        for content in lines:
+                                            chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                                    next_xpath = get_xpath_by_multi_attribute('a', ['id="next_chap"'])
+                                    next_ele = get_element_by_xpath(driver, next_xpath)
+                                    if next_ele:
+                                        next_ele.click()
+                                        sleep(3)
+
                         if chapter_content.strip() and first_content != chapter_content.strip():
                             first_content = chapter_content.strip()
                             file.write(f'{chapter_content.strip()}')
@@ -288,7 +309,7 @@ class MainApp:
                                 remove_file(txt_path)
                                 break
         except:
-            print(f'Lỗi khi lấy nội dung từ web {base_url}!!!')
+            remove_file(txt_path)
             getlog()
         finally:
             self.close_driver()
