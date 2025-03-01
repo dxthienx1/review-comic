@@ -289,8 +289,9 @@ class MainApp:
                                 if next_ele:
                                     next_chap = next_ele.get_attribute('href')
                                     if next_ele:
-                                        driver.get(next_chap)
-                                        sleep(3)
+                                        if next_chap and 'https://truyenfull' in next_chap:
+                                            driver.get(next_chap)
+                                            sleep(3)
 
                         if chapter_content.strip() and first_content != chapter_content.strip():
                             first_content = chapter_content.strip()
