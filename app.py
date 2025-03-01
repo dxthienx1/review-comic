@@ -145,6 +145,7 @@ class MainApp:
             driver.get(base_url)
             list_linkes = []
             start_down = True
+            cnt_err = 0
             if '<idx>' in base_url:
                 for i in range(start_chapter, end_chapter+1):
                     txt_path = os.path.join(main_folder, f'{i}.txt')
@@ -175,6 +176,17 @@ class MainApp:
                                         for p_ele in list_contents:
                                             content = p_ele.text
                                             chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+                                        if not chapter_content.strip():
+                                            if cnt_err < 2:
+                                                webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
+                                                sleep(2)
+                                                webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
+                                                print(f'Xác minh capcha')
+                                                sleep(5)
+                                                cnt_err += 1
+                                                continue
+                                            else:
+                                                break
                             elif 'http://vietnamthuquan' in  link:
                                 xpath_links = "//div[contains(@onclick, 'chuongid')]"
                                 all_links = get_element_by_xpath(driver, xpath_links, multiple=True)
@@ -227,10 +239,11 @@ class MainApp:
                                         for content in lines:
                                             chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
 
-                            if chapter_content:
-                                file.write(f'{chapter_content}')
+                            if chapter_content.strip():
+                                    file.write(f'{chapter_content.strip()}')
                             else:
                                 print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
+                                remove_file(txt_path)
                                 break
             else:
                 for i in range(0, end_chapter-start_chapter):
@@ -250,12 +263,23 @@ class MainApp:
                                     if next_chap_ele:
                                         next_chap_ele.click()
                                         sleep(3)
-                        if chapter_content:
-                            file.write(f'{chapter_content}')
+                        if chapter_content.strip():
+                            file.write(f'{chapter_content.strip()}')
                             start_chapter += 1
+                            cnt_err = 0
                         else:
-                            print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
-                            break
+                            if cnt_err < 2:
+                                webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
+                                sleep(2)
+                                webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
+                                print(f'Xác minh capcha')
+                                sleep(5)
+                                cnt_err += 1
+                                continue
+                            else:
+                                print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                remove_file(txt_path)
+                                break
         except:
             print(f'Lỗi khi lấy nội dung từ web {base_url}!!!')
             getlog()
