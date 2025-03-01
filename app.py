@@ -146,6 +146,7 @@ class MainApp:
             list_linkes = []
             start_down = True
             cnt_err = 0
+            first_content = ""
             if '<idx>' in base_url:
                 for i in range(0, end_chapter):
                     txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
@@ -200,8 +201,8 @@ class MainApp:
                                         ele = get_element_by_xpath(driver, xpath)
                                         if ele:
                                             chapter_content = ele.text
-                                        if chapter_content:
-                                            file.write(f'{chapter_content}')
+                                        if chapter_content.strip() and first_content != chapter_content.strip():
+                                            first_content = chapter_content.strip()
                                             chapter_content = ""
                                             start_chapter += 1
                                         else:
@@ -241,10 +242,11 @@ class MainApp:
                                         for content in lines:
                                             chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
 
-                            if chapter_content.strip():
-                                    file.write(f'{chapter_content.strip()}')
-                                    cnt_err = 0
-                                    start_chapter += 1
+                            if chapter_content.strip() and first_content != chapter_content.strip():
+                                first_content = chapter_content.strip()
+                                file.write(f'{chapter_content.strip()}')
+                                cnt_err = 0
+                                start_chapter += 1
                             else:
                                 print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
                                 remove_file(txt_path)
@@ -267,7 +269,8 @@ class MainApp:
                                     if next_chap_ele:
                                         next_chap_ele.click()
                                         sleep(3)
-                        if chapter_content.strip():
+                        if chapter_content.strip() and first_content != chapter_content.strip():
+                            first_content = chapter_content.strip()
                             file.write(f'{chapter_content.strip()}')
                             start_chapter += 1
                             cnt_err = 0
