@@ -293,7 +293,7 @@ class MainApp:
                                             driver.get(next_chap)
                                             sleep(3)
 
-                        if chapter_content.strip() and first_content != chapter_content.strip():
+                        if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
                             first_content = chapter_content.strip()
                             file.write(f'{chapter_content.strip()}')
                             start_chapter += 1
