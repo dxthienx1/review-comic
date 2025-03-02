@@ -753,8 +753,8 @@ class MainApp:
             if len(chapters_folder) == 0:
                 print(f'Không tìm thấy danh sách chương truyện trong thư mục {main_folder}')
                 return
-            model_path = os.path.join(current_dir, "models\\last_version")
-            config_path = os.path.join(current_dir, "models\\last_version\\config.json")
+            model_path = os.path.join(current_dir, "models\\default_version")
+            config_path = os.path.join(current_dir, "models\\default_version\\config.json")
             self.xtts = TTS(model_path=model_path, config_path=config_path).to(device)
             for chapter_folder in chapters_folder:
                 print(f'Bắt đầu xử lý ảnh chương {chapter_folder}')
