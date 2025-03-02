@@ -45,7 +45,7 @@ class MainApp:
             self.first_check_status_video = True
             self.is_stop_edit = False
             self.is_stop_download = False
-            self.is_stop_upload = False
+            self.is_stop_export_next_video = False
             self.driver = None
             self.new_name=None
             self.index = 1
@@ -540,6 +540,12 @@ class MainApp:
                     while not task_queue.empty():
                         try:
                             text_chunk, temp_audio_path = task_queue.get_nowait()
+                            if text_chunk.startswith('. '):
+                                text_chunk = text_chunk[2:]
+                            elif text_chunk.startswith('.'):
+                                text_chunk = text_chunk[1:]
+                            if text_chunk.endswith("."):
+                                text_chunk = text_chunk[:-1]
                             try:
                                 torch.cuda.empty_cache()
                                 tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
@@ -718,12 +724,16 @@ class MainApp:
                             remove_file(txt_path)
                             remove_file(output_audio_path)
                             print(f'Tổng thời gian xử lý file {txt_file} là {time() - one_file_start_time}s')
+                            if self.is_stop_export_next_video:
+                                print(f'  --> Đã dừng xuất video !!!')
+                                return True
+
                 else:
                     print(f'{thatbai} xuất file {txt_path} sang audio không thành công ---> Dừng chương trình !!!')
                     return False
 
-            export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
             if is_merge:
+                export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
                 if is_merge_videos:
                     merge_videos_use_ffmpeg(output_folder, export_file_name)
                     print("  -->  Xuất video hoàn tất.")
@@ -1978,7 +1988,7 @@ class MainApp:
             menu = (
                 item("Hiển thị menu", self.get_start_window),
                 item("Dừng tiến trình tải video/audio", self.stop_download),
-                item("Dừng tiến trình đăng video", self.stop_upload),
+                item("Dừng xuất video tiếp theo.", self.stop_export_next_video),
                 item("Dừng tiến trình chỉnh sửa video", self.stop_edit_videos),
                 item("Dừng tất cả tiến trình đang chạy", self.stop_all_process),
                 item("Thoát ứng dụng", self.exit_app),
@@ -1994,9 +2004,9 @@ class MainApp:
         self.is_stop_download = True
         print("Đang dừng quá trình tải video, vui lòng chờ trong giây lát ...")
 
-    def stop_upload(self):
-        self.is_stop_upload = True
-        print("Đang dừng quá trình đăng video, vui lòng chờ trong giây lát ...")
+    def stop_export_next_video(self):
+        self.is_stop_export_next_video = True
+        print("Bạn đã thiết lập dừng xuất video tiếp theo. Nếu muốn dừng ngay thì vui lòng tắt ứng dụng.")
 
     def stop_edit_videos(self):
         self.is_stop_edit = True
@@ -2004,7 +2014,7 @@ class MainApp:
 
     def stop_all_process(self):
         self.stop_download()
-        self.stop_upload()
+        self.stop_export_next_video()
         self.stop_edit_videos()
 
     def create_image(self, icon_path=None):
