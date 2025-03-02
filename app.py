@@ -468,6 +468,8 @@ class MainApp:
 
     def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, tts_list=[], start_idx=0, end_text=""):
         try:
+            if language == 'en':
+                max_lenth_text = 250
             self.stop_audio_file = None
             if not output_path:
                 print(f'Chưa có tên file sau khi xuất video')
@@ -498,6 +500,7 @@ class MainApp:
                     sentence = sentence.strip()
                     if not sentence:
                         continue
+                    sentence = re.sub(r'^\.+\s*', '', sentence)
                     if not sentence.endswith('.') and not sentence.endswith(','):
                         sentence = f'{sentence}.'
                     sentence = cleaner_text(sentence, is_loi_chinh_ta=False, language=language)
@@ -600,10 +603,13 @@ class MainApp:
             language = self.language_var.get().strip()
             if language == 'vi':
                 end_text = f"Bạn đang xem truyện tại kênh {channel_name}, đừng quên like và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
+                model_path = os.path.join(current_dir, "models", "last_version_vi")
             elif language == 'en':
                 end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
+                model_path = os.path.join(current_dir, "models", "default_version")
             else:
                 end_text = None
+            xtts_config_path = os.path.join(model_path, "config.json")
             speed_talk = self.speed_talk_var.get().strip()
             if speed_talk:
                 try:
@@ -644,8 +650,6 @@ class MainApp:
             file_name = ""
             start_idx = int(start_idx) if start_idx.isdigit() else 0
             num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
-            model_path = os.path.join(current_dir, "models", "last_version")
-            xtts_config_path = os.path.join(model_path, "config.json")
             
             tts_list = []
             device = f"cuda:0" 

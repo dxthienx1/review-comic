@@ -2437,10 +2437,6 @@ special_word = {
     "~~~":"",
     "~~":"",
     "~":"",
-    # "\n\n\n":".",
-    # "\n\n":".",
-    # "\n":".",
-    "/": " ",
     "(": ".",
     ")": ".",
     "}": ".",
@@ -2449,6 +2445,11 @@ special_word = {
     "]": ".",
     "|": " ",
     ";": ".",
+    "------": "",
+    "-----": "",
+    "----": "",
+    "---": "",
+    "--": "",
     "-": " ",
     "_": " ",
     ":": ".",
@@ -2473,13 +2474,49 @@ special_word = {
     "…": "",
     "“": "",
     "”": "",
+    " — ": " ",
+    "—": " ",
     "‘": "",
     "’": "",
     "\"": "",
-    "'": "",
-    "#": " ",
+    "@@novelbin@@": "",
+    "@": "",
+    "#": "",
     "   ": " ",
     "  ": " ",
+    "«":"",
+    "»":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":""
+}
+
+loai_bo_tieng_anh = {
+    "https://novelbin.me/":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":""
+}
+
+loai_bo_tieng_viet = {
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "/": " ",
     "$": " đô",
     "vnđ": "đồng",
     "%": " phần trăm",
@@ -2507,20 +2544,7 @@ special_word = {
     "truyenyy.xyz":"",
     "(conduongbachu.net là web chính chủ duy nhất của truyện...)":"",
     "www.":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":""
+    "'": "",
 }
 
 viet_tat = {
@@ -5849,12 +5873,18 @@ def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
         text = text.lower()
         for word, replacement in special_word.items():
             text = text.replace(word, replacement)
+        for word1, replacement1 in loai_bo_tieng_viet.items():
+            text = text.replace(word1, replacement1)
         if is_loi_chinh_ta:
             for wrong, correct in loi_chinh_ta.items():
                 text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
         text = number_to_vietnamese_with_units(text)
     elif language == 'en':
         text = text.lower()
+        for word, replacement in special_word.items():
+            text = text.replace(word, replacement)
+        for word1, replacement1 in loai_bo_tieng_anh.items():
+            text = text.replace(word1, replacement1)
         text = number_to_english_with_units(text)
     return text.strip()
 
