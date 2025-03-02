@@ -442,7 +442,7 @@ class MainApp:
         self.setting_window_size()
         self.channel_name_var = self.create_settings_input(text="Xuất video cho kênh", config_key="current_channel", values=self.config["channels"], left=0.3, right=0.7)
         self.language_var = self.create_settings_input(text="Ngôn ngữ", config_key="language_tts", values=self.support_languages, left=0.3, right=0.7)
-        self.language_var.set('vi')
+        # self.language_var.set(self.config['language_tts'])
         self.speed_talk_var = self.create_settings_input(text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
         self.story_type_var = self.create_settings_input(text="Đây là truyện tranh", values=['Yes', 'No'], left=0.3, right=0.7)
         self.story_type_var.set('No')
@@ -468,7 +468,7 @@ class MainApp:
 
     def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, tts_list=[], start_idx=0, end_text=""):
         try:
-            if language == 'en':
+            if language != 'vi':
                 max_lenth_text = 250
             self.stop_audio_file = None
             if not output_path:
@@ -601,15 +601,13 @@ class MainApp:
             start_idx = self.start_idx_var.get().strip()
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
+            model_path = os.path.join(current_dir, "models", "default_version")
+            end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
             if language == 'vi':
                 end_text = f"Bạn đang xem truyện tại kênh {channel_name}, đừng quên like và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
-                model_path = os.path.join(current_dir, "models", "last_version_vi")
-            elif language == 'en':
-                end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
-                model_path = os.path.join(current_dir, "models", "default_version")
-            else:
-                end_text = None
+                model_path = os.path.join(current_dir, "models", "last_version_vi")  
             xtts_config_path = os.path.join(model_path, "config.json")
+
             speed_talk = self.speed_talk_var.get().strip()
             if speed_talk:
                 try:
@@ -629,6 +627,8 @@ class MainApp:
             if not check_folder(output_folder):
                 print(f"Thư mục {output_folder} không hợp lệ hoặc không tồn tại.")
                 return False
+            self.config["language_tts"] = language
+            self.config["speed_talk"] = str(speed_talk)
             self.config["current_channel"] = channel_name
             self.config["output_folder"] = output_folder
             self.config["folder_story"] = folder_story

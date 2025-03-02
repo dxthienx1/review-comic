@@ -2071,77 +2071,100 @@ def number_to_vietnamese_with_units(text):
     pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
     return re.sub(pattern, convert, text)
 
-def number_to_english_with_units(text):
-    # Mapping of units to English words
-    unit_mapping = {
-        "h": "hour",
-        "m": "meter",
-        "cm": "centimeter",
-        "mm": "millimeter",
-        "km": "kilometer",
-        "s": "second",
-        "ms": "millisecond"
+def number_to_english(number):
+    words = {
+        0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+        6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+        11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen",
+        15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen",
+        19: "nineteen", 20: "twenty", 30: "thirty", 40: "forty",
+        50: "fifty", 60: "sixty", 70: "seventy", 80: "eighty", 90: "ninety"
     }
+    units = ["", "thousand", "million", "billion", "trillion"]
+
+    def read_three_digits(num):
+        hundreds = num // 100
+        tens = (num % 100) // 10
+        ones = num % 10
+        result = []
+
+        if hundreds > 0:
+            result.append(f"{words[hundreds]} hundred")
+
+        if tens >= 2:
+            result.append(words[tens * 10])
+            if ones > 0:
+                result.append(words[ones])
+        elif tens == 1 or ones > 0:
+            result.append(words[tens * 10 + ones])
+
+        return " ".join(result)
+
+    if number == 0:
+        return "zero"
+
+    parts = []
+    idx = 0
+    while number > 0:
+        num_part = number % 1000
+        if num_part > 0:
+            part = read_three_digits(num_part)
+            if idx > 0:
+                part += f" {units[idx]}"
+            parts.append(part)
+        number //= 1000
+        idx += 1
+
+    return " ".join(reversed(parts))
+
+# Ánh xạ đơn vị
+unit_mapping = {
+    "km": "kilometers", "m": "meters", "cm": "centimeters", "mm": "millimeters",
+    "h": "hours", "s": "seconds", "ms": "milliseconds", "%": "percent"
+}
+
+def process_fractions(text):
+    # Xử lý phân số (ví dụ: 444/7000)
+    def convert_fraction(match):
+        numerator = int(match.group(1))
+        denominator = int(match.group(2))
+        return f"{number_to_english(numerator)} over {number_to_english(denominator)}"
     
-    # Function to convert numbers to English words
-    def number_to_english(number):
-        if not (0 <= number < 1_000_000_000_000_000):
-            return "Number out of supported range."
-        
-        words = {
-            0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
-            6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
-            11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen", 15: "fifteen",
-            16: "sixteen", 17: "seventeen", 18: "eighteen", 19: "nineteen", 20: "twenty",
-            30: "thirty", 40: "forty", 50: "fifty", 60: "sixty", 70: "seventy",
-            80: "eighty", 90: "ninety"
-        }
-        units = ["", "thousand", "million", "billion", "trillion"]
-        
-        def read_three_digits(num):
-            hundreds = num // 100
-            tens = (num % 100) // 10
-            ones = num % 10
-            result = []
-            
-            if hundreds > 0:
-                result.append(f"{words[hundreds]} hundred")
-            
-            if tens >= 2:
-                result.append(words[tens * 10])
-                if ones > 0:
-                    result.append(words[ones])
-            elif tens == 1 or ones > 0:
-                result.append(words[tens * 10 + ones])
-            
-            return " ".join(result)
-        
-        parts = []
-        idx = 0
-        while number > 0:
-            num_part = number % 1000
-            if num_part > 0:
-                part = read_three_digits(num_part)
-                if idx > 0:
-                    part += f" {units[idx]}"
-                parts.append(part)
-            number //= 1000
-            idx += 1
-        
-        return " ".join(reversed(parts))
+    return re.sub(r"(\d+)/(\d+)", convert_fraction, text)
+
+def process_decimals(text):
+    # Xử lý số thập phân (ví dụ: 55.65)
+    def convert_decimal(match):
+        integer_part = int(match.group(1))
+        decimal_part = match.group(2)
+        decimal_words = " ".join([number_to_english(int(digit)) for digit in decimal_part])
+        return f"{number_to_english(integer_part)} point {decimal_words}"
     
-    # Function to process number-unit pairs
-    def convert(match):
+    return re.sub(r"(\d+)\.(\d+)", convert_decimal, text)
+
+def process_units(text):
+    # Xử lý số có đơn vị (ví dụ: 5649km → "five thousand six hundred forty-nine kilometers")
+    def convert_units(match):
         number = int(match.group(1))
         unit = match.group(2)
-        if unit:
-            unit_word = unit_mapping.get(unit, unit)
-            return f"{number_to_english(number)} {unit_word}"
-        return number_to_english(number)
+        unit_word = unit_mapping.get(unit, unit)
+        return f"{number_to_english(number)} {unit_word}"
     
-    # Regular expression pattern to match numbers with optional units
-    pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
-    return re.sub(pattern, convert, text)
+    return re.sub(r"(\d+)(km|m|cm|mm|h|s|ms|%)\b", convert_units, text)
+
+def process_integers(text):
+    # Xử lý số nguyên (ví dụ: 5649 → "five thousand six hundred forty-nine")
+    def convert_integer(match):
+        return number_to_english(int(match.group(0)))
+    
+    return re.sub(r"\b\d+\b", convert_integer, text)
+
+def number_to_english_with_units(text):
+    text = process_fractions(text)  # Chuyển đổi phân số trước
+    text = process_decimals(text)   # Chuyển đổi số thập phân
+    text = process_units(text)      # Chuyển đổi số có đơn vị
+    text = process_integers(text)   # Cuối cùng, chuyển đổi số nguyên
+    return text
 
 def merge_txt_files(input_dir, output_dir=None, group_file=50):
     try:
@@ -2299,6 +2322,9 @@ special_word = {
     "+++":"",
     "++":"",
     "+":"",
+    "~~~~~~":"",
+    "~~~~~":"",
+    "~~~~":"",
     "~~~":"",
     "~~":"",
     "~":"",
@@ -2367,8 +2393,8 @@ special_word = {
 
 loai_bo_tieng_anh = {
     "https://novelbin.me/":"",
-    "fff":"",
-    "fff":"",
+    "/":" over ",
+    "%":" percent",
     "fff":"",
     "fff":"",
     "fff":"",
