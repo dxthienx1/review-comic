@@ -2211,6 +2211,10 @@ def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', s
             command_audio = [ 'ffmpeg', '-i', merge_audio_path, '-filter:a', f"atempo={speed},volume={1}", '-vn', output_audio_path, '-y' ]
             run_command_ffmpeg(command_audio, False)
 
+        if not output_video_path:
+            basename = os.path.basename(output_audio_path)
+            file_name = basename.split('.')[0]
+            output_audio_path = os.path.join(input_folder, f'{file_name}.mp4')
         if os.path.exists(output_audio_path):
             print("✅ Âm thanh đã được xử lý xong!")
             if torch.cuda.is_available():
