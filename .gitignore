@@ -38,3 +38,4 @@ best_model*.pth
 *.pyc
 *.log
 /config.json
+test*.py
