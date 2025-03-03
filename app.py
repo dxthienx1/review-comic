@@ -540,7 +540,9 @@ class MainApp:
                     while not task_queue.empty():
                         try:
                             text_chunk, temp_audio_path = task_queue.get_nowait()
-                            if text_chunk.startswith('. '):
+                            if text_chunk.startswith(',. '):
+                                text_chunk = text_chunk[3:]
+                            elif text_chunk.startswith('. ') or text_chunk.startswith(',.'):
                                 text_chunk = text_chunk[2:]
                             elif text_chunk.startswith('.'):
                                 text_chunk = text_chunk[1:]
