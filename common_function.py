@@ -2200,22 +2200,28 @@ def merge_txt_files(input_dir, output_dir=None, group_file=50):
         getlog()
 
 
-def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', speed=1.1, img_path="", file_name="1", output_video_path=None):
+def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', speed=1.1, img_path="", file_name="1", output_audio_path=None, output_video_path=None):
     try:
-        merge_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}.wav")
-        if not output_video_path:
-            output_video_path = os.path.join(input_folder, f"{file_name}.mp4")
-        merge_audio_use_ffmpeg(input_folder, file_name, file_start_with=file_start_with)
-        temp_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}_speed.wav")
-        command_audio = [ 'ffmpeg', '-i', merge_audio_path, '-filter:a', f"atempo={speed},volume={1}", '-vn', temp_audio_path, '-y' ]
-        run_command_ffmpeg(command_audio, False)
+        if not output_audio_path:
+            merge_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}.wav")
+            if not output_video_path:
+                output_video_path = os.path.join(input_folder, f"{file_name}.mp4")
+            merge_audio_use_ffmpeg(input_folder, file_name, file_start_with=file_start_with)
+            output_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}_speed.wav")
+            command_audio = [ 'ffmpeg', '-i', merge_audio_path, '-filter:a', f"atempo={speed},volume={1}", '-vn', output_audio_path, '-y' ]
+            run_command_ffmpeg(command_audio, False)
 
-        if os.path.exists(temp_audio_path):
+        if os.path.exists(output_audio_path):
             print("✅ Âm thanh đã được xử lý xong!")
-            command_video = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{temp_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest "{output_video_path}"'
-            run_command_ffmpeg(command_video, False)
-            os.remove(temp_audio_path)
-            print("✅ Video đã được tạo thành công!")
+            if torch.cuda.is_available():
+                print("---> Dùng GPU để xuất video...")
+                command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path ]
+            else:
+                command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
+            if run_command_ffmpeg(command, False):
+                print("✅ Video đã được tạo thành công!")
+            else:
+                print(f'{thatbai} Tạo video thất bại')
         else:
             print("❌ Lỗi trong quá trình xử lý âm thanh!")
     except:
