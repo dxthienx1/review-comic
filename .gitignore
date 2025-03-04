@@ -15,9 +15,7 @@ local_storage.json
 app.spec
 app.py-*.json
 output.txt
-test.py
 luu_tam.py
-ff.html
 download_info.json
 *.txt
 *.pem
@@ -38,4 +36,4 @@ best_model*.pth
 *.pyc
 *.log
 /config.json
-test*.py
+# test*.py
