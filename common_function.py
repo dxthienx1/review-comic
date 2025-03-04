@@ -2188,7 +2188,7 @@ def merge_txt_files(input_dir, output_dir=None, group_file=50):
             # Tạo tên file đầu ra từ file đầu và cuối trong batch
             first_file_name = os.path.splitext(batch_files[0])[0]
             last_file_name = os.path.splitext(batch_files[-1])[0]
-            output_filename = f'{first_file_name}_{last_file_name}.txt'
+            output_filename = f'{first_file_name} - {last_file_name}.txt'
             output_path = os.path.join(output_dir, output_filename)
             
             # Ghi nội dung đã ghép vào tệp mới
