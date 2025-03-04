@@ -1054,7 +1054,7 @@ class MainApp:
         self.setting_window_size()
         create_button(self.root, text="Đổi tên file/thư mục theo chỉ số", command=self.open_rename_file_by_index_window, width=self.width)
         create_button(self.root, text="Đổi file jpg sang png", command=self.open_convert_jpg_to_png_window, width=self.width)
-        create_button(self.root, text="Xóa ký tự trong tên file", command=self.open_remove_char_in_file_name_window, width=self.width)
+        create_button(self.root, text="Xóa/thay thế ký tự trong tên file", command=self.open_remove_char_in_file_name_window, width=self.width)
         create_button(self.root, text="Trích xuất ảnh từ video", command=self.extract_image_from_video_window, width=self.width)
         create_button(self.root, text="Gộp file txt trong thư mục", command=self.merge_txt_file_in_folder_window, width=self.width)
         create_button(self.root, text="Chụp ảnh vùng được chọn và lưu", command=take_screenshot, width=self.width)
@@ -2132,7 +2132,7 @@ class MainApp:
             elif self.is_remove_char_in_file_name_window:
                 self.root.title("Remove Char in Files")
                 self.width = 500
-                self.height_window = 315
+                self.height_window = 362
                 self.is_remove_char_in_file_name_window = False
             elif self.is_extract_image_from_video_window:
                 self.root.title("Extract Image From Video")
@@ -2226,7 +2226,8 @@ class MainApp:
         self.reset()
         self.is_remove_char_in_file_name_window = True
         self.setting_window_size()
-        self.char_want_to_remove_var = create_frame_label_and_input(self.root, text="Nhập các ký tự muốn loại bỏ", width=self.width, left=0.4, right=0.6, place_holder='Ví dụ: .,-,#')
+        self.char_want_to_remove_var = create_frame_label_and_input(self.root, text="Ký tự muốn loại bỏ/thay thế", width=self.width, left=0.4, right=0.6, place_holder='Ví dụ: .,-,#')
+        self.char_want_to_replace_var = create_frame_label_and_input(self.root, text="Ký tự muốn thay", width=self.width, left=0.4, right=0.6, place_holder='để trống nếu muốn xóa ký tự')
         self.file_name_extension_var = create_frame_label_and_input(self.root, text="Loại file muốn đổi tên", width=self.width, left=0.4, right=0.6)
         self.file_name_extension_var.insert(0, '.wav')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa File", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
@@ -2244,13 +2245,14 @@ class MainApp:
 
     def remove_char_in_file_name(self):
         chars_want_to_remove = self.char_want_to_remove_var.get()
+        char_want_to_replace = self.char_want_to_replace_var.get()
         extension = self.file_name_extension_var.get()
         videos_folder = self.videos_edit_folder_var.get()
         if not chars_want_to_remove:
             self.noti("Hãy nhập các ký tự muốn loại bỏ và cách nhau bởi dấu \",\". Ví dụ:  \".,#\"")
             return
         if check_folder(videos_folder):
-            remove_char_in_file_name(folder_path=videos_folder, chars_want_to_remove=chars_want_to_remove, extension=extension)
+            remove_char_in_file_name(folder_path=videos_folder, chars_want_to_remove=chars_want_to_remove, char_want_to_replace=char_want_to_replace, extension=extension)
 
     def extract_image_from_video(self, videos_folder=None):
         position = self.image_position_var.get().strip()

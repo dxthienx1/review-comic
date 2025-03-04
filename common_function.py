@@ -765,7 +765,7 @@ def convert_jpg_to_png(input_folder, from_format='jpg', to_format='png'):
     except:
         getlog()
 
-def remove_char_in_file_name(folder_path, chars_want_to_remove, extension=None):
+def remove_char_in_file_name(folder_path, chars_want_to_remove, char_want_to_replace="", extension=None):
     if not extension:
         extension = '.mp4'
     try:
@@ -778,7 +778,7 @@ def remove_char_in_file_name(folder_path, chars_want_to_remove, extension=None):
             base_name = file_name.split(extension)[0]
             for char in chars:
                 if char in base_name:
-                    base_name = base_name.replace(char, "")
+                    base_name = base_name.replace(char, char_want_to_replace)
             old_file_path = os.path.join(folder_path, file_name)
             new_file_name = f"{base_name}{extension}"
             new_file_path = os.path.join(folder_path, new_file_name)
