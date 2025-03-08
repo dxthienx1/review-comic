@@ -550,6 +550,8 @@ class MainApp:
                                 text_chunk = text_chunk[2:]
                             elif text_chunk.startswith("'"):
                                 text_chunk = text_chunk[1:]
+                            if text_chunk.endswith("'.") and len(text_chunk) > 2:
+                                text_chunk = f'{text_chunk[:-2]}.'
                             try:
                                 torch.cuda.empty_cache()
                                 tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
