@@ -119,6 +119,7 @@ CENTER = 'center'
 max_lenth_text = 250
 thanhcong = "✅"
 thatbai = "❌"
+canhbao = "⚠"
 
 def load_ffmpeg():
     def get_ffmpeg_dir():
@@ -2460,6 +2461,14 @@ loai_bo_tieng_viet = {
     "(conduongbachu.net là web chính chủ duy nhất của truyện...)":"",
     "www.":"",
     "'": "",
+    "t. r. u. y. ệ. n. y.": "",
+    "t. r. u. y. ệ. n. y": "",
+    "t.r.u.y.ệ.n.y.": "",
+    "t.r.u.y.ệ.n.y": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
 }
 
 viet_tat = {
