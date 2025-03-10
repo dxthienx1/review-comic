@@ -2465,7 +2465,7 @@ loai_bo_tieng_viet = {
     "t. r. u. y. ệ. n. y": "",
     "t.r.u.y.ệ.n.y.": "",
     "t.r.u.y.ệ.n.y": "",
-    "fff": "",
+    "bạn đang đọc truyện copy tại": "",
     "fff": "",
     "fff": "",
     "fff": "",
