@@ -229,7 +229,6 @@ def get_driver_with_profile(target_gmail='default', show=True):
         return driver
     else:
         print(f'Không tìm thấy profile cho tài khoản google {target_gmail}')
-        print("--> Hãy dùng cookies để đăng nhập !")
         return None
 
 def scroll_into_view(driver, element):
@@ -2420,6 +2419,24 @@ loai_bo_tieng_anh = {
     "https://novelbin.me/":"",
     "/":" over ",
     "%":" percent",
+    "T/L: Please support me here:  ]":"",
+    "T/L: Subscribe for a membership on my Buy Me a Coffee page and receive 15 extra chapters upon joining, along with daily updates of one chapter:":"",
+    "If anyone is facing the issue of payment on Ko-Fi, please contact me on":"",
+    "T/L: Please support me and read further chapters here here:":"",
+    "T/L: Please support me AND read further chapters here:":"",
+    "Additional Info:":"",
+    "/revengerscans":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
     "fff":"",
     "fff":"",
     "fff":"",

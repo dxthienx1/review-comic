@@ -141,8 +141,9 @@ class MainApp:
                 driver = get_driver_with_profile(show=True)
             else:
                 driver = get_driver(show=True)
-            sleep(3)
+            sleep(1)
             driver.get(base_url)
+            sleep(8)
             list_linkes = []
             start_down = True
             cnt_err = 0
@@ -727,7 +728,7 @@ class MainApp:
                             command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
-                            remove_file(txt_path)
+                            remove_or_move_file(txt_path)
                             remove_file(output_audio_path)
                             print(f'Tổng thời gian xử lý file {txt_file} là {time() - one_file_start_time}s')
                             if self.is_stop_export_next_video:
