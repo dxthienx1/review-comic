@@ -541,6 +541,7 @@ class MainApp:
                     while not task_queue.empty():
                         try:
                             text_chunk, temp_audio_path = task_queue.get_nowait()
+                            text_chunk = cleaner_text(text=text_chunk, is_loi_chinh_ta=False, language=language)
                             if text_chunk.startswith(',. '):
                                 text_chunk = text_chunk[3:]
                             elif text_chunk.startswith('. ') or text_chunk.startswith(',.'):
