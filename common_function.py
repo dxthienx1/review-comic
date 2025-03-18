@@ -2532,7 +2532,25 @@ viet_tat = {
     " GPLX ": " giấy phép lái xe ",
     " STK ": " số tài khoản ",
     " NĐ-CP ": " nờ đê xê pê ",
-    " fff ": " fff "
+    " fff ": "",
+    "Noãn Tâm rơi vào vòng xoáy yêu, hận, dây dưa không dứt giữa thiên đàng và địa cùng Hoắc Thiên Kình": "",
+    "Minh Hoa Thường mơ thấy mình là thiên kim giả, liền nỗ lực lấy lòng huynh trưởng trên danh nghĩa của mình": "",
+    "Lâm Khê xuyên về 30 năm trước trong 1 tiểu viện ọp ẹp, bỗng dưng có thêm 1 người chồng, thân mặc quân trang, ánh mắt nhìn cô chứa sự ghét bỏ": "",
+    "Thứ trưởng nữ Ôn gia ác độc trèo được lên giường của Thái Tử, nhưng mà không ngờ được hắn càng ngủ càng hăng": "",
+    "TRUYỆN TRANH ĐANG HOT": "",
+    "Phế vật? Rác rưởi? Chỉ cần đi theo bản tọa, tất cả sẽ trở thành anh hùng thế gian!": "",
+    "Hắn xuyên qua và bước vào thế giới 10.000 năm sau, nhân loại diệt vong, võ học lên đến đỉnh cao, mà hắn là tia lửa duy nhất!": "",
+    "Một đại ma hoàng đầy thủ đoạn tàn độc, sẽ làm thế nào để khiến cho một gia tộc nhỏ bé trở mình thành một gia tộc đứng trên tất cả?": "",
+    "Thể chất bình thường? Thần thông khó luyện? Đốn ngộ liền xong việc!": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": ""
+
 }
 
 loi_chinh_ta = {

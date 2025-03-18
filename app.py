@@ -104,6 +104,7 @@ class MainApp:
         self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu truyện", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
         self.chapters_var = create_frame_label_and_input(self.root, text="chương bắt đầu-chương kết thúc", width=self.width, left=0.4, right=0.6)
         self.download_text_story_var = create_frame_label_and_input(self.root,text="Mẫu link tải chương truyện", place_holder="thay số chương bằng <idx>", width=self.width, left=0.4, right=0.6)
+        self.replace_text_var = create_frame_label_and_input(self.root,text="Phần loại bỏ", place_holder="loại bỏ 1|loại bỏ 2|loại bỏ 3", width=self.width, left=0.4, right=0.6)
         create_button(self.root, text="Bắt đầu tải", command=start_thread_download_text_story, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
@@ -120,7 +121,9 @@ class MainApp:
                 is_use_profile = True
             else:
                 is_use_profile = False
-
+            replace_text = self.replace_text_var.get().strip()
+            if replace_text:
+                replace_texts = replace_text.split('|') or []
             start_chapter = self.chapters_var.get().strip()
             if '-' not in start_chapter:
                 start_chapter = int(start_chapter)
@@ -237,6 +240,10 @@ class MainApp:
                                     ads_contents = ele.find_elements(By.XPATH, "./*")
                                     if not ads_texts:
                                         ads_texts = [e.text.strip() for e in ads_contents if e.text.strip()]
+                                        for replace_text in replace_texts:
+                                            if replace_text not in ads_texts:
+                                                ads_texts.append(replace_text)
+
                                     content = ele.text
                                     for ad_text in ads_texts:
                                         content = content.replace(ad_text, '')
