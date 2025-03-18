@@ -149,11 +149,11 @@ class MainApp:
             cnt_err = 0
             first_content = ""
             txt_path = ""
+            ads_texts = None
             if '<idx>' in base_url:
                 for i in range(0, end_chapter):
                     txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
                     chapter_content = ""
-                    ads_texts = None
                     with open(txt_path, 'w', encoding='utf-8') as file:
                         link = base_url.replace('<idx>', str(start_chapter))
                         if link not in list_linkes:
