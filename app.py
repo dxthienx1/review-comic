@@ -153,6 +153,7 @@ class MainApp:
                 for i in range(0, end_chapter):
                     txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
                     chapter_content = ""
+                    ads_texts = None
                     with open(txt_path, 'w', encoding='utf-8') as file:
                         link = base_url.replace('<idx>', str(start_chapter))
                         if link not in list_linkes:
@@ -234,7 +235,8 @@ class MainApp:
                                 ele = get_element_by_xpath(driver, xpath)
                                 if ele:
                                     ads_contents = ele.find_elements(By.XPATH, "./*")
-                                    ads_texts = [e.text.strip() for e in ads_contents if e.text.strip()]
+                                    if not ads_texts:
+                                        ads_texts = [e.text.strip() for e in ads_contents if e.text.strip()]
                                     content = ele.text
                                     for ad_text in ads_texts:
                                         content = content.replace(ad_text, '')
