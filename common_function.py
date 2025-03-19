@@ -2284,7 +2284,7 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='chÆ
                     start_chapter = chapter_count
             content.append(line)
         if content:
-            output_file = os.path.join(output_folder, f"{start_chapter}_{chapter_count}.txt")
+            output_file = os.path.join(output_folder, f"{start_chapter} - {chapter_count}.txt")
             with open(output_file, "w", encoding="utf-8") as out_f:
                 out_f.writelines(content)
         
