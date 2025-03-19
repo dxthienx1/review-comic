@@ -2230,6 +2230,68 @@ def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', s
             print("❌ Lỗi trong quá trình xử lý âm thanh!")
     except:
         getlog()
+
+def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='chương'):
+    if not start_text:
+        print(f'Hãy nhập từ khóa bắt đầu để làm mốc tách file.')
+        return
+    if not max_chapters_per_file:
+        print(f'Hãy nhập số chương trong 1 file.')
+        return
+    if not input_file:
+        print(f'Hãy chọn file txt chứa các chương truyện.')
+        return
+    try:
+        max_chapters_per_file = int(max_chapters_per_file) if max_chapters_per_file.isdigit() else None
+        if not max_chapters_per_file:
+            print(f'{thatbai} Số chương {max_chapters_per_file} không hợp lệ!')
+            return
+        output_folder = os.path.dirname(input_file)
+        with open(input_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        
+        chapter_count = 0
+        content = []
+        start_chapter = None
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            is_true = line.lower().startswith(start_text)
+            if start_text=='chương' or start_text=='chuong':
+                is_true = line.lower().startswith("chương") or line.lower().startswith("chuong")
+            if is_true:
+                chuong = line.strip().split(' ')[1]
+                if ':' in chuong:
+                    chuong = chuong.split(':')[0]
+                elif '-' in chuong:
+                    chuong = chuong.split('-')[0]
+                chuong_int = int(chuong) if chuong.isdigit() else 0
+                if chuong_int == 0:
+                    continue
+                chapter_count += 1
+                if chuong_int != chapter_count:
+                    print(f'{thatbai} khong tim thay chuong {chapter_count}')
+                if start_chapter is None:
+                    start_chapter = chapter_count
+                
+                if chapter_count > 1 and (chapter_count - start_chapter + 1) > max_chapters_per_file:
+                    output_file = os.path.join(output_folder, f"{start_chapter} - {chapter_count-1}.txt")
+                    with open(output_file, "w", encoding="utf-8") as out_f:
+                        out_f.writelines(content)
+                    content = []
+                    start_chapter = chapter_count
+            content.append(line)
+        if content:
+            output_file = os.path.join(output_folder, f"{start_chapter}_{chapter_count}.txt")
+            with open(output_file, "w", encoding="utf-8") as out_f:
+                out_f.writelines(content)
+        
+        print("Tách file hoàn tất.")
+    except:
+        getlog()
+        print(f'Có lỗi khi tách file {input_file}')
 #------------------------------------------------commond--------------------------------------------------
 
 def get_custom_model(folder):
@@ -2560,7 +2622,7 @@ loi_chinh_ta = {
     "fff":"",
     "fff":"",
     "fff":"",
-    "fff":"",
+    "tiêu đề (ẩn)":"",
     " audio ":" au đi ô ",
     " id ": " ai đi ",
     " adn ": " ây đi en ",

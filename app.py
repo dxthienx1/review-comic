@@ -1074,11 +1074,28 @@ class MainApp:
         create_button(self.root, text="Xóa/thay thế ký tự trong tên file", command=self.open_remove_char_in_file_name_window, width=self.width)
         create_button(self.root, text="Trích xuất ảnh từ video", command=self.extract_image_from_video_window, width=self.width)
         create_button(self.root, text="Gộp file txt trong thư mục", command=self.merge_txt_file_in_folder_window, width=self.width)
+        create_button(self.root, text="Tách file truyện theo số chương", command=self.split_txt_file_window, width=self.width)
         create_button(self.root, text="Chụp ảnh vùng được chọn và lưu", command=take_screenshot, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
  
 
 #---------------------------------------------edit audio-------------------------------------------
+
+    def split_txt_file_window(self):
+        def start_split_txt_file():
+            max_chapters_per_file = self.max_chapters_per_file_var.get().strip()
+            txt_path = self.audio_edit_path.get().strip()
+            split_txt_by_chapter(txt_path, max_chapters_per_file)
+
+        self.reset()
+        self.is_merge_txt_file = True
+        self.setting_window_size()
+        self.show_window()
+        self.audio_edit_path = create_frame_button_and_input(self.root,text="Chọn File Truyện .txt", command= self.choose_audio_edit_file, left=0.4, right=0.6, width=self.width)
+        self.max_chapters_per_file_var = create_frame_label_and_input(self.root, text="Số lượng chương trong mỗi file", width=self.width, left=0.4, right=0.6)
+        self.max_chapters_per_file_var.insert(0, '50')
+        create_button(frame=self.root, text="Bắt Đầu Tách File", command=start_split_txt_file)
+        create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
 
     def merge_txt_file_in_folder_window(self):
         def start_merge_txt_file():
@@ -2159,7 +2176,7 @@ class MainApp:
             elif self.is_other_window:
                 self.root.title("Other")
                 self.width = 500
-                self.height_window = 390
+                self.height_window = 437
                 self.is_other_window = False
             elif self.is_other_download_window:
                 self.root.title("Download Video")
@@ -2185,11 +2202,11 @@ class MainApp:
                 self.root.title("Lấy âm thanh/ phụ đề/ ảnh từ video")
                 self.width = 700
                 self.height_window = 270
-                self.is_extract_sub_image_audio_from_video_window = False              
+                self.is_extract_sub_image_audio_from_video_window = False
             elif self.download_text_story:
                 self.root.title("Tải Truyện Chữ")
                 self.width = 500
-                self.height_window = 315
+                self.height_window = 360
                 self.download_text_story = False              
 
         self.setting_screen_position()
