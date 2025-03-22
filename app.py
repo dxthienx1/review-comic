@@ -476,7 +476,7 @@ class MainApp:
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_subtitles_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
-    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=300, readline=True, tts_list=[], start_idx=0, end_text=""):
+    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text=""):
         try:
             if language != 'vi':
                 max_lenth_text = 250
@@ -510,26 +510,36 @@ class MainApp:
                     sentence = sentence.strip()
                     if not sentence:
                         continue
+                    if temp_text:
+                        sentence = f"{temp_text} {sentence}"
+     
                     sentence = re.sub(r'^\.+\s*', '', sentence)
                     if not sentence.endswith('.') and not sentence.endswith(','):
                         sentence = f'{sentence}.'
                     sentence = cleaner_text(sentence, is_loi_chinh_ta=False, language=language)
-                    
+
                     if len(sentence) > max_lenth_text:
                         total_texts.extend(split_text_into_chunks(sentence, max_lenth_text))
                     else:
-                        sum_text = temp_text + ' ' + sentence if temp_text else sentence
-                        if len(sum_text) < min_lenth_text:
-                            temp_text = sum_text
+                        if len(sentence) < min_lenth_text and sentence != sentences[-1].strip():
+                            temp_text = sentence
                             continue
                         else:
-                            sentence = sum_text
                             temp_text = ""
-                        total_texts.append(sentence)
+                        if len(sentence) >= min_lenth_text:
+                            total_texts.append(sentence)
+                        else:
+                            if sentence != sentences[-1].strip():
+                                print(f'{thatbai} Dữ liệu nhỏ hơn {min_lenth_text} ký tự: {sentence}')
 
                 if end_text:
                     print(f'Lời chào: {end_text}')
-                    total_texts.append(end_text.lower())
+                    if len(sentence) < min_lenth_text:
+                        end_text = f'{sentence} {end_text}'
+                    if len(end_text) > max_lenth_text:
+                        total_texts.extend(split_text_into_chunks(end_text, max_lenth_text))
+                    else:
+                        total_texts.append(end_text.lower())
                 print(f'  --->  Tổng số câu cần xử lý: {len(total_texts)}')
                 # Hàng đợi lưu các đoạn văn bản cần xử lý
                 task_queue = queue.Queue()

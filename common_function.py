@@ -2184,13 +2184,14 @@ def merge_txt_files(input_dir, output_dir=None, group_file=50):
             for file in batch_files:
                 with open(os.path.join(input_dir, file), 'r', encoding='utf-8') as f:
                     merged_content += f.read() + '\n'
+                    
             
             # Tạo tên file đầu ra từ file đầu và cuối trong batch
             first_file_name = os.path.splitext(batch_files[0])[0]
             last_file_name = os.path.splitext(batch_files[-1])[0]
             output_filename = f'{first_file_name} - {last_file_name}.txt'
             output_path = os.path.join(output_dir, output_filename)
-            
+            # merged_content = cleaner_text(merged_content, language='en')
             # Ghi nội dung đã ghép vào tệp mới
             with open(output_path, 'w', encoding='utf-8') as out_file:
                 out_file.write(merged_content)
@@ -2483,9 +2484,12 @@ special_word = {
 }
 
 loai_bo_tieng_anh = {
+    "Enhance your reading experience by removing ads for as low as $1!": "",
+    "20 chapters ahead on my patreon: /David_Lord": "",
+    "20 chapters ahead on patreon: /David_Lord": "",
+    "15 chapters ahead on my patreon: /David_Lord": "",
+    "15 chapters ahead on <a>patreon: /David_Lord": "",
     "https://novelbin.me/":"",
-    "/":" over ",
-    "%":" percent",
     "T/L: Please support me here:  ]":"",
     "T/L: Subscribe for a membership on my Buy Me a Coffee page and receive 15 extra chapters upon joining, along with daily updates of one chapter:":"",
     "If anyone is facing the issue of payment on Ko-Fi, please contact me on":"",
@@ -2493,6 +2497,29 @@ loai_bo_tieng_anh = {
     "T/L: Please support me AND read further chapters here:":"",
     "Additional Info:":"",
     "/revengerscans":"",
+    "So... How is the first chapter?": "",
+    "Discord Server:": "",
+    "https://discord.gg/hPxxHTeyFy": "",
+    "Do you like his decision?": "",
+    "https://discord.gg/Qv4K3rZv": "",
+    ".gg/hPxxHTeyFy": "",
+    "You can support me and read additional chapters (15 chapters ahead) on my /David_Lord": "",
+    "Thanks :D": "",
+    ":D": "",
+    ":c": "",
+    "Review the novel on novelupdate:": "",
+    "/series/creating-heavenly-laws/": "",
+    "When we reach 5 reviews, I will upload a bonus chapter!!": "",
+    "(Health lol haha :D)": "",
+    "I need POWAAAA :D": "",
+    "Help me buy a new computer :D /DavidLord": "",
+    "15 chapters ahead on patreon: /David_Lord": "",
+    "Guys I uploaded the chapters even in the summer, don't I deserve a reward?": "",
+    "Kidding, jokes aside can you help me buy a new computer? It has been months, but I still don't have enough money T.T I'm embarassed": "",
+    "Well, if you want to donate here's the link: /DavidLord": "",
+    "You've been reborn as a primordial":"",
+    "You've succeeded in completing the quest.":"",
+    "Apologies for the shorter chapter, I've decided to cut some content to make the story flow better.":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -2505,9 +2532,8 @@ loai_bo_tieng_anh = {
     "fff":"",
     "fff":"",
     "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":""
+    "/":" over ",
+    "%":" percent"
 }
 
 loai_bo_tieng_viet = {
@@ -2613,7 +2639,6 @@ viet_tat = {
     "fff": "",
     "fff": "",
     "fff": ""
-
 }
 
 loi_chinh_ta = {
@@ -5898,20 +5923,22 @@ def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
         for word, replacement in viet_tat.items():
             text = text.replace(word, replacement)
         text = text.lower()
+        for word1, replacement1 in loai_bo_tieng_viet.items():
+            word1 = word1.lower()
+            text = text.replace(word1, replacement1)
         for word, replacement in special_word.items():
             text = text.replace(word, replacement)
-        for word1, replacement1 in loai_bo_tieng_viet.items():
-            text = text.replace(word1, replacement1)
         if is_loi_chinh_ta:
             for wrong, correct in loi_chinh_ta.items():
                 text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
         text = number_to_vietnamese_with_units(text)
     elif language == 'en':
         text = text.lower()
+        for word1, replacement1 in loai_bo_tieng_anh.items():
+            word1 = word1.lower()
+            text = text.replace(word1, replacement1)
         for word, replacement in special_word.items():
             text = text.replace(word, replacement)
-        for word1, replacement1 in loai_bo_tieng_anh.items():
-            text = text.replace(word1, replacement1)
         text = number_to_english_with_units(text)
     return text.strip()
 
