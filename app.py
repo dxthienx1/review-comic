@@ -531,6 +531,7 @@ class MainApp:
                         else:
                             if sentence != sentences[-1].strip():
                                 print(f'{thatbai} Dữ liệu nhỏ hơn {min_lenth_text} ký tự: {sentence}')
+                                return
 
                 if end_text:
                     print(f'Lời chào: {end_text}')
