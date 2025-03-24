@@ -46,6 +46,7 @@ from PyQt5.QtGui import QPainter, QPen, QGuiApplication
 import csv
 import queue
 import torch
+import cv2
 
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
@@ -1339,7 +1340,7 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
 
 
 
-def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, videos_path=None, fast_combine=True, output_folder=None):
+def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, videos_path=None, fast_combine=True, output_folder=None, hide=True):
     ti = time()
     print("Bắt đầu nối video...")
     temp_file_path = os.path.join(videos_folder, "temp.txt")
@@ -1385,7 +1386,8 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
         file_path = f"{output_folder}\\merge_video.mp4"
     command = connect_video(temp_file_path, file_path, fast_connect=fast_combine, max_fps=max_fps)
     try:
-        run_command_ffmpeg(command, False)
+        if not run_command_ffmpeg(command, hide):
+            return False, f"{thatbai} Gộp video thất bại"
         try:
             remove_file(temp_file_path)
             if is_delete:
@@ -1442,17 +1444,18 @@ def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=N
             '-vf', 'fps=25', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
             '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', output_file_path
         ]
-        if torch.cuda.is_available():
-            print("---> Dùng GPU để nối video...")
-            command = [
-                "ffmpeg", "-f", "concat", "-safe", "0", "-i", temp_file_path,
-                "-vf", "fps=25",
-                "-c:v", "h264_nvenc",  # Sử dụng GPU
-                "-cq", "23",  # Chất lượng tương đương CRF 23
-                "-preset", "p4",  # Thay thế "veryfast" bằng preset tối ưu cho NVENC
-                "-c:a", "aac", "-b:a", "128k",
-                "-movflags", "+faststart", "-y", output_file_path
-            ]
+        # if torch.cuda.is_available():
+        #     print("---> Dùng GPU để nối video...")
+        #     command = [
+        #         "ffmpeg", "-f", "concat", "-safe", "0", "-i", temp_file_path,
+        #         "-vf", "fps=25",
+        #         "-c:v", "h264_nvenc",  # Sử dụng GPU
+        #         "-cq", "23",  # Chất lượng tương đương CRF 23
+        #         "-preset", "medium",  # Thay thế "veryfast" bằng preset tối ưu cho NVENC
+        #         "-pix_fmt", "yuv420p",  # Đảm bảo định dạng pixel phổ biến
+        #         "-c:a", "aac", "-b:a", "128k",
+        #         "-movflags", "+faststart", "-y", output_file_path
+        #     ]
     else:
         if max_fps:
             command = [
@@ -1709,35 +1712,20 @@ def extract_audio_ffmpeg(audio_path=None, video_path=None, video_url=None, video
         print("Có lỗi trong quá trình trích xuất audio !!!")
 
 
-def text_to_audio_with_xtts(xtts, text, output_path, language="vi", speed_talk="1.0", speaker_id=None):
+def text_to_audio_with_xtts(xtts, text, output_path, language="vi", speed_talk=1.0):
     try:
         if not text:
             return False
         if not xtts:
             return False
-        try:
-            speed_talk = float(speed_talk)
-        except:
-            speed_talk = 1.0
-        speaker_wav_path = get_speaker_wav_path(language)
+        speaker_wav = get_ref_speaker_by_language(language)
         text = cleaner_text(text)
-        xtts.tts_to_file(text=text, speaker_wav=speaker_wav_path, language=language, speed=speed_talk, speaker=speaker_id, file_path=output_path)
+        xtts.tts_to_file(text=text, speaker_wav=speaker_wav, language=language, speed=speed_talk, file_path=output_path)
         return True
     except:
         getlog()
         return False
 
-def get_speaker_wav_path(language):
-    if language == 'vi':
-        speaker_wav_path = os.path.join(ref_audio_folder, 'vi.wav')
-    elif language == 'en':
-        speaker_wav_path = os.path.join(ref_audio_folder, 'en.wav')
-    elif language == 'zh':
-        speaker_wav_path = os.path.join(ref_audio_folder, 'zh.wav')
-    else:
-        print(f'Không tìm thấy file audio chuẩn cho ngôn ngữ {language}')
-        return None
-    return speaker_wav_path
 
 def change_audio_speed(input_audio, output_audio, speed=1.0):
     if speed != 1.0:
@@ -2232,6 +2220,116 @@ def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', s
     except:
         getlog()
 
+def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.1, movement_speed=0.7):
+    """
+    Tạo video từ hình ảnh với hiệu ứng chuyển động mượt và ghép âm thanh.
+
+    Parameters:
+        img_path: Đường dẫn đến ảnh đầu vào.
+        audio_path: Đường dẫn file âm thanh.
+        output_video_path: Đường dẫn file video đầu ra.
+        fps: Số khung hình trên giây (int).
+        zoom_factor: Hệ số phóng to khung hình (float).
+        movement_speed: Tốc độ di chuyển ảnh (pixel mỗi frame).
+    """
+    try:
+        # Kiểm tra file đầu vào
+        if not os.path.exists(img_path) or not os.path.exists(audio_path):
+            print("File ảnh hoặc âm thanh không tồn tại!")
+            return False
+        
+        # Lấy thời lượng audio
+        audio_info = get_audio_info(audio_path)
+        duration = audio_info.get('duration', None)
+        if not duration:
+            print("Không lấy được thông tin file âm thanh.")
+            return False
+        total_frames = int(fps * float(duration))
+
+        # Đọc ảnh đầu vào
+        img = cv2.imread(img_path)
+        height, width = img.shape[:2]
+
+        # Tạo video tạm (không âm thanh)
+        temp_video_path = "temp_video.mp4"
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
+
+        # Khởi tạo thông số chuyển động và zoom
+        offset_x, offset_y = 0, 0
+        current_zoom_factor = zoom_factor
+        movement_types = ['right', 'down', 'left', 'up', 'zoom_in', 'zoom_out']
+        movement_type = random.choice(movement_types)
+        for frame_idx in range(total_frames):
+            # Cập nhật chuyển động chỉ khi frame nằm trong chu kỳ movement_step
+            if movement_type == 'right':
+                offset_x += movement_speed
+                if offset_x + width >= int(width * current_zoom_factor):  # Giới hạn chiều ngang
+                    offset_x = int(width * current_zoom_factor) - width
+                # Đặt ảnh theo phương dọc ở trung tâm
+                offset_y = (int(height * current_zoom_factor) - height) // 2
+            elif movement_type == 'down':
+                offset_y += movement_speed
+                if offset_y + height >= int(height * current_zoom_factor):  # Giới hạn chiều dọc
+                    offset_y = int(height * current_zoom_factor) - height
+                # Đặt ảnh theo phương ngang ở trung tâm
+                offset_x = (int(width * current_zoom_factor) - width) // 2
+            elif movement_type == 'left':
+                offset_x -= movement_speed
+                if offset_x <= 0:  # Giới hạn chiều ngang (trái)
+                    offset_x = 0
+                # Đặt ảnh theo phương dọc ở trung tâm
+                offset_y = (int(height * current_zoom_factor) - height) // 2
+            elif movement_type == 'up':
+                offset_y -= movement_speed
+                if offset_y <= 0:  # Giới hạn chiều dọc (trên)
+                    offset_y = 0
+                # Đặt ảnh theo phương ngang ở trung tâm
+                offset_x = (int(width * current_zoom_factor) - width) // 2
+            elif movement_type == 'zoom_in':
+                current_zoom_factor += 0.001  # Tăng dần hệ số zoom
+                if current_zoom_factor > zoom_factor * 1.15:  # Giới hạn zoom in tối đa
+                    current_zoom_factor = zoom_factor * 1.15
+            elif movement_type == 'zoom_out':
+                current_zoom_factor -= 0.001  # Giảm dần hệ số zoom
+                if current_zoom_factor < zoom_factor * 0.85:  # Giới hạn zoom out tối thiểu
+                    current_zoom_factor = zoom_factor * 0.85
+
+            # Tính kích thước ảnh mới từ ảnh gốc
+            zoomed_width = int(width * current_zoom_factor)
+            zoomed_height = int(height * current_zoom_factor)
+
+            # Lấy ảnh zoom từ ảnh gốc
+            zoomed_img = cv2.resize(img, (zoomed_width, zoomed_height))
+
+            # Cắt ảnh theo vị trí offset
+            cropped_frame = zoomed_img[int(offset_y):int(offset_y + height), int(offset_x):int(offset_x + width)]
+
+            # Ghi khung hình vào video
+            out.write(cropped_frame)
+
+        # Giải phóng tài nguyên
+        out.release()
+        print("Video tạm thời đã được tạo xong!")
+
+        # Ghép âm thanh vào video bằng ffmpeg
+        if torch.cuda.is_available():
+            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+        else:
+            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+        if not run_command_ffmpeg(command, False):
+            return False
+
+        # Xóa file tạm
+        if os.path.exists(temp_video_path):
+            os.remove(temp_video_path)
+        print(f"Video đã ghép thành công: {output_video_path}")
+        return True
+    except:
+        getlog()
+        return False
+
+
 def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='chương'):
     if not start_text:
         print(f'Hãy nhập từ khóa bắt đầu để làm mốc tách file.')
@@ -2439,6 +2537,10 @@ special_word = {
     "',": ",",
     "'. ": ".",
     "'.": ".",
+    "  .": ".",
+    " .": ".",
+    "  ,": ",",
+    " ,": ",",
     ",'": ",",
     ".'": ".",
     " '": " ",
@@ -6020,7 +6122,6 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
 
 #---------kiểm tra và xử lý file metadata để đúng chuẩn training XTTS-v2 ---------------------------
 def add_voice_to_csv(input_file, voice_tag="vi_female"):
-    import csv
     cur_dir = os.path.dirname(input_file)
     name = os.path.basename(input_file)
     output_dir = os.path.join(cur_dir, 'output')

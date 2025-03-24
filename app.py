@@ -466,6 +466,10 @@ class MainApp:
                 err_file = temp_files[-1]
                 file_name_err = err_file.replace('.wav', '')
                 start_idx = int(file_name_err.split('_')[-1]) + 1
+            else:
+                audio_files = get_file_in_folder_by_type(temp_output_folder, '.wav', noti=False) or []
+                if len(audio_files) == 1 and ' - ' in audio_files[0]:
+                    start_idx = "None"
         self.start_idx_var.set(start_idx)
         self.is_merge_var = self.create_settings_input(text="Có gộp video không?", values=['Yes', 'No'], left=0.3, right=0.7)
         self.is_merge_var.set('No')
@@ -548,7 +552,8 @@ class MainApp:
                 for idx, text_chunk in enumerate(total_texts):
                     temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                     if idx < start_idx:
-                        temp_audio_files.append(temp_audio_path)
+                        if os.path.exists(temp_audio_path):
+                            temp_audio_files.append(temp_audio_path)
                         continue
                     current_text_chunk += text_chunk
                     if text_chunk:
@@ -605,7 +610,8 @@ class MainApp:
 
                 if self.stop_audio_file:
                     return False
-                
+                if len(temp_audio_files) == 0:
+                    return True
                 list_file_path = "audio_list.txt"
                 with open(list_file_path, "w", encoding="utf-8") as f:
                     for audio_file in temp_audio_files:
@@ -682,14 +688,15 @@ class MainApp:
             os.makedirs(temp_output_folder, exist_ok=True)
             current_image = os.path.join(folder_story, images[0])
             file_name = ""
-            start_idx = int(start_idx) if start_idx.isdigit() else 0
+            start_idx = int(start_idx) if start_idx.isdigit() else None
             num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
             
             tts_list = []
             device = f"cuda:0" 
             if num_gpus == 0:
                 device = 'cpu'
-            tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+            if start_idx is not None:
+                tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
 
             print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
 
@@ -711,21 +718,24 @@ class MainApp:
                 else:
                     img_path = current_image
                 cnt_err = 0
-                if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, end_text=end_text):
-                    if not self.stop_audio_file:
-                        return False
-                    self.config['stop_audio_file'] = self.stop_audio_file
-                    self.save_config()
-                    cnt_err += 1
-                    sleep(30)
-                    tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to('cpu')
-                    if cnt_err > 1:
-                        print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
-                        return False
-                    file_name_err = self.stop_audio_file.replace('.wav', '')
-                    start_idx = int(file_name_err.split('_')[-1])
-                    print(f'Bắt đầu lại với file audio thứ {start_idx}')
-                    self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx)
+                if start_idx is not None:
+                    if len(tts_list) == 0:
+                        tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, end_text=end_text):
+                        if not self.stop_audio_file:
+                            return False
+                        self.config['stop_audio_file'] = self.stop_audio_file
+                        self.save_config()
+                        cnt_err += 1
+                        sleep(30)
+                        tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
+                        if cnt_err > 1:
+                            print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
+                            return False
+                        file_name_err = self.stop_audio_file.replace('.wav', '')
+                        start_idx = int(file_name_err.split('_')[-1])
+                        print(f'Bắt đầu lại với file audio thứ {start_idx}')
+                        self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx)
                 start_idx = 0
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
@@ -742,6 +752,7 @@ class MainApp:
                         is_merge_videos = True
                         output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
                         print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
+                        # process_image_to_video_with_movement(img_path, output_audio_path, output_video_path)
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
                             command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path ]
@@ -763,7 +774,7 @@ class MainApp:
             if is_merge:
                 export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
                 if is_merge_videos:
-                    merge_videos_use_ffmpeg(output_folder, export_file_name)
+                    merge_videos_use_ffmpeg(output_folder, export_file_name, hide=False)
                     print("  -->  Xuất video hoàn tất.")
                 else:
                     merge_audio_use_ffmpeg(output_folder, export_file_name)
@@ -782,22 +793,33 @@ class MainApp:
             main_txt_path = os.path.join(main_folder, 'total_video_file.txt')
             if not check_folder(main_folder):
                 return
+            start_idx = self.start_idx_var.get().strip()
+            channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
+            model_path = os.path.join(current_dir, "models", "default_version")
+            end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
+            if language == 'vi':
+                end_text = f"Bạn đang xem truyện tại kênh {channel_name}, đừng quên like và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
+                model_path = os.path.join(current_dir, "models", "last_version_vi")  
+            xtts_config_path = os.path.join(model_path, "config.json")
+
             speed_talk = self.speed_talk_var.get().strip()
-            if language not in self.support_languages:
-                print(f"Ngôn ngữ {language} không được hỗ trợ.")
-                return
+            if speed_talk:
+                try:
+                    speed_talk = float(speed_talk)
+                except:
+                    speed_talk = 1.0
+            
             chapters_folder = get_file_in_folder_by_type(main_folder, file_type="", start_with='chuong ') or []
             if len(chapters_folder) == 0:
                 print(f'Không tìm thấy danh sách chương truyện trong thư mục {main_folder}')
                 return
-            model_path = os.path.join(current_dir, "models\\default_version")
-            config_path = os.path.join(current_dir, "models\\default_version\\config.json")
-            self.xtts = TTS(model_path=model_path, config_path=config_path).to(device)
+
+            self.xtts = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
             for chapter_folder in chapters_folder:
                 print(f'Bắt đầu xử lý ảnh chương {chapter_folder}')
                 chapter_folder = os.path.join(main_folder, chapter_folder)
-                self.processing_subtitle_file_and_export_video(chapter_folder, language=language, speed_talk=speed_talk, main_file_path=main_txt_path)
+                self.processing_subtitle_file_and_export_video(chapter_folder, language=language, end_text=end_text, speed_talk=speed_talk, main_file_path=main_txt_path)
                 if self.is_stop_edit:
                     break
             self.xtts = None
@@ -806,91 +828,210 @@ class MainApp:
             print("Có lỗi trong quá trình xử lý các file phụ đề")
             self.xtts = None
 
-    def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=None, type_image='png', main_file_path=None, trim_duration=0.3):
+    def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=None, end_text=None, main_file_path=None, trim_duration=None, min_lenth_text=30, max_lenth_text=250):
         try:
             pitch = 1.0
-            try:
-                speed_talk = float(speed_talk)
-                if speed_talk <= 0:
-                    speed_talk = 1.0
-            except:
-                speed_talk = 1.0
+            
             file_name = os.path.basename(os.path.normpath(chapter_folder))
             subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
             temp_folder = os.path.join(chapter_folder, 'temp_folder')
             os.makedirs(temp_folder, exist_ok=True)
             with open(subtitle_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
+
             cnt, idx = 0, 0
-            crop_filter = "crop=in_w:min(in_h\\,1080):0:(in_h-min(in_h\\,1080))/2"
             max_height = 1080
-            
+            type_image = 'png'
+            first_image_path = None
+            total_content = ""
+            result_content = {}
+
             while idx < len(lines):
-                cnt += 1
-                if lines[idx].strip().isdigit():
+                if lines[idx].strip().isdigit():  # Bắt đầu một ảnh mới
+                    if total_content and len(total_content) >= min_lenth_text:  # Nếu có nội dung trước đó, lưu lại
+                        result_content[image_name] = total_content
+                        total_content = ""
+
+                    
+                    # Khởi tạo cho ảnh mới
+                    
                     image_name = f"{lines[idx].strip()}.{type_image}"
                     image_path = os.path.join(chapter_folder, image_name)
+
+                    if not os.path.exists(image_path):
+                        type_image = 'jpg'
+                        image_name = f"{lines[idx].strip()}.{type_image}"
+                        image_path = os.path.join(chapter_folder, image_name)
+                        if not os.path.exists(image_path):
+                            if first_image_path:
+                                image_path = first_image_path
+
+                    if not image_path or not os.path.exists(image_path):
+                        print(f'Không tìm thấy ảnh {image_name} trong thư mục {chapter_folder}')
+                        return
+
+                    first_image_path = image_path
                     idx += 1
-
-                content = lines[idx].strip()
-                audio_path = os.path.join(temp_folder, f"audio_{cnt}.wav")
-                idx += 1
-                if not text_to_audio_with_xtts(self.xtts, content, audio_path, language):
-                    cnt -= 1
-                    continue
-                audio_info = get_audio_info(audio_path)
-                if not audio_info:
-                    continue
-                duration = float(audio_info.get("duration", 0))
-                if pitch != 1.0 or trim_duration:
-                    adjusted_audio_path = os.path.join(temp_folder, f"audio_adjusted_{cnt}.wav")
-                    audio_filters = [f"rubberband=pitch={pitch}"]
-
-                    if trim_duration and duration > trim_duration:
-                        duration = duration - trim_duration
-                        audio_filters.append(f"atrim=0:{duration}")
-                    commond = [ 'ffmpeg', '-y', '-i', audio_path, '-filter:a', ','.join(audio_filters), adjusted_audio_path ]
-                    run_command_ffmpeg(commond, False)
-                    remove_file(audio_path)
-                    audio_path = adjusted_audio_path
-                
-                # Kiểm tra kích thước ảnh
-                image_width, image_height = get_image_info(image_path)  # Giả sử hàm get_image_info sẽ trả về thông tin kích thước ảnh
-                
-                # Nếu chiều cao ảnh nhỏ hơn chiều cao tối đa, phóng to ảnh
-                if image_height < max_height:
-                    scale_factor = max_height / image_height
-                    resize_filter = f"scale=iw*{scale_factor}:ih*{scale_factor}"
                 else:
-                    resize_filter = "scale=iw:ih"  # Không thay đổi kích thước nếu ảnh đã đủ cao
+                    # Thêm nội dung vào total_content
+                    content = lines[idx].strip()
+                    content = cleaner_text(content, language=language)
+                    if content.endswith(' .'):
+                        content = f"{content[:-2]}."
+                    elif not content.endswith('.') and not content.endswith(','):  # Đảm bảo nội dung kết thúc bằng dấu chấm
+                        content += ','
+                    
+                    total_content += f" {content}"  # Gộp nội dung, cách nhau bởi dấu cách
+                    idx += 1
+            if total_content:
+                if not total_content.endswith('.') and not total_content.endswith(','):
+                    total_content = total_content + "."
+                if len(total_content) < min_lenth_text:
+                    total_content += f" {end_text}"
+                result_content[image_name] = total_content
+                
+            if result_content:
+                cnt = 0
+                for key in result_content.keys():
+                    image_name = key
+                    image_path = os.path.join(chapter_folder, image_name)
+                    content = result_content[key]
+                    content = cleaner_text(content, language=language)
 
-                video_path = os.path.join(temp_folder, f"video_{cnt}.mp4")
-                if torch.cuda.is_available():
-                    ffm_command = [
-                        "ffmpeg", "-y", "-loop", "1", "-i", image_path, "-i", audio_path,
-                        "-vf", f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
-                        "-map", "0:v", "-map", "1:a",
-                        "-c:v", "h264_nvenc",  # Dùng GPU
-                        "-cq", "23",  # Chất lượng tương đương CRF 23
-                        "-preset", "p4",  # Preset tối ưu cho NVENC
-                        "-t", str(duration),
-                        "-c:a", "aac", "-b:a", "128k",
-                        "-shortest", video_path
-                    ]
-                else:
-                    ffm_command = [
-                        'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
-                        '-vf', f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
-                        '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-t', str(duration),
-                        '-c:a', 'aac', '-b:a', '128k', '-shortest', video_path
-                    ]
-                run_command_ffmpeg(ffm_command, False)
-            merge_videos_use_ffmpeg(temp_folder, file_name)
+                    
+                    if len(content) > max_lenth_text:
+                        contents = split_text_into_chunks(content, max_lenth_text)
+                    else:
+                        contents = [content]
+                    for text in contents:
+                        audio_path = os.path.join(temp_folder, f"{cnt}.wav")
+                        if not text_to_audio_with_xtts(self.xtts, text, audio_path, language, speed_talk=speed_talk):
+                            print(f"{thatbai} Không thể TTS: {text}")
+                            return
+                        # audio_info = get_audio_info(audio_path)
+                        # if not audio_info or "duration" not in audio_info:
+                        #     print(f"{thatbai} không lấy được thông tin audio: {audio_path}")
+                        #     return
+                        # if pitch != 1.0 or trim_duration:
+                        #     duration = float(audio_info.get("duration", 0))
+                        #     adjusted_audio_path = os.path.join(temp_folder, f"audio_adjusted_{cnt}.wav")
+                        #     audio_filters = [f"rubberband=pitch={pitch}"]
+
+                        #     if trim_duration and duration > trim_duration:
+                        #         duration = duration - trim_duration
+                        #         audio_filters.append(f"atrim=0:{duration}")
+                        #     commond = [ 'ffmpeg', '-y', '-i', audio_path, '-filter:a', ','.join(audio_filters), adjusted_audio_path ]
+                        #     run_command_ffmpeg(commond, False)
+                        #     remove_file(audio_path)
+                        #     audio_path = adjusted_audio_path
+                    
+                        # Kiểm tra kích thước ảnh
+                        img = cv2.imread(image_path)
+                        image_height, image_width = img.shape[:2]
+                        # Nếu chiều cao ảnh nhỏ hơn chiều cao tối đa, phóng to ảnh
+                        if image_height < max_height:
+                            scale_factor = max_height / image_height
+                            new_width = int(image_width * scale_factor)
+                            resized_image_path = os.path.join(temp_folder, f"resized_{cnt}.png")  # Đường dẫn ảnh mới
+                            resize_command = [ 'ffmpeg', '-y', '-i', image_path, '-vf', f"scale={new_width}:{max_height}", resized_image_path ]
+                            run_command_ffmpeg(resize_command, False)
+                            image_path = resized_image_path
+                        
+                        video_path =  f"{temp_folder}/video_{cnt}.mp4"
+                        process_image_to_video_with_movement(image_path, audio_path, video_path)
+                        cnt += 1
+                
+            merge_videos_use_ffmpeg(temp_folder, file_name, hide=False)
             with open(main_file_path, 'w') as main_file:
                 main_file.write(f"file '{video_path}'\n")
         except:
-            print(f'--->>> Có thể bị lỗi ở dòng thứ {idx}: {lines[idx]}')
             getlog()
+    # def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=None, type_image='png', main_file_path=None, trim_duration=0.3):
+    #     try:
+    #         pitch = 1.0
+    #         try:
+    #             speed_talk = float(speed_talk)
+    #             if speed_talk <= 0:
+    #                 speed_talk = 1.0
+    #         except:
+    #             speed_talk = 1.0
+    #         file_name = os.path.basename(os.path.normpath(chapter_folder))
+    #         subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
+    #         temp_folder = os.path.join(chapter_folder, 'temp_folder')
+    #         os.makedirs(temp_folder, exist_ok=True)
+    #         with open(subtitle_path, 'r', encoding='utf-8') as f:
+    #             lines = f.readlines()
+    #         cnt, idx = 0, 0
+    #         crop_filter = "crop=in_w:min(in_h\\,1080):0:(in_h-min(in_h\\,1080))/2"
+    #         max_height = 1080
+            
+    #         while idx < len(lines):
+    #             cnt += 1
+    #             if lines[idx].strip().isdigit():
+    #                 image_name = f"{lines[idx].strip()}.{type_image}"
+    #                 image_path = os.path.join(chapter_folder, image_name)
+    #                 idx += 1
+
+    #             content = lines[idx].strip()
+    #             audio_path = os.path.join(temp_folder, f"audio_{cnt}.wav")
+    #             idx += 1
+    #             if not text_to_audio_with_xtts(self.xtts, content, audio_path, language):
+    #                 cnt -= 1
+    #                 continue
+    #             audio_info = get_audio_info(audio_path)
+    #             if not audio_info:
+    #                 continue
+    #             duration = float(audio_info.get("duration", 0))
+    #             if pitch != 1.0 or trim_duration:
+    #                 adjusted_audio_path = os.path.join(temp_folder, f"audio_adjusted_{cnt}.wav")
+    #                 audio_filters = [f"rubberband=pitch={pitch}"]
+
+    #                 if trim_duration and duration > trim_duration:
+    #                     duration = duration - trim_duration
+    #                     audio_filters.append(f"atrim=0:{duration}")
+    #                 commond = [ 'ffmpeg', '-y', '-i', audio_path, '-filter:a', ','.join(audio_filters), adjusted_audio_path ]
+    #                 run_command_ffmpeg(commond, False)
+    #                 remove_file(audio_path)
+    #                 audio_path = adjusted_audio_path
+                
+    #             # Kiểm tra kích thước ảnh
+    #             image_width, image_height = get_image_info(image_path)  # Giả sử hàm get_image_info sẽ trả về thông tin kích thước ảnh
+                
+    #             # Nếu chiều cao ảnh nhỏ hơn chiều cao tối đa, phóng to ảnh
+    #             if image_height < max_height:
+    #                 scale_factor = max_height / image_height
+    #                 resize_filter = f"scale=iw*{scale_factor}:ih*{scale_factor}"
+    #             else:
+    #                 resize_filter = "scale=iw:ih"  # Không thay đổi kích thước nếu ảnh đã đủ cao
+
+    #             video_path = os.path.join(temp_folder, f"video_{cnt}.mp4")
+    #             if torch.cuda.is_available():
+    #                 ffm_command = [
+    #                     "ffmpeg", "-y", "-loop", "1", "-i", image_path, "-i", audio_path,
+    #                     "-vf", f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
+    #                     "-map", "0:v", "-map", "1:a",
+    #                     "-c:v", "h264_nvenc",  # Dùng GPU
+    #                     "-cq", "23",  # Chất lượng tương đương CRF 23
+    #                     "-preset", "p4",  # Preset tối ưu cho NVENC
+    #                     "-t", str(duration),
+    #                     "-c:a", "aac", "-b:a", "128k",
+    #                     "-shortest", video_path
+    #                 ]
+    #             else:
+    #                 ffm_command = [
+    #                     'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
+    #                     '-vf', f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
+    #                     '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-t', str(duration),
+    #                     '-c:a', 'aac', '-b:a', '128k', '-shortest', video_path
+    #                 ]
+    #             run_command_ffmpeg(ffm_command, False)
+    #         merge_videos_use_ffmpeg(temp_folder, file_name)
+    #         with open(main_file_path, 'w') as main_file:
+    #             main_file.write(f"file '{video_path}'\n")
+    #     except:
+    #         print(f'--->>> Có thể bị lỗi ở dòng thứ {idx}: {lines[idx]}')
+    #         getlog()
+
 
     def open_download_image_window(self):
         def start_thread_download_image_from_truyenqqto():
