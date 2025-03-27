@@ -483,7 +483,7 @@ class MainApp:
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_subtitles_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
-    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text=""):
+    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text=""):
         try:
             if language != 'vi':
                 max_lenth_text = 250
@@ -510,10 +510,14 @@ class MainApp:
                             sentences.append(f'{sub}.')
 
                 total_texts = []
+                if first_text:
+                    total_texts.append(first_text.lower())
                 temp_text = ""
                 temp_audio_files = []  # Danh sách chứa các file audio nhỏ
 
-                for sentence in sentences:
+                for id, sentence in enumerate(sentences):
+                    if id == int(len(sentences)/2):
+                        total_texts.append(end_text)
                     sentence = sentence.strip()
                     if not sentence:
                         continue
@@ -564,7 +568,7 @@ class MainApp:
                             task_queue.put((current_text_chunk, temp_audio_path))
                             temp_audio_files.append(temp_audio_path)
                             current_text_chunk = ""
-                        
+              
                 def process_tts(tts, speaker_wav, language):
                     while not task_queue.empty():
                         try:
@@ -646,8 +650,10 @@ class MainApp:
             language = self.language_var.get().strip()
             model_path = os.path.join(current_dir, "models", "default_version")
             end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
+            first_text = f"welcome to {channel_name}, please leave a like and subscribe to support me!"
             if language == 'vi':
-                end_text = f"Bạn đang xem truyện tại kênh {channel_name}, đừng quên like và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
+                end_text = f"Bạn đang nghe truyện tại {channel_name}, hãy like và đăng ký kênh để giúp mình có thêm động lực ra nhiều truyện hay nhé."
+                first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các truyện dịch bản thu phí trên các trang web đọc truyện online, hãy giúp mình để lại một like và một đăng ký nhé."
                 model_path = os.path.join(current_dir, "models", "last_version_vi")  
             xtts_config_path = os.path.join(model_path, "config.json")
 
@@ -724,7 +730,7 @@ class MainApp:
                 if start_idx is not None:
                     if len(tts_list) == 0:
                         tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
-                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, end_text=end_text):
+                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text):
                         if not self.stop_audio_file:
                             return False
                         self.config['stop_audio_file'] = self.stop_audio_file
