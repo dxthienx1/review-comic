@@ -47,6 +47,7 @@ import csv
 import queue
 import torch
 import cv2
+import zipfile
 
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
@@ -118,9 +119,12 @@ RIGHT = 'right'
 CENTER = 'center'
 
 max_lenth_text = 250
+tot = "🟢"
 thanhcong = "✅"
+comment_icon = "💬"
+like_icon = "❤️"
 thatbai = "❌"
-canhbao = "⚠"
+canhbao = "⚠️"
 
 def load_ffmpeg():
     def get_ffmpeg_dir():
@@ -141,38 +145,255 @@ def load_ffmpeg():
         os.environ["PATH"] += os.pathsep + ffmpeg_dir
 load_ffmpeg()
 
-def get_driver(show=True):
+# def get_driver(show=True):
+#     try:
+#         service = Service(chromedriver_path)
+#         options = webdriver.ChromeOptions()
+#         if not show:
+#             options.add_argument('--headless')
+#             options.add_argument("--no-sandbox")
+#             options.add_argument("--disable-dev-shm-usage")
+#         options.add_argument('--disable-gpu')
+#         options.add_argument('--disable-blink-features=AutomationControlled')
+#         options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
+#         options.add_argument("--log-level=3")
+#         options.add_argument("--disable-logging")
+#         options.add_experimental_option('excludeSwitches', ['enable-automation'])
+#         options.add_experimental_option('useAutomationExtension', False)
+#         driver = webdriver.Chrome(service=service, options=options)
+#         driver.maximize_window()
+#         stealth(driver,
+#                 languages=["en-US", "en"],
+#                 vendor="Google Inc.",
+#                 platform="Win32",
+#                 webgl_vendor="Intel Inc.",
+#                 renderer="Intel Iris OpenGL Engine",
+#                 fix_hairline=True
+#                 )
+#         sleep(1)
+#         return driver
+#     except:
+#         getlog()
+#         print("Lỗi trong quá trình khởi tạo chromedriver.")
+#         return None
+USER_AGENTS_WINDOWS = {
+    "United States": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "United Kingdom": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Canada": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Australia": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "France": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Germany": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Russia": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Japan": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "China": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Vietnam": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "India": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "South Korea": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Brazil": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mexico": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Italy": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Spain": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Turkey": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Netherlands": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Indonesia": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Thailand": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Philippines": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Argentina": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "South Africa": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Pakistan": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Egypt": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Other": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+}
+
+def get_browser_ip(driver):
+    try:
+        driver.get("https://checkip.amazonaws.com")
+        sleep(random.uniform(2, 5))
+        ip = driver.find_element("tag name", "body").text.strip()
+        return ip
+    except:
+        return "Không xác định" 
+
+def create_chrome_proxy_extension(proxy_ip, proxy_port, username, password, extension_name='chrome_proxy'):
+    pluginfile_folder = os.path.join(current_dir, extension_name)
+    os.makedirs(pluginfile_folder, exist_ok=True)
+    pluginfile = os.path.join(pluginfile_folder, f"{proxy_ip}_{proxy_port}.zip")
+    if os.path.exists(pluginfile):
+        return pluginfile
+    
+    manifest_json = f"""{{
+        "version": "1.0.0",
+        "manifest_version": 2,
+        "name": "{extension_name}",
+        "permissions": [
+            "proxy",
+            "tabs",
+            "unlimitedStorage",
+            "storage",
+            "<all_urls>",
+            "webRequest",
+            "webRequestBlocking"
+        ],
+        "background": {{
+            "scripts": ["background.js"]
+        }},
+        "minimum_chrome_version":"76.0.0"
+    }}"""
+
+    background_js = f"""
+    var config = {{
+        mode: "fixed_servers",
+        rules: {{
+            singleProxy: {{
+                scheme: "http",
+                host: "{proxy_ip}",
+                port: parseInt({proxy_port})
+            }},
+            bypassList: []
+        }}
+    }};
+    chrome.proxy.settings.set({{value: config, scope: "regular"}}, function() {{}});
+
+    chrome.webRequest.onAuthRequired.addListener(
+        function(details) {{
+            return {{
+                authCredentials: {{
+                    username: "{username}",
+                    password: "{password}"
+                }}
+            }};
+        }},
+        {{urls: ["<all_urls>"]}},
+        ["blocking"]
+    );
+    """
+    
+    with zipfile.ZipFile(pluginfile, 'w') as zp:
+        zp.writestr("manifest.json", manifest_json)
+        zp.writestr("background.js", background_js)
+
+    return pluginfile 
+
+def get_proxy_info(proxy=None):
+    proxy_ip = proxy_port = proxy_user = proxy_pass = proxy_country = None
+    if proxy:
+        proxy_info = proxy.split(":")
+        if len(proxy_info) == 5:
+            proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country = proxy_info
+        if len(proxy_info) == 4:
+            proxy_ip, proxy_port, proxy_user, proxy_pass = proxy_info
+        if len(proxy_info) == 3:
+            proxy_ip, proxy_port, proxy_country = proxy_info
+        elif len(proxy_info) == 2:
+            proxy_ip, proxy_port = proxy_info
+    return proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country
+
+def get_driver(show=True, proxy=None, mode="web", target_email=None):
     try:
         service = Service(chromedriver_path)
         options = webdriver.ChromeOptions()
+
+        # Random hóa User-Agent để tránh bị Google theo dõi
+        proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country = get_proxy_info(proxy)
+        if not proxy_country or proxy_country not in USER_AGENTS_WINDOWS:
+            proxy_country = "Other"
+        if mode == "web":
+            user_agent = USER_AGENTS_WINDOWS[proxy_country]
+        else:
+            user_agent = "Mozilla/5.0 (Linux; Android 11; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Mobile Safari/537.36"
+
+        
+        options.add_argument(f"--user-agent={user_agent}")
+
+        if proxy_ip and proxy_port:
+            if proxy_user and proxy_pass:
+                pluginfile = create_chrome_proxy_extension(proxy_ip, proxy_port, proxy_user, proxy_pass)
+                options.add_extension(pluginfile)
+                # proxy_extension_path = create_proxy_extension_with_chrome_profile(proxy_ip, proxy_port, proxy_user, proxy_pass)
+                # options.add_argument(f"--load-extension={proxy_extension_path}")
+            else:
+                proxy_url = f"http://{proxy_ip}:{proxy_port}"
+                options.add_argument(f'--proxy-server={proxy_url}')
+
+        # Chạy ở chế độ headless nếu cần
         if not show:
-            options.add_argument('--headless')
+            options.add_argument('--headless=new')
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
-        options.add_argument('--disable-gpu')
+        options.add_argument("--force-device-scale-factor=1")
+        # Tắt tính năng tự động hóa để tránh bị phát hiện
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
         options.add_argument("--log-level=3")
         options.add_argument("--disable-logging")
         options.add_experimental_option('excludeSwitches', ['enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument("--disable-popup-blocking")
+        options.add_argument("--disable-features=WebRTC")
+        if mode == "mobi":
+            mobile_emulation = {
+                # "deviceMetrics": {"width": 360, "height": 740, "pixelRatio": 3.0},
+                "userAgent": user_agent
+            }
+            options.add_experimental_option("mobileEmulation", mobile_emulation)
+        # debugging_port = random.randint(9000, 9999) 
+        # options.add_argument(f"--remote-debugging-port={debugging_port}")
         driver = webdriver.Chrome(service=service, options=options)
-        driver.maximize_window()
-        stealth(driver,
-                languages=["en-US", "en"],
-                vendor="Google Inc.",
-                platform="Win32",
-                webgl_vendor="Intel Inc.",
-                renderer="Intel Iris OpenGL Engine",
-                fix_hairline=True
-                )
-        sleep(1)
+        # if mode == 'web':
+        driver.set_window_size(screen_width - 200, screen_height - 50)
+        # Xóa dấu hiệu bot bằng JavaScript
+        driver.execute_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+            Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 });
+        """)
+
+        # Fake WebGL + Canvas (tránh bị nhận diện qua fingerprint)
+        driver.execute_script("""
+            WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                if (parameter === 37445) return 'Intel Open Source Technology Center';
+                if (parameter === 37446) return 'Mesa DRI Intel(R) HD Graphics 620';
+                return WebGLRenderingContext.prototype.getParameter(parameter);
+            };
+        """)
+
+        try:
+            stealth(driver,
+                    languages=["en-US", "en"],
+                    vendor="Google Inc.",
+                    platform="Win32" if mode == "web" else "Linux",
+                    webgl_vendor="Intel Inc.",
+                    renderer="Intel Iris OpenGL Engine",
+                    fix_hairline=True
+                    )
+        except ImportError:
+            pass
+
+        # Kiểm tra IP sau khi mở trình duyệt
+        browser_ip = get_browser_ip(driver)
+        if not browser_ip or (proxy_ip and proxy_ip != browser_ip):
+            if target_email:
+                print(f"❌ {target_email} Đổi IP không thành công!")
+            driver.quit()
+            return None
+        else:
+            if target_email:
+                print(f"{tot} {target_email} IP đang dùng: {browser_ip}")
+        # if mode == 'web':
+        driver.execute_script("window.open('');")
+        driver.switch_to.window(driver.window_handles[-1])
+        if len(driver.window_handles) > 1:
+            driver.switch_to.window(driver.window_handles[0])  
+            driver.close()
+        # Chuyển lại sang tab mới
+        driver.switch_to.window(driver.window_handles[-1])
+        sleep_random(1,2)
         return driver
-    except:
+    except Exception as e:
         getlog()
-        print("Lỗi trong quá trình khởi tạo chromedriver.")
         return None
-    
+
+
 def get_driver_with_profile(target_gmail='default', show=True):
     try:
         os.system("taskkill /F /IM chrome.exe /T >nul 2>&1")
@@ -981,13 +1202,15 @@ def get_random_audio_path(new_audio_folder):
     
 def get_file_in_folder_by_type(folder, file_type=".mp4", start_with=None, is_sort=True, noti=True):
     try:
+        start_with = start_with.lower() if start_with else None
+        file_type = file_type.lower()
         if not os.path.exists(folder):
             if noti:
                 print(f"Thư mục {folder} không tồn tại !!!")
             return None
         list_items = os.listdir(folder)
         if "." not in file_type:
-            list_dirs = [d for d in list_items if os.path.isdir(os.path.join(folder, d)) and d.startswith(file_type)]
+            list_dirs = [d for d in list_items if os.path.isdir(os.path.join(folder, d)) and d.lower().startswith(file_type)]
             if len(list_dirs) == 0:
                 if noti:
                     print(f"Không tìm thấy thư mục bắt đầu với '{start_with}' trong {folder} !!!")
@@ -995,15 +1218,16 @@ def get_file_in_folder_by_type(folder, file_type=".mp4", start_with=None, is_sor
             return natsorted(list_dirs) if is_sort else list_dirs
         else:
             if start_with:
-                list_files = [f for f in list_items if f.endswith(file_type) and f.startswith(start_with)]
+                list_files = [f for f in list_items if f.lower().endswith(file_type) and f.lower().startswith(start_with)]
             else:
-                list_files = [f for f in list_items if f.endswith(file_type)]
+                list_files = [f for f in list_items if f.lower().endswith(file_type)]
             if len(list_files) == 0:
                 if noti:
                     print(f"Không tìm thấy file {file_type} trong thư mục {folder} !!!")
                 return None
             return natsorted(list_files) if is_sort else list_files
     except:
+        getlog()
         return None
 
 def move_file_from_folder_to_folder(folder1, folder2):
@@ -1148,6 +1372,9 @@ def create_frame_button_and_button(root, text1, text2, command1=None, command2=N
     return button1, button2
 
 #----------------------edit video/ audio--------------------------------
+
+def sleep_random(from_second=1, to_second=5):
+    sleep(random.uniform(from_second, to_second))
 
 def run_command_ffmpeg(command, hide=True):
     try:
@@ -1341,53 +1568,55 @@ def cut_video_by_timeline_use_ffmpeg(input_video_path, segments, is_connect='no'
 
 
 def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, videos_path=None, fast_combine=True, output_folder=None, hide=True):
-    ti = time()
-    print("Bắt đầu nối video...")
-    temp_file_path = os.path.join(videos_folder, "temp.txt")
-    max_fps = 24
-    if not videos_path:
-        videos = get_file_in_folder_by_type(videos_folder)
-        if not videos:
-            return
-        if len(videos) <= 1:
-            return False, "Phải có ít nhất 2 video trong videos folder"
-        videos_path = []
-        with open(temp_file_path, 'w', encoding='utf-8') as f:
-            for video in videos:
-                if video.endswith('.mp4'):
-                    video_path = os.path.join(videos_folder, video)
+    try:
+        print("Bắt đầu nối video...")
+        temp_file_path = os.path.join(videos_folder, "temp.txt")
+        max_fps = 24
+        if not videos_path:
+            videos = get_file_in_folder_by_type(videos_folder)
+            if not videos:
+                print(f"Không tìm thấy video trong thư mục {videos_folder}")
+                return False
+            if len(videos) <= 1:
+                print("Phải có ít nhất 2 video trong videos folder")
+                return False
+            videos_path = []
+            with open(temp_file_path, 'w', encoding='utf-8') as f:
+                for video in videos:
+                    if video.endswith('.mp4'):
+                        video_path = os.path.join(videos_folder, video)
+                        video_info = get_video_info(video_path)
+                        if not video_info:
+                            print(f"Dừng gộp video vì không lấy được thông tin từ video {video_path}")
+                            return False
+                        fps = video_info['fps']
+                        if fps > max_fps:
+                            max_fps = fps
+                        f.write(f"file '{video_path}'\n")
+                        videos_path.append(video_path)
+        else:
+            with open(temp_file_path, 'w') as f:
+                for video_path in videos_path:
                     video_info = get_video_info(video_path)
                     if not video_info:
-                        warning_message(f"Dừng gộp video vì không lấy được thông tin từ video {video_path}")
-                        return
+                        print(f"Dừng gộp video vì không lấy được thông tin từ video {video_path}")
+                        return False
                     fps = video_info['fps']
                     if fps > max_fps:
                         max_fps = fps
-                    f.write(f"file '{video_path}'\n")
-                    videos_path.append(video_path)
-    else:
-        with open(temp_file_path, 'w') as f:
-            for video_path in videos_path:
-                video_info = get_video_info(video_path)
-                if not video_info:
-                    warning_message(f"Dừng gộp video vì không lấy được thông tin từ video {video_path}")
-                    return
-                fps = video_info['fps']
-                if fps > max_fps:
-                    max_fps = fps
-                if video_path.endswith('.mp4'):
-                    f.write(f"file '{video_path}'\n")
-    if not output_folder:
-        output_folder = f"{videos_folder}\\merge_videos"
-    os.makedirs(output_folder, exist_ok=True)
-    if file_name:
-        file_path = f"{output_folder}\\{file_name}.mp4"
-    else:
-        file_path = f"{output_folder}\\merge_video.mp4"
-    command = connect_video(temp_file_path, file_path, fast_connect=fast_combine, max_fps=max_fps)
-    try:
+                    if video_path.endswith('.mp4'):
+                        f.write(f"file '{video_path}'\n")
+        if not output_folder:
+            output_folder = f"{videos_folder}\\merge_videos"
+        os.makedirs(output_folder, exist_ok=True)
+        if file_name:
+            file_path = f"{output_folder}\\{file_name}.mp4"
+        else:
+            file_path = f"{output_folder}\\merge_video.mp4"
+        command = connect_video(temp_file_path, file_path, fast_connect=fast_combine, max_fps=max_fps)
         if not run_command_ffmpeg(command, hide):
-            return False, f"{thatbai} Gộp video thất bại"
+            print(f"{thatbai} Gộp video thất bại")
+            return False
         try:
             remove_file(temp_file_path)
             if is_delete:
@@ -1395,10 +1624,10 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
                     remove_file(video_path)
         except:
             pass
-        noi = time() - ti
-        print(f'Tổng thời gian nối là {noi}')
-        return True, f"Gộp video thành công vào file {file_path}"
+        print(f"Gộp video thành công vào file {file_path}")
+        return True
     except:
+        getlog()
         return False, "Có lỗi trong quá trình gộp video"
 
 def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True, file_start_with="", output_folder=None):
@@ -1712,7 +1941,7 @@ def extract_audio_ffmpeg(audio_path=None, video_path=None, video_url=None, video
         print("Có lỗi trong quá trình trích xuất audio !!!")
 
 
-def text_to_audio_with_xtts(xtts, text, output_path, language="vi", speed_talk=1.0):
+def text_to_audio_with_xtts(xtts, text, output_path, language="vi", speed_talk=1.0, split_sentences=False):
     try:
         if not text:
             return False
@@ -1720,46 +1949,105 @@ def text_to_audio_with_xtts(xtts, text, output_path, language="vi", speed_talk=1
             return False
         speaker_wav = get_ref_speaker_by_language(language)
         text = cleaner_text(text)
-        xtts.tts_to_file(text=text, speaker_wav=speaker_wav, language=language, speed=speed_talk, file_path=output_path)
+        xtts.tts_to_file(text=text, speaker_wav=speaker_wav, language=language, speed=speed_talk, file_path=output_path, split_sentences=split_sentences)
         return True
     except:
         getlog()
         return False
 
 
-def change_audio_speed(input_audio, output_audio, speed=1.0):
+def change_audio_speed(input_audio, output_audio, speed=1.0, hide=True):
     if speed != 1.0:
         try:
             codec = "pcm_s16le" if input_audio.endswith(".wav") else "aac"
             command = [ "ffmpeg", "-y", "-i", input_audio, "-filter:a", f"atempo={speed}", "-c:a", codec, output_audio ]
-            run_command_ffmpeg(command)
+            run_command_ffmpeg(command, hide=hide)
             return True
         except:
             getlog()
             print(f"Không thể tăng tốc audio {input_audio} với tốc độ {speed}")
     return False
 
-def merge_images(image_paths, output_path, direction='vertical'):
-    images = [Image.open(img_path) for img_path in image_paths]
-    if direction == 'vertical':
-        total_width = max(img.width for img in images)
-        total_height = sum(img.height for img in images)
-        merged_image = Image.new('RGB', (total_width, total_height))
-        y_offset = 0
-        for img in images:
-            merged_image.paste(img, (0, y_offset))
-            y_offset += img.height  # Di chuyển vị trí dọc theo chiều cao của ảnh hiện tại
-    elif direction == 'horizontal':
-        total_width = sum(img.width for img in images)
-        total_height = max(img.height for img in images)
-        merged_image = Image.new('RGB', (total_width, total_height))
-        x_offset = 0
-        for img in images:
-            merged_image.paste(img, (x_offset, 0))
-            x_offset += img.width  # Di chuyển vị trí ngang theo chiều rộng của ảnh hiện tại
-    merged_image.save(output_path)
-    print(f"Đã lưu ảnh gộp tại: {output_path}")
-    return output_path
+
+def merge_images(image_folder, number_image_per_file="200", direction='vertical'):
+    try:
+        number_image_per_file = int(number_image_per_file) if number_image_per_file.isdigit() else 100
+        # Lấy danh sách file ảnh trong thư mục
+        image_files = get_file_in_folder_by_type(image_folder, '.jpg')
+        if not image_files:
+            image_files = get_file_in_folder_by_type(image_folder, '.png')
+        if not image_files:
+            print(f'Không tìm thấy file ảnh (jpg, png) trong thư mục {image_folder}')
+            return
+        output_folder = os.path.join(image_folder, 'merge_images')
+        # Tính số file gộp tùy thuộc vào tổng số ảnh
+        total_images = len(image_files)
+        num_files = math.ceil(total_images / number_image_per_file)
+
+        # Chia danh sách ảnh thành các nhóm
+        group_size = math.ceil(total_images / num_files)  # Số ảnh mỗi nhóm
+        groups = [image_files[i:i + group_size] for i in range(0, total_images, group_size)]
+        
+        for group_idx, group in enumerate(groups):
+            images = [Image.open(os.path.join(image_folder, img)) for img in group]
+            
+            # Tạo ảnh gộp cho từng nhóm
+            if direction == 'vertical':
+                total_width = max(img.width for img in images)
+                total_height = sum(img.height for img in images)
+                merged_image = Image.new('RGB', (total_width, total_height))
+                y_offset = 0
+                for img in images:
+                    merged_image.paste(img, (0, y_offset))
+                    y_offset += img.height
+            elif direction == 'horizontal':
+                total_width = sum(img.width for img in images)
+                total_height = max(img.height for img in images)
+                merged_image = Image.new('RGB', (total_width, total_height))
+                x_offset = 0
+                for img in images:
+                    merged_image.paste(img, (x_offset, 0))
+                    x_offset += img.width
+            
+            # Lưu ảnh gộp cho từng nhóm
+            output_path = os.path.join(image_folder, f'merged_group_{group_idx + 1}.jpg')
+            merged_image.save(output_path, format='JPEG')
+            print(f"Đã lưu ảnh gộp của nhóm {group_idx + 1} tại: {output_path}")
+
+    except Exception as e:
+        print(f"Lỗi: {e}")
+        getlog()
+# def merge_images(image_folder, direction='vertical'):
+#     try:
+#         image_files = get_file_in_folder_by_type(image_folder, '.jpg')
+#         if not image_files:
+#             image_files = get_file_in_folder_by_type(image_folder, '.png')
+#         if not image_files:
+#             print(f'Không tìm thấy file ảnh(jpg, png) trong thư mục {image_folder}')
+#             return
+#         output_path = os.path.join(image_folder, 'merge_imange.jpg')
+#         images = [Image.open(os.path.join(image_folder, img)) for img in image_files]
+#         if direction == 'vertical':
+#             total_width = max(img.width for img in images)
+#             total_height = sum(img.height for img in images)
+#             merged_image = Image.new('RGB', (total_width, total_height))
+#             y_offset = 0
+#             for img in images:
+#                 merged_image.paste(img, (0, y_offset))
+#                 y_offset += img.height  # Di chuyển vị trí dọc theo chiều cao của ảnh hiện tại
+#         elif direction == 'horizontal':
+#             total_width = sum(img.width for img in images)
+#             total_height = max(img.height for img in images)
+#             merged_image = Image.new('RGB', (total_width, total_height))
+#             x_offset = 0
+#             for img in images:
+#                 merged_image.paste(img, (x_offset, 0))
+#                 x_offset += img.width  # Di chuyển vị trí ngang theo chiều rộng của ảnh hiện tại
+#         merged_image.save(output_path, format='JPEG')
+#         print(f"Đã lưu ảnh gộp tại: {output_path}")
+#         return output_path
+#     except:
+#         getlog()
 
 def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, speed=1.0, speed_talk="1.0"):
     try:
@@ -1871,7 +2159,9 @@ def split_text_into_chunks(text, max_length):
     
     return chunks
 
-def take_screenshot(name="1"):
+def take_screenshot(save_folder=None, name="1", img_type='png'):
+    if not check_folder(save_folder):
+        return
     is_first = True
     def snip_screen():
         # Khởi tạo cửa sổ chụp ảnh
@@ -1911,24 +2201,24 @@ def take_screenshot(name="1"):
                         is_first = False
                         return
                     # Tìm tên file có sẵn để lưu ảnh
-                    filename = get_next_filename(name)
-                    screenshot.save(filename, "png")
-                    print(f"Đã lưu ảnh dưới tên: {filename}")
+                    file_path = get_next_filename(name)
+                    screenshot.save(file_path, img_type)
+                    print(f"{thanhcong} Đã lưu ảnh: {file_path}")
                 else:
                     print("Không có vùng chọn hợp lệ, không lưu ảnh.")
 
-        def get_next_filename(name=name):
+        def get_next_filename(name=name, save_folder=save_folder, img_type=img_type):
             file_name = None
             try:
                 file_name = int(name)
             except:
-                pass
-            if file_name:
-                while os.path.exists(f"{file_name}.png"):
-                    file_name += 1
-            else:
-                file_name = name
-            return f"{file_name}.png"
+                file_name = 1
+            file_path = os.path.join(save_folder, f"{file_name}.{img_type}")
+            while os.path.exists(file_path):
+                file_name += 1
+                file_path = os.path.join(save_folder, f"{file_name}.{img_type}")
+
+            return file_path
 
         def paintEvent(event):
             nonlocal start_x, start_y, end_x, end_y, snipping
@@ -2220,10 +2510,8 @@ def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', s
     except:
         getlog()
 
-def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.1, movement_speed=0.7):
+def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.2, movement_speed=0.6, hide=False):
     """
-    Tạo video từ hình ảnh với hiệu ứng chuyển động mượt và ghép âm thanh.
-
     Parameters:
         img_path: Đường dẫn đến ảnh đầu vào.
         audio_path: Đường dẫn file âm thanh.
@@ -2256,10 +2544,18 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
         out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
 
         # Khởi tạo thông số chuyển động và zoom
-        offset_x, offset_y = 0, 0
         current_zoom_factor = zoom_factor
-        movement_types = ['right', 'down', 'left', 'up', 'zoom_in', 'zoom_out']
+        offset_x, offset_y = 0, 0
+        movement_types = ['down', 'up', 'zoom_in', 'zoom_out']
+        if width > height:
+            movement_types = ['down', 'up', 'zoom_in', 'zoom_out', 'left', 'right']
         movement_type = random.choice(movement_types)
+        print(f'movement_type: {movement_type}')
+        if movement_type == 'down':
+            offset_y = int(height * current_zoom_factor) - height
+        elif movement_type == 'right':
+            offset_x = int(width * current_zoom_factor) - width
+
         for frame_idx in range(total_frames):
             # Cập nhật chuyển động chỉ khi frame nằm trong chu kỳ movement_step
             if movement_type == 'right':
@@ -2268,18 +2564,18 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
                     offset_x = int(width * current_zoom_factor) - width
                 # Đặt ảnh theo phương dọc ở trung tâm
                 offset_y = (int(height * current_zoom_factor) - height) // 2
-            elif movement_type == 'down':
-                offset_y += movement_speed
-                if offset_y + height >= int(height * current_zoom_factor):  # Giới hạn chiều dọc
-                    offset_y = int(height * current_zoom_factor) - height
-                # Đặt ảnh theo phương ngang ở trung tâm
-                offset_x = (int(width * current_zoom_factor) - width) // 2
             elif movement_type == 'left':
                 offset_x -= movement_speed
                 if offset_x <= 0:  # Giới hạn chiều ngang (trái)
                     offset_x = 0
                 # Đặt ảnh theo phương dọc ở trung tâm
                 offset_y = (int(height * current_zoom_factor) - height) // 2
+            elif movement_type == 'down':
+                offset_y += movement_speed
+                if offset_y + height >= int(height * current_zoom_factor):  # Giới hạn chiều dọc
+                    offset_y = int(height * current_zoom_factor) - height
+                # Đặt ảnh theo phương ngang ở trung tâm
+                offset_x = (int(width * current_zoom_factor) - width) // 2
             elif movement_type == 'up':
                 offset_y -= movement_speed
                 if offset_y <= 0:  # Giới hạn chiều dọc (trên)
@@ -2288,42 +2584,58 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
                 offset_x = (int(width * current_zoom_factor) - width) // 2
             elif movement_type == 'zoom_in':
                 current_zoom_factor += 0.001  # Tăng dần hệ số zoom
-                if current_zoom_factor > zoom_factor * 1.15:  # Giới hạn zoom in tối đa
-                    current_zoom_factor = zoom_factor * 1.15
+                if current_zoom_factor > zoom_factor*1.15:  # Giới hạn zoom in tối đa
+                    current_zoom_factor = zoom_factor*1.15
             elif movement_type == 'zoom_out':
                 current_zoom_factor -= 0.001  # Giảm dần hệ số zoom
-                if current_zoom_factor < zoom_factor * 0.85:  # Giới hạn zoom out tối thiểu
-                    current_zoom_factor = zoom_factor * 0.85
+                if current_zoom_factor < 0.85:  # Giới hạn zoom out tối thiểu
+                    current_zoom_factor = 0.85
 
-            # Tính kích thước ảnh mới từ ảnh gốc
+            while int(height * current_zoom_factor) < height or int(width * current_zoom_factor) < width:
+                current_zoom_factor += 0.01  # Tăng nhẹ hệ số zoom
+
             zoomed_width = int(width * current_zoom_factor)
             zoomed_height = int(height * current_zoom_factor)
 
-            # Lấy ảnh zoom từ ảnh gốc
+            # Kiểm tra và điều chỉnh nếu kích thước zoom nhỏ hơn kích thước gốc
+            while zoomed_width < width or zoomed_height < height:
+                current_zoom_factor += 0.01  # Tăng hệ số zoom nhẹ
+                zoomed_width = int(width * current_zoom_factor)
+                zoomed_height = int(height * current_zoom_factor)
+
+            # Resize ảnh theo kích thước zoom
             zoomed_img = cv2.resize(img, (zoomed_width, zoomed_height))
+
+            # Kiểm tra tọa độ cắt ảnh
+            if offset_x + width > zoomed_width:
+                offset_x = zoomed_width - width  # Điều chỉnh offset_x
+            if offset_y + height > zoomed_height:
+                offset_y = zoomed_height - height  # Điều chỉnh offset_y
 
             # Cắt ảnh theo vị trí offset
             cropped_frame = zoomed_img[int(offset_y):int(offset_y + height), int(offset_x):int(offset_x + width)]
 
+            # Kiểm tra lại kích thước ảnh cắt (cropped_frame)
+            # if cropped_frame.shape[:2] != (height, width):
+            #     print(audio_path)
+            #     cropped_frame = cv2.resize(cropped_frame, (width, height))
             # Ghi khung hình vào video
             out.write(cropped_frame)
 
         # Giải phóng tài nguyên
         out.release()
-        print("Video tạm thời đã được tạo xong!")
 
         # Ghép âm thanh vào video bằng ffmpeg
         if torch.cuda.is_available():
-            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps), "-threads", "4", output_video_path]
         else:
-            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
-        if not run_command_ffmpeg(command, False):
+            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps) , "-threads", "4", output_video_path]
+        if not run_command_ffmpeg(command, hide):
             return False
 
         # Xóa file tạm
         if os.path.exists(temp_video_path):
             os.remove(temp_video_path)
-        print(f"Video đã ghép thành công: {output_video_path}")
         return True
     except:
         getlog()
@@ -2378,14 +2690,16 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
                 if chapter_count > 1 and (chapter_count - start_chapter + 1) > max_chapters_per_file:
                     output_file = os.path.join(output_folder, f"{start_chapter} - {chapter_count-1}.txt")
                     with open(output_file, "w", encoding="utf-8") as out_f:
-                        out_f.writelines(content)
+                        for line in content:
+                            out_f.writelines(f"{line}\n")
                     content = []
                     start_chapter = chapter_count
             content.append(line)
         if content:
             output_file = os.path.join(output_folder, f"{start_chapter} - {chapter_count}.txt")
             with open(output_file, "w", encoding="utf-8") as out_f:
-                out_f.writelines(content)
+                for line in content:
+                    out_f.writelines(f"{line}\n")
         
         print("Tách file hoàn tất.")
     except:
@@ -2571,7 +2885,8 @@ special_word = {
     "  ": " ",
     "«":"",
     "»":"",
-    "fff":"",
+    "(ΩДΩ)":"",
+    "ΩДΩ":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -2643,6 +2958,17 @@ loai_bo_tieng_viet = {
     "fff": "",
     "fff": "",
     "fff": "",
+    "fff": "",
+    "fff": "",
+    "(1/2)": "",
+    "(2/2)": "",
+    " +": " cộng ",
+    "avesbox": "",
+    "nettruyenfpt": "",
+    "nettruyen fpt": "",
+    "wattruyenfpt": "",
+    "nettruyent": "",
+    "nettruyen": "",
     "t r u y e n f u l l.": "",
     "t r u y e n f u l l": "",
     "/": " ",
@@ -2656,6 +2982,7 @@ loai_bo_tieng_viet = {
     "chấm c.o.m":"",
     "bạn đang đọc chuyện tại":"",
     "bạn đang đọc truyện tại":"",
+    "bạn đang xem tại":"",
     "text được lấy tại":"",
     "nguồn tại http://":"",
     "bạn đang xem truyện được sao chép tại":"",
@@ -2666,6 +2993,7 @@ loai_bo_tieng_viet = {
     "truyện full":"",
     "truyện được lấy tại":"",
     "truyện được copy tại":"",
+    "truyện copy tại":"",
     "--- o ---":"",
     "-- o --":"",
     "nhóm dịch:":"",

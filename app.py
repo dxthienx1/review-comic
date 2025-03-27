@@ -38,6 +38,7 @@ class MainApp:
             self.is_combine_video_window = False
             self.is_rename_file_by_index_window = False
             self.is_merge_txt_file = False
+            self.is_merge_image = False
             self.is_convert_jpg_to_png = False
             self.is_remove_char_in_file_name_window = False
             self.is_extract_image_from_video_window = False
@@ -82,7 +83,7 @@ class MainApp:
             self.show_window()
         create_button(frame=self.root, text="Tải truyện chữ", command=self.open_download_text_story_window)
         create_button(frame=self.root, text="Tải truyện tranh", command=self.open_download_image_window)
-        create_button(frame=self.root, text="Lấy phụ đề từ ảnh", command=self.open_edit_image_window)
+        create_button(frame=self.root, text="Lấy phụ đề từ ảnh", command=self.get_subtitle_from_image_window)
         create_button(frame=self.root, text="Xuất video từ file txt và ảnh đi kèm", command=self.export_video_from_subtitles_window)
         create_button(frame=self.root, text="Tải video", command=self.open_other_download_video_window)
         create_button(frame=self.root, text="Xử lý video", command=self.open_edit_video_menu)
@@ -326,25 +327,26 @@ class MainApp:
         finally:
             self.close_driver()
 
-    def open_edit_image_window(self):
-        def start_edit_image_thread():
-            if not self.edit_thread or not self.edit_thread.is_alive():
-                self.is_stop_edit = False
-                self.edit_thread = threading.Thread(target=self.start_edit_image)
-                self.edit_thread.start()
+    def get_subtitle_from_image_window(self):
+        def start_get_subtitle_from_image_thread():
+            edit_thread = threading.Thread(target=self.start_get_subtitle_from_image)
+            edit_thread.start()
         
         self.reset()
         self.edit_image_window = True
         self.show_window()
         self.setting_window_size()
         self.black_word_var = create_frame_label_and_input(self.root, text="Các từ muốn loại bỏ", width=self.width, left=0.4, right=0.6)
+        self.language_var = self.create_settings_input(text="Ngôn ngữ muốn lấy", values=['vi', 'en'], left=0.4, right=0.6)
+        self.language_var.set('vi')
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục chứa truyện", command=self.choose_videos_edit_folder, width=self.width, left=0.4, right=0.6)
-        create_button(self.root, text="Bắt đầu", command=start_edit_image_thread, width=self.width)
+        create_button(self.root, text="Bắt đầu", command=start_get_subtitle_from_image_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
-    def start_edit_image(self):
+    def start_get_subtitle_from_image(self):
         try:
-            def extract_text_from_images(chapter_folder, lang='vi'):
+            lang = self.language_var.get().strip()
+            def extract_text_from_images(chapter_folder, lang=lang):
                 def click_copy_text():
                     try:
                         if self.en_language:
@@ -405,6 +407,7 @@ class MainApp:
                                         if text == recent_text:
                                             continue
                                         recent_text = text
+                                        print(f'nội dung ảnh {filename} --> {text}')
                                         file.write(f"{filename.split('.')[0]}\n")
                                         file.write(text.strip())
                                         file.write("\n")
@@ -810,7 +813,7 @@ class MainApp:
                 except:
                     speed_talk = 1.0
             
-            chapters_folder = get_file_in_folder_by_type(main_folder, file_type="", start_with='chuong ') or []
+            chapters_folder = get_file_in_folder_by_type(main_folder, file_type="", start_with='chuong') or get_file_in_folder_by_type(main_folder, file_type="", start_with='chương') or []
             if len(chapters_folder) == 0:
                 print(f'Không tìm thấy danh sách chương truyện trong thư mục {main_folder}')
                 return
@@ -828,10 +831,8 @@ class MainApp:
             print("Có lỗi trong quá trình xử lý các file phụ đề")
             self.xtts = None
 
-    def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=None, end_text=None, main_file_path=None, trim_duration=None, min_lenth_text=30, max_lenth_text=250):
+    def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=1.0, end_text=None, main_file_path=None, trim_duration=None, min_lenth_text=30, max_lenth_text=250):
         try:
-            pitch = 1.0
-            
             file_name = os.path.basename(os.path.normpath(chapter_folder))
             subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
             temp_folder = os.path.join(chapter_folder, 'temp_folder')
@@ -894,7 +895,7 @@ class MainApp:
                 cnt = 0
                 for key in result_content.keys():
                     image_name = key
-                    image_path = os.path.join(chapter_folder, image_name)
+                    image_path = os.path.join(chapter_folder, f"{image_name}")
                     content = result_content[key]
                     content = cleaner_text(content, language=language)
 
@@ -905,26 +906,18 @@ class MainApp:
                         contents = [content]
                     for text in contents:
                         audio_path = os.path.join(temp_folder, f"{cnt}.wav")
-                        if not text_to_audio_with_xtts(self.xtts, text, audio_path, language, speed_talk=speed_talk):
+                        if text.endswith(','):
+                            text = f"{text[:-1]}."
+                        if not text_to_audio_with_xtts(self.xtts, text, audio_path, language):
                             print(f"{thatbai} Không thể TTS: {text}")
                             return
-                        # audio_info = get_audio_info(audio_path)
-                        # if not audio_info or "duration" not in audio_info:
-                        #     print(f"{thatbai} không lấy được thông tin audio: {audio_path}")
-                        #     return
-                        # if pitch != 1.0 or trim_duration:
-                        #     duration = float(audio_info.get("duration", 0))
-                        #     adjusted_audio_path = os.path.join(temp_folder, f"audio_adjusted_{cnt}.wav")
-                        #     audio_filters = [f"rubberband=pitch={pitch}"]
 
-                        #     if trim_duration and duration > trim_duration:
-                        #         duration = duration - trim_duration
-                        #         audio_filters.append(f"atrim=0:{duration}")
-                        #     commond = [ 'ffmpeg', '-y', '-i', audio_path, '-filter:a', ','.join(audio_filters), adjusted_audio_path ]
-                        #     run_command_ffmpeg(commond, False)
-                        #     remove_file(audio_path)
-                        #     audio_path = adjusted_audio_path
-                    
+                        if speed_talk != 1.0:
+                            speed_audio_path = os.path.join(temp_folder, f"{cnt}_speed.wav")
+                            if change_audio_speed(audio_path, speed_audio_path, speed_talk):
+                                if os.path.exists(speed_audio_path):
+                                    remove_file(audio_path)
+                                    audio_path = speed_audio_path
                         # Kiểm tra kích thước ảnh
                         img = cv2.imread(image_path)
                         image_height, image_width = img.shape[:2]
@@ -932,13 +925,17 @@ class MainApp:
                         if image_height < max_height:
                             scale_factor = max_height / image_height
                             new_width = int(image_width * scale_factor)
-                            resized_image_path = os.path.join(temp_folder, f"resized_{cnt}.png")  # Đường dẫn ảnh mới
+                            resized_image_path = os.path.join(temp_folder, f"{cnt}_resized.png")  # Đường dẫn ảnh mới
                             resize_command = [ 'ffmpeg', '-y', '-i', image_path, '-vf', f"scale={new_width}:{max_height}", resized_image_path ]
-                            run_command_ffmpeg(resize_command, False)
+                            run_command_ffmpeg(resize_command, True)
                             image_path = resized_image_path
                         
                         video_path =  f"{temp_folder}/video_{cnt}.mp4"
-                        process_image_to_video_with_movement(image_path, audio_path, video_path)
+                        if process_image_to_video_with_movement(image_path, audio_path, video_path, hide=True):
+                            print(f"{thanhcong} Xuất thành công video {video_path}")
+                        else:
+                            print(f"{thatbai} có lỗi trong quá trình xuất video {video_path}")
+                            return
                         cnt += 1
                 
             merge_videos_use_ffmpeg(temp_folder, file_name, hide=False)
@@ -946,92 +943,6 @@ class MainApp:
                 main_file.write(f"file '{video_path}'\n")
         except:
             getlog()
-    # def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=None, type_image='png', main_file_path=None, trim_duration=0.3):
-    #     try:
-    #         pitch = 1.0
-    #         try:
-    #             speed_talk = float(speed_talk)
-    #             if speed_talk <= 0:
-    #                 speed_talk = 1.0
-    #         except:
-    #             speed_talk = 1.0
-    #         file_name = os.path.basename(os.path.normpath(chapter_folder))
-    #         subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
-    #         temp_folder = os.path.join(chapter_folder, 'temp_folder')
-    #         os.makedirs(temp_folder, exist_ok=True)
-    #         with open(subtitle_path, 'r', encoding='utf-8') as f:
-    #             lines = f.readlines()
-    #         cnt, idx = 0, 0
-    #         crop_filter = "crop=in_w:min(in_h\\,1080):0:(in_h-min(in_h\\,1080))/2"
-    #         max_height = 1080
-            
-    #         while idx < len(lines):
-    #             cnt += 1
-    #             if lines[idx].strip().isdigit():
-    #                 image_name = f"{lines[idx].strip()}.{type_image}"
-    #                 image_path = os.path.join(chapter_folder, image_name)
-    #                 idx += 1
-
-    #             content = lines[idx].strip()
-    #             audio_path = os.path.join(temp_folder, f"audio_{cnt}.wav")
-    #             idx += 1
-    #             if not text_to_audio_with_xtts(self.xtts, content, audio_path, language):
-    #                 cnt -= 1
-    #                 continue
-    #             audio_info = get_audio_info(audio_path)
-    #             if not audio_info:
-    #                 continue
-    #             duration = float(audio_info.get("duration", 0))
-    #             if pitch != 1.0 or trim_duration:
-    #                 adjusted_audio_path = os.path.join(temp_folder, f"audio_adjusted_{cnt}.wav")
-    #                 audio_filters = [f"rubberband=pitch={pitch}"]
-
-    #                 if trim_duration and duration > trim_duration:
-    #                     duration = duration - trim_duration
-    #                     audio_filters.append(f"atrim=0:{duration}")
-    #                 commond = [ 'ffmpeg', '-y', '-i', audio_path, '-filter:a', ','.join(audio_filters), adjusted_audio_path ]
-    #                 run_command_ffmpeg(commond, False)
-    #                 remove_file(audio_path)
-    #                 audio_path = adjusted_audio_path
-                
-    #             # Kiểm tra kích thước ảnh
-    #             image_width, image_height = get_image_info(image_path)  # Giả sử hàm get_image_info sẽ trả về thông tin kích thước ảnh
-                
-    #             # Nếu chiều cao ảnh nhỏ hơn chiều cao tối đa, phóng to ảnh
-    #             if image_height < max_height:
-    #                 scale_factor = max_height / image_height
-    #                 resize_filter = f"scale=iw*{scale_factor}:ih*{scale_factor}"
-    #             else:
-    #                 resize_filter = "scale=iw:ih"  # Không thay đổi kích thước nếu ảnh đã đủ cao
-
-    #             video_path = os.path.join(temp_folder, f"video_{cnt}.mp4")
-    #             if torch.cuda.is_available():
-    #                 ffm_command = [
-    #                     "ffmpeg", "-y", "-loop", "1", "-i", image_path, "-i", audio_path,
-    #                     "-vf", f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
-    #                     "-map", "0:v", "-map", "1:a",
-    #                     "-c:v", "h264_nvenc",  # Dùng GPU
-    #                     "-cq", "23",  # Chất lượng tương đương CRF 23
-    #                     "-preset", "p4",  # Preset tối ưu cho NVENC
-    #                     "-t", str(duration),
-    #                     "-c:a", "aac", "-b:a", "128k",
-    #                     "-shortest", video_path
-    #                 ]
-    #             else:
-    #                 ffm_command = [
-    #                     'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
-    #                     '-vf', f"{resize_filter},{crop_filter},pad=1920:max(in_h\\,1080):(1920-in_w)/2:(max(in_h\\,1080)-in_h)/2:black",
-    #                     '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-t', str(duration),
-    #                     '-c:a', 'aac', '-b:a', '128k', '-shortest', video_path
-    #                 ]
-    #             run_command_ffmpeg(ffm_command, False)
-    #         merge_videos_use_ffmpeg(temp_folder, file_name)
-    #         with open(main_file_path, 'w') as main_file:
-    #             main_file.write(f"file '{video_path}'\n")
-    #     except:
-    #         print(f'--->>> Có thể bị lỗi ở dòng thứ {idx}: {lines[idx]}')
-    #         getlog()
-
 
     def open_download_image_window(self):
         def start_thread_download_image_from_truyenqqto():
@@ -1070,7 +981,7 @@ class MainApp:
 
             driver = get_driver()
             sleep(3)
-            if 'nettruyenssr.com/' in chapter_url:
+            if 'nettruyen' in chapter_url:
                 sleep(3.5)
             driver.get(chapter_url)
 
@@ -1110,7 +1021,7 @@ class MainApp:
             
             def get_all_image_of_chapter(folder):
                 xpath = '//div[@class="page-chapter"]//img'
-                eles = get_element_by_xpath(driver, xpath, multiple_ele=True)
+                eles = get_element_by_xpath(driver, xpath, multiple=True)
                 if eles:
                     headers = {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
@@ -1118,20 +1029,26 @@ class MainApp:
                     if 'truyenqqto.com' in chapter_url:
                         headers['referer'] = 'https://truyenqqto.com/'
                     idx = 0
-                    for ele in eles:
-                        link_image = ele.get_attribute('src')
-                        if 'imgur' in link_image or 'data:image' in link_image:
-                            continue
-                        idx += 1
-                        image_name = f'{idx}.jpg'
-                        img_path = os.path.join(folder, image_name)
-                        response = requests.get(link_image, headers=headers)
-                        if response.status_code == 200:
-                            with open(img_path, 'wb') as file:
-                                file.write(response.content)
-                            print(f'Tải ảnh thành công: {image_name}')
-                        else:
-                            print(f"Tải ảnh không thành công --> {image_name}")
+                    with requests.Session() as session:
+                        session.headers.update(headers)  # Cập nhật headers dùng chung cho mọi request
+                        for ele in eles:
+                            link_image = ele.get_attribute('src')
+                            # Bỏ qua các liên kết không hợp lệ
+                            if 'imgur' in link_image or 'data:image' in link_image or '/tmp/' in link_image:
+                                continue
+                            idx += 1
+                            image_name = f'{idx}.jpg'
+                            img_path = os.path.join(folder, image_name)
+                            try:
+                                response = session.get(link_image, timeout=10)
+                                if response.status_code == 200:
+                                    with open(img_path, 'wb') as file:
+                                        file.write(response.content)
+                                    print(f'{thanhcong} Tải ảnh thành công: {image_name}')
+                                else:
+                                    print(f"{thatbai} Tải ảnh không thành công (status {response.status_code}) --> {image_name}")
+                            except:
+                                getlog()
 
             list_linkes = []
             end_link = chapter_url.split('/')[-1].strip()
@@ -1227,11 +1144,49 @@ class MainApp:
         create_button(self.root, text="Trích xuất ảnh từ video", command=self.extract_image_from_video_window, width=self.width)
         create_button(self.root, text="Gộp file txt trong thư mục", command=self.merge_txt_file_in_folder_window, width=self.width)
         create_button(self.root, text="Tách file truyện theo số chương", command=self.split_txt_file_window, width=self.width)
-        create_button(self.root, text="Chụp ảnh vùng được chọn và lưu", command=take_screenshot, width=self.width)
+        create_button(self.root, text="Gộp ảnh trong thư mục", command=self.merge_image_window, width=self.width)
+        create_button(self.root, text="Chụp ảnh vùng được chọn và lưu", command=self.take_screenshot_window, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
  
 
 #---------------------------------------------edit audio-------------------------------------------
+
+    def merge_image_window(self):
+        def start_merge_image():
+            image_folder = self.videos_edit_folder_var.get().strip()
+            number_image_per_file = self.number_image_per_file_var.get().strip()
+            if not check_folder(image_folder):
+                return
+            merge_images(image_folder, number_image_per_file)
+
+        self.reset()
+        self.is_merge_image = True
+        self.setting_window_size()
+        self.show_window()
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa Ảnh", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        self.number_image_per_file_var = create_frame_label_and_input(self.root, "Số ảnh tối đa gộp trong 1 file", width=self.width, left=left, right=right)
+        self.number_image_per_file_var.insert(0, "200")
+        create_button(frame=self.root, text="Bắt Đầu Gộp File", command=start_merge_image)
+        create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
+
+    def take_screenshot_window(self):
+        def start_take_screenshot():
+            image_folder = self.videos_edit_folder_var.get().strip()
+            image_type = self.image_type_var.get().strip()
+            if not check_folder(image_folder):
+                return
+            take_screenshot(image_folder, img_type=image_type)
+
+        self.reset()
+        self.is_merge_image = True
+        self.setting_window_size()
+        self.show_window()
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Lưu Ảnh", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        self.image_type_var = self.create_settings_input(text="Loại file ảnh muốn lưu", values=['png', 'jpg'], left=0.4, right=0.6)
+        self.image_type_var.set('jpg')
+        create_button(frame=self.root, text="Bắt Đầu Chụp Ảnh", command=start_take_screenshot)
+        create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
+
 
     def split_txt_file_window(self):
         def start_split_txt_file():
@@ -1647,12 +1602,10 @@ class MainApp:
         if not check_folder(videos_folder):
             return
         try:
-            is_ok, message = merge_videos_use_ffmpeg(videos_folder, file_name, is_delete=self.config['is_delete_video'], fast_combine=fast_combine)
-            self.noti(message)
+            merge_videos_use_ffmpeg(videos_folder, file_name, is_delete=self.config['is_delete_video'], fast_combine=fast_combine)
         except:
             getlog()
             print(f"Có lỗi trong quá trình gộp video. Đang dùng cách khác để gộp video.")
-            self.combine_video_by_moviepy()
 
     def combine_audio_by_ffmpeg(self):
         audios_folder = self.videos_edit_folder_var.get()
@@ -1661,8 +1614,7 @@ class MainApp:
         if not check_folder(audios_folder):
             return
         try:
-            is_ok, message = merge_audio_use_ffmpeg(audios_folder, file_name, fast_combine=fast_combine)
-            self.noti(message)
+            merge_audio_use_ffmpeg(audios_folder, file_name, fast_combine=fast_combine)
         except:
             print(f"Có lỗi trong quá trình gộp audio !!!")
 
@@ -2137,6 +2089,7 @@ class MainApp:
         self.is_combine_video_window = False
         self.is_rename_file_by_index_window = False
         self.is_merge_txt_file = False
+        self.is_merge_image = False
         self.is_remove_char_in_file_name_window = False
         self.is_extract_image_from_video_window = False
         self.is_other_window = False
@@ -2310,6 +2263,11 @@ class MainApp:
                 self.width = 500
                 self.height_window = 267
                 self.is_merge_txt_file = False
+            elif self.is_merge_image:
+                self.root.title("Merge Images")
+                self.width = 500
+                self.height_window = 267
+                self.is_merge_image = False
             elif self.is_convert_jpg_to_png:
                 self.root.title("Convert Image Format")
                 self.width = 500
@@ -2328,7 +2286,7 @@ class MainApp:
             elif self.is_other_window:
                 self.root.title("Other")
                 self.width = 500
-                self.height_window = 437
+                self.height_window = 485
                 self.is_other_window = False
             elif self.is_other_download_window:
                 self.root.title("Download Video")
@@ -2343,7 +2301,7 @@ class MainApp:
             elif self.edit_image_window:
                 self.root.title("Xử lý ảnh")
                 self.width = 500
-                self.height_window = 265
+                self.height_window = 312
                 self.edit_image_window = False              
             elif self.export_video_window:
                 self.root.title("Xuất video từ phụ đề")
