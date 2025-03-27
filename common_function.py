@@ -444,6 +444,7 @@ def get_driver_with_profile(target_gmail='default', show=True):
         options.add_experimental_option('excludeSwitches', ['enable-automation'])
         options.add_experimental_option('useAutomationExtension', False)
         driver = webdriver.Chrome(options=options)
+        # driver.set_window_size(screen_width - 100, screen_height - 50)
         try:
             driver.maximize_window()
         except:
@@ -1969,54 +1970,111 @@ def change_audio_speed(input_audio, output_audio, speed=1.0, hide=True):
     return False
 
 
-def merge_images(image_folder, number_image_per_file="200", direction='vertical'):
+def merge_images(image_folder):
     try:
-        number_image_per_file = int(number_image_per_file) if number_image_per_file.isdigit() else 100
-        # Lấy danh sách file ảnh trong thư mục
         image_files = get_file_in_folder_by_type(image_folder, '.jpg')
         if not image_files:
             image_files = get_file_in_folder_by_type(image_folder, '.png')
         if not image_files:
             print(f'Không tìm thấy file ảnh (jpg, png) trong thư mục {image_folder}')
             return
-        output_folder = os.path.join(image_folder, 'merge_images')
-        # Tính số file gộp tùy thuộc vào tổng số ảnh
-        total_images = len(image_files)
-        num_files = math.ceil(total_images / number_image_per_file)
 
-        # Chia danh sách ảnh thành các nhóm
-        group_size = math.ceil(total_images / num_files)  # Số ảnh mỗi nhóm
-        groups = [image_files[i:i + group_size] for i in range(0, total_images, group_size)]
-        
-        for group_idx, group in enumerate(groups):
-            images = [Image.open(os.path.join(image_folder, img)) for img in group]
-            
-            # Tạo ảnh gộp cho từng nhóm
-            if direction == 'vertical':
-                total_width = max(img.width for img in images)
-                total_height = sum(img.height for img in images)
-                merged_image = Image.new('RGB', (total_width, total_height))
-                y_offset = 0
-                for img in images:
-                    merged_image.paste(img, (0, y_offset))
-                    y_offset += img.height
-            elif direction == 'horizontal':
-                total_width = sum(img.width for img in images)
-                total_height = max(img.height for img in images)
-                merged_image = Image.new('RGB', (total_width, total_height))
-                x_offset = 0
-                for img in images:
-                    merged_image.paste(img, (x_offset, 0))
-                    x_offset += img.width
-            
-            # Lưu ảnh gộp cho từng nhóm
-            output_path = os.path.join(image_folder, f'merged_group_{group_idx + 1}.jpg')
-            merged_image.save(output_path, format='JPEG')
-            print(f"Đã lưu ảnh gộp của nhóm {group_idx + 1} tại: {output_path}")
+        output_folder = os.path.join(image_folder, 'merge_images')
+        os.makedirs(output_folder, exist_ok=True)
+        group_idx = 0  # Đếm nhóm
+        current_height = 0  # Tổng chiều cao hiện tại
+        images_to_merge = []  # Danh sách ảnh cho một nhóm
+
+        for img_file in image_files:
+            img = Image.open(os.path.join(image_folder, img_file))
+            img_height = img.height
+
+            # Kiểm tra tổng chiều cao hiện tại
+            if current_height + img_height > 40000:
+                save_merged_images(images_to_merge, output_folder)
+                group_idx += 1
+                current_height = 0
+                images_to_merge = []
+            images_to_merge.append(img)
+            current_height += img_height
+        # Gộp các ảnh còn lại
+        if images_to_merge:
+            save_merged_images(images_to_merge, output_folder)
 
     except Exception as e:
         print(f"Lỗi: {e}")
         getlog()
+    
+def save_merged_images(images, output_folder):
+    try:
+        total_width = max(img.width for img in images)
+        total_height = sum(img.height for img in images)
+        merged_image = Image.new('RGB', (total_width, total_height))
+        y_offset = 0
+        for img in images:
+            merged_image.paste(img, (0, y_offset))
+            y_offset += img.height
+
+        # Đặt tên file theo tên ảnh đầu và cuối
+        first_image_name = os.path.splitext(os.path.basename(images[0].filename))[0]
+        last_image_name = os.path.splitext(os.path.basename(images[-1].filename))[0]
+        output_name = f"{first_image_name}_to_{last_image_name}.jpg"
+
+        # Lưu ảnh gộp
+        output_path = os.path.join(output_folder, output_name)
+        merged_image.save(output_path, format='JPEG')
+        print(f"{thanhcong} Đã lưu ảnh: {output_path}")
+
+    except Exception as e:
+        print(f"Lỗi khi lưu ảnh gộp: {e}")
+# def merge_images(image_folder, number_image_per_file="200", direction='vertical'):
+#     try:
+#         number_image_per_file = int(number_image_per_file) if number_image_per_file.isdigit() else 100
+#         # Lấy danh sách file ảnh trong thư mục
+#         image_files = get_file_in_folder_by_type(image_folder, '.jpg')
+#         if not image_files:
+#             image_files = get_file_in_folder_by_type(image_folder, '.png')
+#         if not image_files:
+#             print(f'Không tìm thấy file ảnh (jpg, png) trong thư mục {image_folder}')
+#             return
+#         output_folder = os.path.join(image_folder, 'merge_images')
+#         # Tính số file gộp tùy thuộc vào tổng số ảnh
+#         total_images = len(image_files)
+#         num_files = math.ceil(total_images / number_image_per_file)
+
+#         # Chia danh sách ảnh thành các nhóm
+#         group_size = math.ceil(total_images / num_files)  # Số ảnh mỗi nhóm
+#         groups = [image_files[i:i + group_size] for i in range(0, total_images, group_size)]
+        
+#         for group_idx, group in enumerate(groups):
+#             images = [Image.open(os.path.join(image_folder, img)) for img in group]
+            
+#             # Tạo ảnh gộp cho từng nhóm
+#             if direction == 'vertical':
+#                 total_width = max(img.width for img in images)
+#                 total_height = sum(img.height for img in images)
+#                 merged_image = Image.new('RGB', (total_width, total_height))
+#                 y_offset = 0
+#                 for img in images:
+#                     merged_image.paste(img, (0, y_offset))
+#                     y_offset += img.height
+#             elif direction == 'horizontal':
+#                 total_width = sum(img.width for img in images)
+#                 total_height = max(img.height for img in images)
+#                 merged_image = Image.new('RGB', (total_width, total_height))
+#                 x_offset = 0
+#                 for img in images:
+#                     merged_image.paste(img, (x_offset, 0))
+#                     x_offset += img.width
+            
+#             # Lưu ảnh gộp cho từng nhóm
+#             output_path = os.path.join(image_folder, f'merged_group_{group_idx + 1}.jpg')
+#             merged_image.save(output_path, format='JPEG')
+#             print(f"Đã lưu ảnh gộp của nhóm {group_idx + 1} tại: {output_path}")
+
+#     except Exception as e:
+#         print(f"Lỗi: {e}")
+#         getlog()
 # def merge_images(image_folder, direction='vertical'):
 #     try:
 #         image_files = get_file_in_folder_by_type(image_folder, '.jpg')
@@ -2896,7 +2954,7 @@ special_word = {
     "====":"",
     "===":"",
     "==":"",
-    "fff":"",
+    "":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -2945,7 +3003,7 @@ loai_bo_tieng_anh = {
     "You've been reborn as a primordial":"",
     "You've succeeded in completing the quest.":"",
     "Apologies for the shorter chapter, I've decided to cut some content to make the story flow better.":"",
-    "fff":"",
+    "www":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -2966,12 +3024,14 @@ loai_bo_tieng_viet = {
     "fff": "",
     "fff": "",
     "fff": "",
-    "fff": "",
-    "fff": "",
+    "gentoons.com": "",
+    "con toons.com": "",
     "(1/2)": "",
     "(2/2)": "",
     " +": " cộng ",
     "avesbox": "",
+    "nettruyenid": "",
+    "ettruyenid": "",
     "nettruyenfpt": "",
     "nettruyen fpt": "",
     "wattruyenfpt": "",
@@ -3009,6 +3069,7 @@ loai_bo_tieng_viet = {
     "truyenyy.xyz":"",
     "(conduongbachu.net là web chính chủ duy nhất của truyện...)":"",
     "www.":"",
+    "www":"",
     "'": "",
     "t. r. u. y. ệ. n. y.": "",
     "t. r. u. y. ệ. n. y": "",
@@ -6357,28 +6418,33 @@ loi_chinh_ta = {
 
 
 def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
-    if language == 'vi':
-        for word, replacement in viet_tat.items():
-            text = text.replace(word, replacement)
-        text = text.lower()
-        for word1, replacement1 in loai_bo_tieng_viet.items():
-            word1 = word1.lower()
-            text = text.replace(word1, replacement1)
-        for word, replacement in special_word.items():
-            text = text.replace(word, replacement)
-        if is_loi_chinh_ta:
-            for wrong, correct in loi_chinh_ta.items():
-                text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
-        text = number_to_vietnamese_with_units(text)
-    elif language == 'en':
-        text = text.lower()
-        for word1, replacement1 in loai_bo_tieng_anh.items():
-            word1 = word1.lower()
-            text = text.replace(word1, replacement1)
-        for word, replacement in special_word.items():
-            text = text.replace(word, replacement)
-        text = number_to_english_with_units(text)
-    return text.strip()
+    try:
+        if not text:
+            return None
+        if language == 'vi':
+            for word, replacement in viet_tat.items():
+                text = text.replace(word, replacement)
+            text = text.lower()
+            for word1, replacement1 in loai_bo_tieng_viet.items():
+                word1 = word1.lower()
+                text = text.replace(word1, replacement1)
+            for word, replacement in special_word.items():
+                text = text.replace(word, replacement)
+            if is_loi_chinh_ta:
+                for wrong, correct in loi_chinh_ta.items():
+                    text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
+            text = number_to_vietnamese_with_units(text)
+        elif language == 'en':
+            text = text.lower()
+            for word1, replacement1 in loai_bo_tieng_anh.items():
+                word1 = word1.lower()
+                text = text.replace(word1, replacement1)
+            for word, replacement in special_word.items():
+                text = text.replace(word, replacement)
+            text = number_to_english_with_units(text)
+        return text.strip()
+    except:
+        getlog()
 
 
 # # -------Sửa chính tả trong file txt và xuất ra file txt khác-------

@@ -375,10 +375,10 @@ class MainApp:
                         xpath = get_xpath_by_multi_attribute('input', ['name="file"', 'accept="image/jpeg, image/png, .jpeg, .jpg, .png"'])
                         ele = get_element_by_xpath(self.driver, xpath)
                         ele.send_keys(image_path)
-                        sleep(4)
                         return True
                     except:
                         return False
+                    
 
                 chapter_name = chapter_folder.split('chuong ')[-1]
                 black_words = self.black_word_var.get().strip().split(',')
@@ -386,31 +386,39 @@ class MainApp:
                 recent_text = ""
                 with open(file_path, 'w', encoding='utf-8') as file:
                     for filename in natsorted(os.listdir(chapter_folder)):
+                        text = None
                         if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                             image_path = os.path.join(chapter_folder, filename)
                             self.driver.get(f'https://translate.google.com/?sl=auto&tl={lang}&op=images')
-                            sleep(1.2)
+                            sleep_random(1.5,1.8)
                             print(f'Xử lý ảnh {filename}')
                             if input_image_to_gg(image_path):
                                 try:
-                                    pyperclip.copy('')
-                                    click_copy_text()
-                                    text = pyperclip.paste()
-                                    if text.strip():
-                                        text = text.lower()
-                                        for word in black_words:
-                                            if word.strip().lower() in text:
-                                                text = text.replace(word, "")
-                                        text = re.sub(r'(\n0)+', '\n', text)
-                                        text = re.sub(r'(\n\n)+', '\n', text)
-                                        text = re.sub(r'(\r\n)+', '\n', text)
-                                        if text == recent_text:
-                                            continue
-                                        recent_text = text
-                                        print(f'nội dung ảnh {filename} --> {text}')
-                                        file.write(f"{filename.split('.')[0]}\n")
-                                        file.write(text.strip())
-                                        file.write("\n")
+                                    sleep_random(4,5)
+                                    img_xpath = get_xpath('img', 'Jmlpdc')
+                                    for cnt in range(5):  
+                                        img_ele = get_element_by_xpath(self.driver, img_xpath, index=-1)  
+                                        if img_ele:  
+                                            break  
+                                        print(f"cnt {cnt}")  
+                                        sleep_random(1,2)  
+
+                                    if not img_ele:
+                                        print("Không tìm thấy ảnh --> bỏ qua")
+                                        continue
+                                    text = img_ele.get_attribute('alt')
+                                    text = cleaner_text(text, language=lang)
+                                    if not text or not text.strip():
+                                        continue
+                                    texts = text.split('\n')
+                                    text_s = texts[:]
+                                    for word in black_words:
+                                        text_s = [tex for tex in text_s if tex.strip() and word.lower() not in tex.lower()]
+                                    if not text_s:
+                                        continue
+                                    text = "\n".join(text_s)
+                                    print(f'nội dung ảnh {filename} --> {text}')
+                                    file.write(f"{filename.split('.')[0]}\n{text.strip()}\n")
 
                                 except:
                                     getlog()
@@ -1160,18 +1168,15 @@ class MainApp:
     def merge_image_window(self):
         def start_merge_image():
             image_folder = self.videos_edit_folder_var.get().strip()
-            number_image_per_file = self.number_image_per_file_var.get().strip()
             if not check_folder(image_folder):
                 return
-            merge_images(image_folder, number_image_per_file)
+            merge_images(image_folder)
 
         self.reset()
         self.is_merge_image = True
         self.setting_window_size()
         self.show_window()
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa Ảnh", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
-        self.number_image_per_file_var = create_frame_label_and_input(self.root, "Số ảnh tối đa gộp trong 1 file", width=self.width, left=left, right=right)
-        self.number_image_per_file_var.insert(0, "200")
         create_button(frame=self.root, text="Bắt Đầu Gộp File", command=start_merge_image)
         create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
 
