@@ -1970,16 +1970,17 @@ def change_audio_speed(input_audio, output_audio, speed=1.0, hide=True):
     return False
 
 
-def merge_images(image_folder):
+def merge_images(image_folder, output_folder=None, max_height="1800"):
     try:
+        max_height = int(max_height) if max_height.isdigit() else 1800
         image_files = get_file_in_folder_by_type(image_folder, '.jpg')
         if not image_files:
             image_files = get_file_in_folder_by_type(image_folder, '.png')
         if not image_files:
             print(f'Không tìm thấy file ảnh (jpg, png) trong thư mục {image_folder}')
             return
-
-        output_folder = os.path.join(image_folder, 'merge_images')
+        if not output_folder:
+            output_folder = os.path.join(image_folder, 'merge_images')
         os.makedirs(output_folder, exist_ok=True)
         group_idx = 0  # Đếm nhóm
         current_height = 0  # Tổng chiều cao hiện tại
@@ -1990,7 +1991,7 @@ def merge_images(image_folder):
             img_height = img.height
 
             # Kiểm tra tổng chiều cao hiện tại
-            if current_height + img_height > 40000:
+            if current_height + img_height > max_height:
                 save_merged_images(images_to_merge, output_folder)
                 group_idx += 1
                 current_height = 0
@@ -2720,10 +2721,10 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
             lines = f.readlines()
         
         chapter_count = 0
-        content = []
+        contents = []
         start_chapter = None
-        
-        for line in lines:
+        before_chapter = 0
+        for idx, line in enumerate(lines):
             line = line.strip()
             if not line:
                 continue
@@ -2731,6 +2732,12 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
             if start_text=='chương' or start_text=='chuong':
                 is_true = line.lower().startswith("chương") or line.lower().startswith("chuong")
             if is_true:
+                try:
+                    is_next_false = lines[idx+1].lower().startswith("chương") or lines[idx+1].lower().startswith("chuong")
+                except:
+                    is_next_false = True
+                if is_next_false:
+                    continue 
                 chuong = line.strip().split(' ')[1]
                 if ':' in chuong:
                     chuong = chuong.split(':')[0]
@@ -2740,23 +2747,28 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
                 if chuong_int == 0:
                     continue
                 chapter_count += 1
-                if chuong_int != chapter_count:
-                    print(f'{thatbai} khong tim thay chuong {chapter_count}')
+                if chuong_int != before_chapter + 1:
+                    print(f'{thatbai} khong tim thay chuong {before_chapter + 1}')
                 if start_chapter is None:
                     start_chapter = chapter_count
+                before_chapter = chuong_int
                 
                 if chapter_count > 1 and (chapter_count - start_chapter + 1) > max_chapters_per_file:
+        
                     output_file = os.path.join(output_folder, f"{start_chapter} - {chapter_count-1}.txt")
                     with open(output_file, "w", encoding="utf-8") as out_f:
-                        for line in content:
-                            out_f.writelines(f"{line}\n")
-                    content = []
+                        for content in contents:
+                            out_f.writelines(f"{content}\n")
+                    contents = []
+                    # contents.append(f"chương {chapter_count}")
+                    # if line not in contents:
+                    #     contents.append(line)
                     start_chapter = chapter_count
-            content.append(line)
-        if content:
+            contents.append(line)
+        if contents:
             output_file = os.path.join(output_folder, f"{start_chapter} - {chapter_count}.txt")
             with open(output_file, "w", encoding="utf-8") as out_f:
-                for line in content:
+                for line in contents:
                     out_f.writelines(f"{line}\n")
         
         print("Tách file hoàn tất.")
@@ -2947,6 +2959,7 @@ special_word = {
     "  ": " ",
     "«":"",
     "»":"",
+    "`":"",
     "(ΩДΩ)":"",
     "ΩДΩ":"",
     "======":"",
@@ -2955,6 +2968,22 @@ special_word = {
     "===":"",
     "==":"",
     "":"",
+    "✔":"",
+    "en thunderscans.com":"",
+    "thunderscans.com":"",
+    "vng.com":"",
+    "ng.com":"",
+    "♡":"",
+    "♥":"",
+    "☆☆☆":"",
+    "☆☆":"",
+    "☆":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -3053,6 +3082,7 @@ loai_bo_tieng_viet = {
     "bạn đang xem tại":"",
     "text được lấy tại":"",
     "nguồn tại http://":"",
+    "nguồn http":"",
     "bạn đang xem truyện được sao chép tại":"",
     "đọc truyện online mới nhất ở":"",
     "xem tại truyenfull.vn":"",
@@ -3064,21 +3094,287 @@ loai_bo_tieng_viet = {
     "truyện copy tại":"",
     "--- o ---":"",
     "-- o --":"",
+    "www.":"",
+    "www":"",
+    "'": "",
     "nhóm dịch:":"",
     "friendship":"",
     "truyenyy.xyz":"",
     "(conduongbachu.net là web chính chủ duy nhất của truyện...)":"",
-    "www.":"",
-    "www":"",
-    "'": "",
     "t. r. u. y. ệ. n. y.": "",
     "t. r. u. y. ệ. n. y": "",
     "t.r.u.y.ệ.n.y.": "",
     "t.r.u.y.ệ.n.y": "",
     "bạn đang đọc truyện copy tại": "",
+    "truyện đăng nhanh nhất và n miễn phí tại": "",
+    "truyện đăng nhanh nhất và miễn phí tại": "",
+    "bạn có thể đọc chương trên": "",
+    "truyện đăng nhanh nhất và  miễn phí tại": "",
+    "cập nhật chương mới sớm nhất tại website": "",
+    "truy cập ngay truyenqqq.com để ùng hộ nhóm dịch": "",
+    "truyen qqq để ủng hộ nhớm dịch": "",
+    "qq để ủng hộ nhớm dịch": "",
+    "tin tức về vương quốc webtoon": "",
+    "webtoon kingdom thỏ mới 468": "",
+    "webtoon kingdom thỏ mới": "",
+    "trang web có vấn đề phổ biến nhất webtoon kingdom": "",
+    "webtoon kingdom newto": "",
+    "truy cập ngày truyengo to.com để cập nhật các thông tin mới nhất về truyện": "",
+    "truy cập ngay truyengo to.com để cập nhật các thông tin mới nhất về truyện": "",
+    "web moon kingdom thỏ mới": "",
+    "trang web cung cấp webtoon nhanh nhất towangguk view rabbit 468": "",
+    "trang web cung cấp webtoon nhanh nhất towangguk view rabbit": "",
+    "trang web cung cấp webtoon nhanh nhất": "",
+    "trang web cung cấp webtoon nhanh": "",
+    "wtok3468.com hoặc": "",
+    "truy cập ngay truyenco": "",
+    "các thông tin mới nhất về truyện": "",
+    "trang web cung cấp toon mùa xuân nhanh nhất": "",
+    "toon kingdom thỏ mới 468": "",
+    "toon kingdom thỏ mới": "",
+    "trang web bói toán có thể webtoon kingdom new rabbit 468": "",
+    "trang web bói toán có thể webtoon kingdom new rabbit": "",
+    "truy cập ngay truyệng qto.com để cập nhật các thông tin mới nhất về truyện": "",
+    "truy cập ngay truyện qto.com để cập nhật các thông tin mới nhất về truyện": "",
+    "qto.com để cập nhật các thông tin mới nhất về truyện": "",
+    "nhà cung cấp webtoon nhanh nhất": "",
+    "có thể trang web hút webtoon kingdom new rabbit 468": "",
+    "có thể trang web hút webtoon kingdom new rabbit": "",
+    "trang web có vấn đề": "",
+    "webtoon kingdom new togae 468": "",
+    "webtoon kingdom new togae": "",
+    "trang web bói toán có thể": "",
+    "vương quốc webtoon ryu tokki": "",
+    "webtoon kingdom ryu tokki 468": "",
+    "webtoon kingdom ryu tokki": "",
+    "https. nertoktale cou": "",
+    "https. nertoktale": "",
+    "https.nertoktale": "",
+    "trang web việc làm nhanh nhất": "",
+    "trang web bói toán": "",
+    "webtoon kingdom vùng đất mới": "",
+    "truy cập ngay truyenq": "",
+    "vương quốc new rabbit 468": "",
+    "vương quốc new rabbit": "",
+    "to.com để cập nhật các thông tin mới nhất về truyện": "",
+    "truy cập ngay truyengo": "",
+    "trang web có nhiều vấn đề nhất": "",
+    "truy cập ngay": "",
+    "jun kingdom thỏ mới 468": "",
+    "jun kingdom thỏ mới": "",
+    "qq để ủng hộ nhóm dịch": "",
+    "ương quốc webtoon": "",
+    "trang web lớn": "",
+    "ttps. netoki": "",
+    "amentok1468": "",
+    "vua truyện tranh mới của webtoon 468": "",
+    "vua truyện tranh mới của webtoon": "",
+    "qt đ để cập nhật": "",
+    "vương quốc webtoon": "",
+    "trang web giao hàng tận nhà nhanh nhất": "",
+    "s kentokia68.co": "",
+    "truyeng qto để cập nhật": "",
+    "nttps. kiaar com": "",
+    "webtoon vương quốc thỏ 468": "",
+    "webtoon vương quốc thỏ": "",
+    "loki mới 468": "",
+    "loki mới": "",
+    "truyen go to để cập nhật": "",
+    "trang web xem bói đếm số": "",
+    "web moon kingdom 1468": "",
+    "web moon kingdom": "",
+    "trang web kiếm thuật nhanh nhất": "",
+    "văn bản gốc kingdom": "",
+    "trang web bói toán hút máu ảo,": "",
+    "trang web bói toán hút máu ảo": "",
+    "webtoon kingdom hai chú thỏ 468": "",
+    "webtoon kingdom hai chú thỏ": "",
+    "có thể trang web bói toán hút": "",
+    "trang web giải quyết vấn đề ngắn nhất": "",
+    "có thể trang web bói toán": "",
+    "ftps. newtoki 68.cov": "",
+    "để cập nhật các thông tin mới nhất": "",
+    "webtoon vua jinyu rabbit": "",
+    "trang web điện thoại có vấn đề nhanh nhất": "",
+    "moon kingdom thỏ mới 468": "",
+    "moon kingdom thỏ mới": "",
+    "có thể new rabbit 468": "",
+    "có thể new rabbit": "",
+    "truyện tranh vua thỏ 468": "",
+    "truyện tranh vua thỏ": "",
+    "trang web giải quyết vấn đề nhanh nhất": "",
+    "vua truyện tranh trên web": "",
+    "có thể trang web văn bản nhanh,": "",
+    "có thể trang web văn bản nhanh": "",
+    "vương quốc web thỏ mới 468": "",
+    "vương quốc web thỏ mới": "",
+    "trang web chính có thể": "",
+    "truy cập ngày truyen go to com để cập nhật": "",
+    "rất mong được giúp đỡ buyengqto.сом": "",
+    "truy cập ngày truyenqgto để cập nhật": "",
+    "trang web gari golden fortune": "",
+    "vương quốc lớn thỏ mới 468": "",
+    "vương quốc lớn thỏ mới": "",
+    "một trang web giải quyết các vấn đề về phụ âm,": "",
+    "một trang web giải quyết các vấn đề về phụ âm": "",
+    "địa điểm phổ biến nhất để kiểm tra và giao hàng,": "",
+    "địa điểm phổ biến nhất để kiểm tra và giao hàng": "",
+    "vua truyện tranh jinuyuromi468": "",
+    "s. nent x1468,com": "",
+    "truy cập ngày truyendoto com để cập nhật": "",
+    "trang web khắc chữ nhanh nhất": "",
+    "vương quốc ryutoki 468": "",
+    "vương quốc ryutoki": "",
+    "web sunguk new rabbit 468": "",
+    "web sunguk new rabbit": "",
+    "trang web xem bói nhanh nhất new rabbit 468": "",
+    "trang web xem bói nhanh nhất new rabbit": "",
+    "trang web xem bói nhanh nhất": "",
+    "được cung cấp bởi site": "",
+    "vua truyện tranh mới của webtoon 468": "",
+    "vua truyện tranh mới của webtoon": "",
+    "trang web nhanh nhất": "",
+    "trang web cung cấp webtoon được yêu thích": "",
+    "truy cập ngày truyện goto để cập nhật": "",
+    "truy cập ngày truyenggo to. còm để cập nhật": "",
+    "truyen qoto com để cập nhật": "",
+    "để cập truyen goto to com để cập n nhật": "",
+    "vương quốc thỏ đất 468": "",
+    "vương quốc thỏ đất": "",
+    "truyen goto để cập nhật": "",
+    "truy cập ngày truyengqto để cập nhật": "",
+    "qto để cập nhật": "",
+    "các trang web cung cấp webtoon khác": "",
+    "thỏ vương quốc thuần khiết 468": "",
+    "thỏ vương quốc thuần khiết": "",
     "fff": "",
     "fff": "",
     "fff": "",
+    "truyen qto": "",
+    "s. newkh com": "",
+    "ruyenqqto.co": "",
+    "ruyenqqto": "",
+    "krrrr.": "",
+    "s. new468.co": "",
+    "ftps. kimsr com": "",
+    "phổ biến nhất s.": "",
+    "tenok1468.": "",
+    "mentok1468 com": "",
+    "truyenqqq": "",
+    "https. newtoki468": "",
+    "https. nentokias": "",
+    "https.nentokias": "",
+    "nentokias": "",
+    "https.newtoki468": "",
+    "newtoki468": "",
+    "tuyenggo": "",
+    "webtoon kingdom": "",
+    "https. newtok1468": "",
+    "https.newtok1468": "",
+    "newtok1468": "",
+    "https. nento": "",
+    "https.nento": "",
+    "ftps. newtoki": "",
+    "https. newtorim": "",
+    "https. ewtok1468": "",
+    "https.newtorim": "",
+    "https. nentoka": "",
+    "https.nentoka": "",
+    "struyengoto": "",
+    "truyengoto": "",
+    "kentom 468": "",
+    "s nentoki68": "",
+    "tps. nemtok1468": "",
+    "nemtok1468": "",
+    "https newto": "",
+    "ewtok1468": "",
+    "autengoto": "",
+    "newto": "",
+    "nento": "",
+    "wtok3468": "",
+    "newtorim": "",
+    "nentoka": "",
+    "truyenoo": "",
+    "s trentokm88": "",
+    "new rabbit 468": "",
+    "new rabbit": "",
+    "s. netok1": "",
+    "s. netoki": "",
+    "s mentormse.con": "",
+    "thỏ quốc gia 468": "",
+    "thỏ quốc gia": "",
+    "trang web ảo": "",
+    "thỏ mới 468": "",
+    "thỏ mới": "",
+    "thỏ468": "",
+    "tin tức 468": "",
+    "truyenoto": "",
+    "thỏ mì 468": "",
+    "thỏ mì": "",
+    "truyencoto": "",
+    "truyendoto": "",
+    "tok1458": "",
+    "s. mentok1468.": "",
+    "s. tokiasr": "",
+    "s. mentokia68": "",
+    "s. ria": "",
+    "k1468.": "",
+    ".seongguk": "",
+    "s. ni 68": "",
+    "s. ni": "",
+    "s. n468 com": "",
+    "s. k1468 comi": "",
+    "s. k1468": "",
+    "s. k146r": "",
+    "s. com": "",
+    "s. neto": "",
+    "nutoki 468": "",
+    "nutoki": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "s. n con": "",
+    "s. nentsk": "",
+    "s. ktass cou": "",
+    "s 468 comi": "",
+    "s. mentok1": "",
+    "s newitoki 68": "",
+    "s newitoki": "",
+    "s. n458 ": "",
+    "ttps.": "",
+    "s. newfo1": "",
+    "comi": "",
+    "uyengoto": "",
+    ".comi": "",
+    "http": "",
+    "468.com": "",
+    "https.": "",
+    ".com": "",
+    "ftps.": "",
+    "tps.": "",
+    "s..co": "",
+    "s. 0": "",
+    "s. k3": "",
+    "s. n1": "",
+    "s. ki45": "",
+    "s. kias": "",
+    "s..": "",
+    "s.": "",
 }
 
 viet_tat = {

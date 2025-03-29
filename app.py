@@ -384,12 +384,16 @@ class MainApp:
                 black_words = self.black_word_var.get().strip().split(',')
                 file_path = os.path.join(chapter_folder, f'chuong {chapter_name}.txt')
                 recent_text = ""
+                if lang == 'vi':
+                    link = f'https://translate.google.com/?sl=en&tl={lang}&op=images'
+                else:
+                    link = f'https://translate.google.com/?sl=auto&tl={lang}&op=images'
                 with open(file_path, 'w', encoding='utf-8') as file:
                     for filename in natsorted(os.listdir(chapter_folder)):
                         text = None
                         if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
                             image_path = os.path.join(chapter_folder, filename)
-                            self.driver.get(f'https://translate.google.com/?sl=auto&tl={lang}&op=images')
+                            self.driver.get(link)
                             sleep_random(1.5,1.8)
                             print(f'Xử lý ảnh {filename}')
                             if input_image_to_gg(image_path):
@@ -1085,6 +1089,8 @@ class MainApp:
                         list_linkes.append(link)
 
             if len(list_linkes) > 0:
+                merge_img_folder = os.path.join(main_folder, "merge_img_folder")
+                os.makedirs(merge_img_folder, exist_ok=True)
                 for idx, link in enumerate(list_linkes):
                     name = link.split('-')[-1].strip() or idx
                     if '.' in name:
@@ -1095,6 +1101,10 @@ class MainApp:
                     driver.get(link)
                     sleep(4)
                     get_all_image_of_chapter(folder)
+                    output_folder = os.path.join(merge_img_folder, f'chuong {name}')
+                    merge_images(folder, output_folder)
+
+            self.close_driver()
         except:
             getlog()
             print("Có lỗi trong quá trình tải ảnh --> Dừng tải !!!")
@@ -1168,15 +1178,19 @@ class MainApp:
     def merge_image_window(self):
         def start_merge_image():
             image_folder = self.videos_edit_folder_var.get().strip()
+            max_height = self.max_height_var.get().strip()
+
             if not check_folder(image_folder):
                 return
-            merge_images(image_folder)
+            merge_images(image_folder, max_height=max_height)
 
         self.reset()
         self.is_merge_image = True
         self.setting_window_size()
         self.show_window()
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa Ảnh", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
+        self.max_height_var = self.create_settings_input(text="Độ cao tối đa của ảnh khi ghép", values=['1500', '2000'], left=0.4, right=0.6)
+        self.max_height_var.set('2000')
         create_button(frame=self.root, text="Bắt Đầu Gộp File", command=start_merge_image)
         create_button(self.root, text="Lùi lại", command=self.other_function, width=self.width)
 
