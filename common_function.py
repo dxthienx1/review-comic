@@ -1957,43 +1957,18 @@ def text_to_audio_with_xtts(xtts, text, output_path, language="vi", speed_talk=1
         getlog()
         return False
 
+
 def change_audio_speed(input_audio, output_audio, speed=1.0, hide=True):
     if speed != 1.0:
         try:
             codec = "pcm_s16le" if input_audio.endswith(".wav") else "aac"
-            
-            # Bộ lọc xử lý âm thanh
-            filters = [
-                f"atempo={speed}",  # Thay đổi tốc độ
-                "afftdn=nf=-25",  # Giảm nhiễu nền
-                "equalizer=f=3500:t=q:w=2:g=3",  # Tăng tần số 3.5kHz để làm rõ giọng
-                "loudnorm"  # Chuẩn hóa âm lượng
-            ]
-            
-            # Tạo lệnh FFmpeg
-            command = [
-                "ffmpeg", "-y", "-i", input_audio, 
-                "-filter:a", ",".join(filters), 
-                "-c:a", codec, output_audio
-            ]
-            
-            # Chạy lệnh FFmpeg
-            subprocess.run(command, stdout=subprocess.DEVNULL if hide else None, stderr=subprocess.DEVNULL if hide else None)
+            command = [ "ffmpeg", "-y", "-i", input_audio, "-filter:a", f"atempo={speed}", "-c:a", codec, output_audio ]
+            run_command_ffmpeg(command, hide=hide)
             return True
-        except Exception as e:
-            print(f"Không thể xử lý audio {input_audio}: {e}")
+        except:
+            getlog()
+            print(f"Không thể tăng tốc audio {input_audio} với tốc độ {speed}")
     return False
-# def change_audio_speed(input_audio, output_audio, speed=1.0, hide=True):
-#     if speed != 1.0:
-#         try:
-#             codec = "pcm_s16le" if input_audio.endswith(".wav") else "aac"
-#             command = [ "ffmpeg", "-y", "-i", input_audio, "-filter:a", f"atempo={speed}", "-c:a", codec, output_audio ]
-#             run_command_ffmpeg(command, hide=hide)
-#             return True
-#         except:
-#             getlog()
-#             print(f"Không thể tăng tốc audio {input_audio} với tốc độ {speed}")
-#     return False
 
 
 def merge_images(image_folder, output_folder=None, max_height="1800"):
