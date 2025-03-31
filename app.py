@@ -347,28 +347,28 @@ class MainApp:
         try:
             lang = self.language_var.get().strip()
             def extract_text_from_images(chapter_folder, lang=lang):
-                def click_copy_text():
-                    try:
-                        if self.en_language:
-                            xpath = get_xpath_by_multi_attribute('button', ['aria-label="Copy text"'])
-                        else:
-                            xpath = get_xpath_by_multi_attribute('button', ['aria-label="Sao chép văn bản"'])
-                        ele = get_element_by_xpath(self.driver, xpath, index=1)
-                        if ele:
-                            ele.click()
-                            self.en_language = False
-                        else:
-                            if self.en_language:
-                                self.en_language = False
-                                xpath = get_xpath_by_multi_attribute('button', ['aria-label="Sao chép văn bản"'])
-                            else:
-                                self.en_language = True
-                                xpath = get_xpath_by_multi_attribute('button', ['aria-label="Copy text"'])
-                            ele = get_element_by_xpath(self.driver, xpath, index=1)
-                            ele.click()
-                            self.en_language = True
-                    except:
-                        self.is_stop_edit = True
+                # def click_copy_text():
+                #     try:
+                #         if self.en_language:
+                #             xpath = get_xpath_by_multi_attribute('button', ['aria-label="Copy text"'])
+                #         else:
+                #             xpath = get_xpath_by_multi_attribute('button', ['aria-label="Sao chép văn bản"'])
+                #         ele = get_element_by_xpath(self.driver, xpath, index=1)
+                #         if ele:
+                #             ele.click()
+                #             self.en_language = False
+                #         else:
+                #             if self.en_language:
+                #                 self.en_language = False
+                #                 xpath = get_xpath_by_multi_attribute('button', ['aria-label="Sao chép văn bản"'])
+                #             else:
+                #                 self.en_language = True
+                #                 xpath = get_xpath_by_multi_attribute('button', ['aria-label="Copy text"'])
+                #             ele = get_element_by_xpath(self.driver, xpath, index=1)
+                #             ele.click()
+                #             self.en_language = True
+                #     except:
+                #         self.is_stop_edit = True
 
                 def input_image_to_gg(image_path):
                     try:
@@ -381,9 +381,10 @@ class MainApp:
                     
 
                 chapter_name = chapter_folder.split('chuong ')[-1]
-                black_words = self.black_word_var.get().strip().split(',')
+                black_words = self.black_word_var.get().strip().split(',') or []
+                all_skip_words = [iii for iii in skip_words if 'fff' not in iii and iii not in black_words]
+                black_words = all_skip_words + black_words
                 file_path = os.path.join(chapter_folder, f'chuong {chapter_name}.txt')
-                recent_text = ""
                 if lang == 'vi':
                     link = f'https://translate.google.com/?sl=en&tl={lang}&op=images'
                 else:
@@ -814,7 +815,6 @@ class MainApp:
             main_txt_path = os.path.join(main_folder, 'total_video_file.txt')
             if not check_folder(main_folder):
                 return
-            start_idx = self.start_idx_var.get().strip()
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
             model_path = os.path.join(current_dir, "models", "default_version")
@@ -849,7 +849,7 @@ class MainApp:
             print("Có lỗi trong quá trình xử lý các file phụ đề")
             self.xtts = None
 
-    def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=1.0, end_text=None, main_file_path=None, trim_duration=None, min_lenth_text=30, max_lenth_text=250):
+    def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=1.0, end_text=None, main_file_path=None, min_lenth_text=30, max_lenth_text=250):
         try:
             file_name = os.path.basename(os.path.normpath(chapter_folder))
             subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')

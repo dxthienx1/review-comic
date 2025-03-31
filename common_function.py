@@ -2620,6 +2620,8 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
         if width > height:
             movement_types = ['down', 'up', 'zoom_in', 'zoom_out', 'left', 'right']
         movement_type = random.choice(movement_types)
+        if height > 2*width:
+            movement_type = random.choice(['down', 'up'])
         print(f'movement_type: {movement_type}')
         if movement_type == 'down':
             offset_y = int(height * current_zoom_factor) - height
@@ -2663,35 +2665,23 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
 
             while int(height * current_zoom_factor) < height or int(width * current_zoom_factor) < width:
                 current_zoom_factor += 0.01  # Tăng nhẹ hệ số zoom
-
             zoomed_width = int(width * current_zoom_factor)
             zoomed_height = int(height * current_zoom_factor)
-
             # Kiểm tra và điều chỉnh nếu kích thước zoom nhỏ hơn kích thước gốc
             while zoomed_width < width or zoomed_height < height:
                 current_zoom_factor += 0.01  # Tăng hệ số zoom nhẹ
                 zoomed_width = int(width * current_zoom_factor)
                 zoomed_height = int(height * current_zoom_factor)
-
             # Resize ảnh theo kích thước zoom
             zoomed_img = cv2.resize(img, (zoomed_width, zoomed_height))
-
             # Kiểm tra tọa độ cắt ảnh
             if offset_x + width > zoomed_width:
                 offset_x = zoomed_width - width  # Điều chỉnh offset_x
             if offset_y + height > zoomed_height:
                 offset_y = zoomed_height - height  # Điều chỉnh offset_y
-
             # Cắt ảnh theo vị trí offset
             cropped_frame = zoomed_img[int(offset_y):int(offset_y + height), int(offset_x):int(offset_x + width)]
-
-            # Kiểm tra lại kích thước ảnh cắt (cropped_frame)
-            # if cropped_frame.shape[:2] != (height, width):
-            #     print(audio_path)
-            #     cropped_frame = cv2.resize(cropped_frame, (width, height))
-            # Ghi khung hình vào video
             out.write(cropped_frame)
-
         # Giải phóng tài nguyên
         out.release()
 
@@ -2870,6 +2860,19 @@ supported_languages = {
       "en2": "English",
       "vi": "Vietnamese"
 }
+
+skip_words = [
+    'nettru',
+    'truyenqq',
+    '.com',
+    'truy cập ngay',
+    'mới nhất về truyện',
+    'http',
+    'www',
+    'ffffff',
+    'ffffff',
+    'ffffff'
+    ]
 
 special_word = {
     "******":"",
