@@ -48,6 +48,7 @@ import queue
 import torch
 import cv2
 import zipfile
+import mouse
 
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
@@ -2305,17 +2306,27 @@ def take_screenshot(save_folder=None, name="1", img_type='png'):
 
         # Chạy vòng lặp sự kiện
         app.exec_()
+    print("Chế độ chụp ảnh đã mở. Nhấn chuột phải để bắt đầu. Nhấn Ctrl + Q để thoát.")
 
-    print("Chế độ chụp ảnh đã mở. Nhấn Ctrl + M để bắt đầu. Nhấn Ctrl + Q để thoát")
     while True:
-        if keyboard.is_pressed('ctrl+m'):
+        if mouse.is_pressed(button="right"):  # Kiểm tra nếu chuột phải được nhấn
             snip_screen()
-            while keyboard.is_pressed('ctrl+m'):  # Chờ nhả phím Ctrl + M
+            while mouse.is_pressed(button="right"):  # Chờ nhả chuột phải
                 pass
-        if keyboard.is_pressed('ctrl+q'):
+        if keyboard.is_pressed("ctrl+q"):
             print("Thoát chức năng chụp ảnh màn hình")
             keyboard.unhook_all()
             break
+    # print("Chế độ chụp ảnh đã mở. Nhấn Ctrl + M để bắt đầu. Nhấn Ctrl + Q để thoát")
+    # while True:
+    #     if keyboard.is_pressed('ctrl+m'):
+    #         snip_screen()
+    #         while keyboard.is_pressed('ctrl+m'):  # Chờ nhả phím Ctrl + M
+    #             pass
+    #     if keyboard.is_pressed('ctrl+q'):
+    #         print("Thoát chức năng chụp ảnh màn hình")
+    #         keyboard.unhook_all()
+    #         break
 
 def number_to_vietnamese_with_units(text):
     # Bản đồ đơn vị và cách đọc

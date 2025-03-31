@@ -974,7 +974,7 @@ class MainApp:
         self.show_window()
         self.setting_window_size()
         self.download_folder_var = create_frame_button_and_input(self.root,text="Chọn thư mục lưu ảnh", command=self.choose_folder_to_save, width=self.width, left=0.4, right=0.6)
-        self.chapters_var = create_frame_label_and_input(self.root, text="Tải chương truyện cụ thể", width=self.width, left=0.4, right=0.6)
+        self.chapters_var = create_frame_label_and_input(self.root, text="Tải chương truyện cụ thể", place_holder="22,23,26,28...", width=self.width, left=0.4, right=0.6)
         self.download_image_from_truyenqqto_var = create_frame_button_and_input(self.root,text="Tải các chương truyện", command=start_thread_download_image_from_truyenqqto, place_holder="Link danh sách chương", width=self.width, left=0.4, right=0.6)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
@@ -1082,7 +1082,7 @@ class MainApp:
                     link = link_a.get_attribute('href') or ""
                     if link and link not in list_linkes:
                         if len(current_chapters) > 0 and current_chapters[0]:
-                            cur_chap = link.split('-')[-1]
+                            cur_chap = link.split('chapter-')[-1]
                             cur_chap = cur_chap.strip().split('.')[0]
                             if cur_chap not in current_chapters:
                                 continue
