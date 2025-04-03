@@ -372,7 +372,7 @@ class MainApp:
 
                 def input_image_to_gg(image_path):
                     try:
-                        xpath = get_xpath_by_multi_attribute('input', ['name="file"', 'accept="image/jpeg, image/png, .jpeg, .jpg, .png"'])
+                        xpath = "//input[contains(@accept, '.jpg') and contains(@accept, '.png')]"
                         ele = get_element_by_xpath(self.driver, xpath)
                         ele.send_keys(image_path)
                         return True
@@ -382,8 +382,9 @@ class MainApp:
 
                 chapter_name = chapter_folder.split('chuong ')[-1]
                 black_words = self.black_word_var.get().strip().split(',') or []
+                black_words = [jjj for jjj in black_words if jjj.strip()]
                 all_skip_words = [iii for iii in skip_words if 'fff' not in iii and iii not in black_words]
-                black_words = all_skip_words + black_words
+                black_words = all_skip_words + black_words if black_words else all_skip_words
                 file_path = os.path.join(chapter_folder, f'chuong {chapter_name}.txt')
                 if lang == 'vi':
                     link = f'https://translate.google.com/?sl=en&tl={lang}&op=images'
@@ -399,7 +400,7 @@ class MainApp:
                             print(f'Xử lý ảnh {filename}')
                             if input_image_to_gg(image_path):
                                 try:
-                                    sleep_random(4,5)
+                                    sleep_random(5,6)
                                     img_xpath = get_xpath('img', 'Jmlpdc')
                                     for cnt in range(5):  
                                         img_ele = get_element_by_xpath(self.driver, img_xpath, index=-1)  
@@ -412,7 +413,6 @@ class MainApp:
                                         print("Không tìm thấy ảnh --> bỏ qua")
                                         continue
                                     text = img_ele.get_attribute('alt')
-                                    text = cleaner_text(text, language=lang)
                                     if not text or not text.strip():
                                         continue
                                     texts = text.split('\n')
@@ -422,6 +422,7 @@ class MainApp:
                                     if not text_s:
                                         continue
                                     text = "\n".join(text_s)
+                                    text = cleaner_text(text, language=lang)
                                     print(f'nội dung ảnh {filename} --> {text}')
                                     file.write(f"{filename.split('.')[0]}\n{text.strip()}\n")
 
@@ -661,7 +662,7 @@ class MainApp:
             start_idx = self.start_idx_var.get().strip()
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
-            model_path = os.path.join(current_dir, "models", "default_version")
+            model_path = os.path.join(current_dir, "models", "en_last_version")
             end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
             first_text = f"welcome to {channel_name}, please leave a like and subscribe to support me!"
             if language == 'vi':
@@ -2213,6 +2214,7 @@ class MainApp:
     def close_driver(self):
         if self.driver:
             self.driver.quit()
+            print(f"Đóng trình duyệt!")
 #----------------------------------Setting Window--------------------------------------------------------
     def setting_screen_position(self):
         try:
