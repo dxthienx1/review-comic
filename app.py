@@ -662,7 +662,7 @@ class MainApp:
             start_idx = self.start_idx_var.get().strip()
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
-            model_path = os.path.join(current_dir, "models", "en_last_version")
+            model_path = os.path.join(current_dir, "models", "last_version_en")
             end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
             first_text = f"welcome to {channel_name}, please leave a like and subscribe to support me!"
             if language == 'vi':
@@ -818,7 +818,7 @@ class MainApp:
                 return
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
-            model_path = os.path.join(current_dir, "models", "default_version")
+            model_path = os.path.join(current_dir, "models", "last_version_en")
             end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
             if language == 'vi':
                 end_text = f"Bạn đang xem truyện tại kênh {channel_name}, đừng quên like và đăng ký để không bỏ lỡ các tập tiếp theo nhé."
