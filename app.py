@@ -680,14 +680,12 @@ class MainApp:
                 return
             
             is_merge = self.is_merge_var.get().strip() == "Yes"
-            output_folder = self.output_folder_var.get().strip()
             folder_story = self.videos_edit_folder_var.get().strip()
             if not check_folder(folder_story):
                 print(f"Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
                 return False
-            if not check_folder(output_folder):
-                print(f"Thư mục {output_folder} không hợp lệ hoặc không tồn tại.")
-                return False
+            output_folder = self.output_folder_var.get().strip()
+            os.makedirs(output_folder, exist_ok=True)
             self.config["language_tts"] = language
             self.config["speed_talk"] = str(speed_talk)
             self.config["current_channel"] = channel_name
