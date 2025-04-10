@@ -383,7 +383,7 @@ class MainApp:
                 black_words = [jjj for jjj in black_words if jjj.strip()]
                 all_skip_words = [iii for iii in skip_words if 'fff' not in iii and iii not in black_words]
                 black_words = all_skip_words + black_words if black_words else all_skip_words
-                file_path = os.path.join(chapter_folder, f'chuong {chapter_name}.txt')
+                file_path = os.path.join(chapter_folder, f'chuong {chapter_name}_{lang}.txt')
                 if lang == 'vi':
                     link = f'https://translate.google.com/?sl=en&tl={lang}&op=images'
                 else:
@@ -1025,7 +1025,10 @@ class MainApp:
     def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=1.0, end_text=None, main_file_path=None, min_lenth_text=30, max_lenth_text=250):
         try:
             file_name = os.path.basename(os.path.normpath(chapter_folder))
-            subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
+            subtitle_path = os.path.join(chapter_folder, f'{file_name}_{language}.txt')
+            if not os.path.exists(subtitle_path):
+                print(f'{thatbai} Không tìm thấy file {subtitle_path}')
+                return
             temp_folder = os.path.join(chapter_folder, 'temp_folder')
             os.makedirs(temp_folder, exist_ok=True)
 
@@ -1131,7 +1134,7 @@ class MainApp:
                         return
                     cnt += 1
 
-            merge_videos_use_ffmpeg(temp_folder, file_name, hide=False)
+            merge_videos_use_ffmpeg(temp_folder, f"{file_name}_{language}", hide=False)
             with open(main_file_path, 'w', encoding='utf-8') as main_file:
                 main_file.write(f"file '{video_path}'\n")
 
