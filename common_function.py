@@ -28,7 +28,7 @@ import platform
 from tkinter import messagebox, filedialog
 import customtkinter as ctk
 import ctypes
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageGrab
 import pystray
 from pystray import MenuItem as item
 import keyboard
@@ -40,15 +40,14 @@ from moviepy.editor import VideoFileClip, AudioFileClip, vfx
 from pydub import AudioSegment
 import math
 from TTS.api import TTS
-from PyQt5.QtWidgets import QApplication, QWidget
-from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QPainter, QPen, QGuiApplication
 import csv
 import queue
 import torch
 import cv2
 import zipfile
 import mouse
+import pyautogui
+import numpy as np
 
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
@@ -137,7 +136,7 @@ def load_ffmpeg():
         return ffmpeg_dir
     def is_ffmpeg_available():
         try:
-            subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
             return True
         except FileNotFoundError:
             return False
@@ -1423,7 +1422,7 @@ def get_video_info(input_file):
             '-of', 'json',
             input_file
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, encoding='utf-8')
         info = json.loads(result.stdout)
         video_info = info['streams'][0]
         width = video_info['width']
@@ -1457,7 +1456,7 @@ def get_video_info(input_file):
 
 def get_audio_info(audio_path):
     cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", audio_path]
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
     info = json.loads(result.stdout)
     streams_info = info.get("streams", [])
     if not streams_info:
@@ -2141,7 +2140,7 @@ def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, spe
                     idx += 1
 
         concatenated_audio = os.path.join(current_folder, 'final_audio.wav')
-        subprocess.run(['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', 'filelist.txt', '-c', 'copy', concatenated_audio])
+        run_command_ffmpeg(['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', 'filelist.txt', '-c', 'copy', concatenated_audio])
         if pitch != 1.0 or speed != 1.0:
             adjusted_audio = os.path.join(current_folder, 'adjusted_audio.wav')
             audio_filters = []
@@ -2149,7 +2148,7 @@ def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, spe
                 audio_filters.append(f"atempo={speed}")
             if pitch != 1.0:
                 audio_filters.append(f"rubberband=pitch={pitch}")
-            subprocess.run(['ffmpeg', '-y', '-i', concatenated_audio, '-filter:a', ",".join(audio_filters), adjusted_audio])
+            run_command_ffmpeg(['ffmpeg', '-y', '-i', concatenated_audio, '-filter:a', ",".join(audio_filters), adjusted_audio])
             concatenated_audio = adjusted_audio
 
         video_duration = float(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', video_path]))
@@ -2159,14 +2158,14 @@ def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, spe
         if speed != 1.0 or audio_duration > video_duration:
             speed_factor = video_duration / audio_duration
             adjusted_video = os.path.join(current_folder, 'adjusted_video.mp4')
-            subprocess.run(['ffmpeg', '-y', '-i', video_path, '-filter:v', f"setpts={1/speed_factor}*PTS", adjusted_video])
+            run_command_ffmpeg(['ffmpeg', '-y', '-i', video_path, '-filter:v', f"setpts={1/speed_factor}*PTS", adjusted_video])
             video_path = adjusted_video
         else:
             speed_factor = audio_duration / video_duration
             final_adjusted_audio = os.path.join(current_folder, 'final_adjusted_audio.wav')
-            subprocess.run(['ffmpeg', '-y', '-i', concatenated_audio, '-filter:a', f"atempo={speed_factor}", final_adjusted_audio])
+            run_command_ffmpeg(['ffmpeg', '-y', '-i', concatenated_audio, '-filter:a', f"atempo={speed_factor}", final_adjusted_audio])
             concatenated_audio = final_adjusted_audio
-        subprocess.run([
+        run_command_ffmpeg([
             'ffmpeg', '-y', '-i', video_path, '-i', concatenated_audio,
             '-c:v', 'copy', '-map', '0:v:0', '-map', '1:a:0', '-shortest', output_video_path
         ])
@@ -2219,114 +2218,82 @@ def split_text_into_chunks(text, max_length):
     
     return chunks
 
-def take_screenshot(save_folder=None, name="1", img_type='png'):
+def get_next_filename(name="1", save_folder=".", img_type="png"):
+    try:
+        file_name = int(name)
+    except:
+        file_name = 1
+    file_path = os.path.join(save_folder, f"{file_name}.{img_type}")
+    while os.path.exists(file_path):
+        file_name += 1
+        file_path = os.path.join(save_folder, f"{file_name}.{img_type}")
+    return file_path
+
+def capture_region(x1, y1, x2, y2, save_folder, name, img_type):
+    bbox = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+    img = ImageGrab.grab(bbox)
+    file_path = get_next_filename(name=name, save_folder=save_folder, img_type=img_type)
+    img.save(file_path)
+    print(f"✅ Đã lưu ảnh: {file_path}")
+
+def take_screenshot(save_folder="screenshots", name="1", img_type='png'):
     if not check_folder(save_folder):
         return
-    is_first = True
-    def snip_screen():
-        # Khởi tạo cửa sổ chụp ảnh
-        app = QApplication(sys.argv)
-        start_x = start_y = 0
-        end_x = end_y = 0
-        snipping = False
 
-        def mousePressEvent(event):
-            nonlocal start_x, start_y, snipping
-            if event.button() == Qt.LeftButton:
-                start_x = event.x()
-                start_y = event.y()
-                snipping = True
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
 
-        def mouseMoveEvent(event):
-            nonlocal end_x, end_y, snipping
-            if snipping:
-                end_x = event.x()
-                end_y = event.y()
-                window.update()
+    app = ctk.CTk()
+    app.withdraw()  # Ẩn cửa sổ chính
 
-        def mouseReleaseEvent(event):
-            nonlocal snipping, is_first
-            if event.button() == Qt.LeftButton:
-                snipping = False
-                window.close()  # Đóng cửa sổ sau khi thả chuột
+    def select_area():
+        try:
+            top = ctk.CTkToplevel(app)
+            top.attributes("-fullscreen", True)
+            top.attributes("-alpha", 0.3)
+            top.configure(bg='black')
+            top.attributes("-topmost", True)
 
-                # Tạo vùng chọn và chụp ảnh chỉ khi có vùng chọn hợp lệ
-                if start_x != end_x and start_y != end_y:
-                    x1 = min(start_x, end_x)
-                    y1 = min(start_y, end_y)
-                    x2 = max(start_x, end_x)
-                    y2 = max(start_y, end_y)
-                    screenshot = QGuiApplication.primaryScreen().grabWindow(0, x1, y1, x2 - x1, y2 - y1)
-                    if is_first:
-                        is_first = False
-                        return
-                    # Tìm tên file có sẵn để lưu ảnh
-                    file_path = get_next_filename(name)
-                    screenshot.save(file_path, img_type)
-                    print(f"{thanhcong} Đã lưu ảnh: {file_path}")
-                else:
-                    print("Không có vùng chọn hợp lệ, không lưu ảnh.")
+            canvas = ctk.CTkCanvas(top, bg='black', highlightthickness=0)
+            canvas.pack(fill="both", expand=True)
+            canvas.configure(cursor="cross")
 
-        def get_next_filename(name=name, save_folder=save_folder, img_type=img_type):
-            file_name = None
-            try:
-                file_name = int(name)
-            except:
-                file_name = 1
-            file_path = os.path.join(save_folder, f"{file_name}.{img_type}")
-            while os.path.exists(file_path):
-                file_name += 1
-                file_path = os.path.join(save_folder, f"{file_name}.{img_type}")
+            start = {'x': 0, 'y': 0}
+            rect = [None]
 
-            return file_path
+            def on_mouse_down(event):
+                start['x'], start['y'] = event.x, event.y
+                rect[0] = canvas.create_rectangle(start['x'], start['y'], start['x'], start['y'], outline='red', width=2)
 
-        def paintEvent(event):
-            nonlocal start_x, start_y, end_x, end_y, snipping
-            if snipping:
-                rect = QRect(start_x, start_y, end_x - start_x, end_y - start_y)
-                painter = QPainter(window)
-                pen = QPen(Qt.red, 2)
-                painter.setPen(pen)
-                painter.drawRect(rect)
+            def on_mouse_move(event):
+                if rect[0]:
+                    canvas.coords(rect[0], start['x'], start['y'], event.x, event.y)
 
-        # Tạo cửa sổ để vẽ và chụp màn hình
-        window = QWidget()
-        window.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        window.setWindowOpacity(0.3)
-        window.setCursor(Qt.CrossCursor)
-        window.setGeometry(QGuiApplication.primaryScreen().geometry())
-        window.setStyleSheet("background-color: black;")
-        window.showFullScreen()
+            def on_mouse_up(event):
+                top.destroy()
+                capture_region(start['x'], start['y'], event.x, event.y, save_folder, name, img_type)
 
-        # Gán các sự kiện chuột cho cửa sổ
-        window.mousePressEvent = mousePressEvent
-        window.mouseMoveEvent = mouseMoveEvent
-        window.mouseReleaseEvent = mouseReleaseEvent
-        window.paintEvent = paintEvent
+            canvas.bind("<ButtonPress-1>", on_mouse_down)
+            canvas.bind("<B1-Motion>", on_mouse_move)
+            canvas.bind("<ButtonRelease-1>", on_mouse_up)
+        except:
+            getlog()
 
-        # Chạy vòng lặp sự kiện
-        app.exec_()
-    print("Chế độ chụp ảnh đã mở. Nhấn chuột phải để bắt đầu. Nhấn Ctrl + Q để thoát.")
+    print("📸 Chế độ chụp ảnh đã bật. Nhấn chuột phải để bắt đầu. Ctrl + Q để thoát.")
 
-    while True:
-        if mouse.is_pressed(button="right"):  # Kiểm tra nếu chuột phải được nhấn
-            snip_screen()
-            while mouse.is_pressed(button="right"):  # Chờ nhả chuột phải
-                pass
+    def loop_check():
+        if mouse.is_pressed(button="right"):
+            select_area()
+            while mouse.is_pressed(button="right"):
+                sleep(0.2)
         if keyboard.is_pressed("ctrl+q"):
-            print("Thoát chức năng chụp ảnh màn hình")
-            keyboard.unhook_all()
-            break
-    # print("Chế độ chụp ảnh đã mở. Nhấn Ctrl + M để bắt đầu. Nhấn Ctrl + Q để thoát")
-    # while True:
-    #     if keyboard.is_pressed('ctrl+m'):
-    #         snip_screen()
-    #         while keyboard.is_pressed('ctrl+m'):  # Chờ nhả phím Ctrl + M
-    #             pass
-    #     if keyboard.is_pressed('ctrl+q'):
-    #         print("Thoát chức năng chụp ảnh màn hình")
-    #         keyboard.unhook_all()
-    #         break
+            print("🛑 Thoát chức năng chụp ảnh.")
+            app.quit()
+        else:
+            app.after(100, loop_check)
+
+    app.after(100, loop_check)
+    app.mainloop()
 
 def number_to_vietnamese_with_units(text):
     # Bản đồ đơn vị và cách đọc
@@ -2580,7 +2547,7 @@ def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', s
     except:
         getlog()
 
-def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.2, movement_speed=0.6, hide=False):
+def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.2, movement_speed=0.6, hide=False, subtitle_text=None):
     """
     Parameters:
         img_path: Đường dẫn đến ảnh đầu vào.
@@ -2604,29 +2571,39 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
             return False
         total_frames = int(fps * float(duration))
 
-        # Đọc ảnh đầu vào
-        img = cv2.imread(img_path)
-        height, width = img.shape[:2]
+        img, height, width = get_image_size_by_cv2(img_path)
+        if width < 600:
+            scale_ratio = 700 / width
+            width = 700
+            height = int(height * scale_ratio)
+            img = cv2.resize(img, (width, height))
 
-        # Tạo video tạm (không âm thanh)
         temp_video_path = "temp_video.mp4"
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
 
-        # Khởi tạo thông số chuyển động và zoom
         current_zoom_factor = zoom_factor
         offset_x, offset_y = 0, 0
         movement_types = ['down', 'up', 'zoom_in', 'zoom_out']
         if width > height:
             movement_types = ['down', 'up', 'zoom_in', 'zoom_out', 'left', 'right']
         movement_type = random.choice(movement_types)
-        if height > 2*width:
-            movement_type = random.choice(['down', 'up'])
+        if width < 600:
+            movement_type = 'up'
+            movement_speed = 1
+            print(f'{canhbao} Ảnh {img_path} có chiều rộng nhỏ hơn 600')
+
         print(f'movement_type: {movement_type}')
         if movement_type == 'down':
+            offset_y = 0
+            offset_x = (int(width * current_zoom_factor) - width) // 2
+        elif movement_type == 'up':
             offset_y = int(height * current_zoom_factor) - height
+            offset_x = (int(width * current_zoom_factor) - width) // 2
         elif movement_type == 'right':
             offset_x = int(width * current_zoom_factor) - width
+        elif movement_type == 'left':
+            pass
 
         for frame_idx in range(total_frames):
             # Cập nhật chuyển động chỉ khi frame nằm trong chu kỳ movement_step
@@ -2644,24 +2621,24 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
                 offset_y = (int(height * current_zoom_factor) - height) // 2
             elif movement_type == 'down':
                 offset_y += movement_speed
-                if offset_y + height >= int(height * current_zoom_factor):  # Giới hạn chiều dọc
+                if offset_y + height >= int(height * current_zoom_factor):
                     offset_y = int(height * current_zoom_factor) - height
                 # Đặt ảnh theo phương ngang ở trung tâm
                 offset_x = (int(width * current_zoom_factor) - width) // 2
             elif movement_type == 'up':
                 offset_y -= movement_speed
-                if offset_y <= 0:  # Giới hạn chiều dọc (trên)
+                if offset_y <= 0:
                     offset_y = 0
                 # Đặt ảnh theo phương ngang ở trung tâm
                 offset_x = (int(width * current_zoom_factor) - width) // 2
             elif movement_type == 'zoom_in':
                 current_zoom_factor += 0.001  # Tăng dần hệ số zoom
-                if current_zoom_factor > zoom_factor*1.15:  # Giới hạn zoom in tối đa
-                    current_zoom_factor = zoom_factor*1.15
+                if current_zoom_factor > zoom_factor*1.2:  # Giới hạn zoom in tối đa
+                    current_zoom_factor = zoom_factor*1.2
             elif movement_type == 'zoom_out':
                 current_zoom_factor -= 0.001  # Giảm dần hệ số zoom
-                if current_zoom_factor < 0.85:  # Giới hạn zoom out tối thiểu
-                    current_zoom_factor = 0.85
+                if current_zoom_factor < 0.7:  # Giới hạn zoom out tối thiểu
+                    current_zoom_factor = 0.7
 
             while int(height * current_zoom_factor) < height or int(width * current_zoom_factor) < width:
                 current_zoom_factor += 0.01  # Tăng nhẹ hệ số zoom
@@ -2681,6 +2658,15 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
                 offset_y = zoomed_height - height  # Điều chỉnh offset_y
             # Cắt ảnh theo vị trí offset
             cropped_frame = zoomed_img[int(offset_y):int(offset_y + height), int(offset_x):int(offset_x + width)]
+            if subtitle_text:
+                font_scale = 1.0
+                font_thickness = 2
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                text_size, _ = cv2.getTextSize(subtitle_text, font, font_scale, font_thickness)
+                text_x = (width - text_size[0]) // 2
+                text_y = height - 50  # 50px cách mép dưới
+                cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness + 2, cv2.LINE_AA)  # viền đen
+                cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)  # text trắng
             out.write(cropped_frame)
         # Giải phóng tài nguyên
         out.release()
@@ -2701,7 +2687,16 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
         getlog()
         return False
 
-
+def get_image_size_by_cv2(path):
+    try:
+        pil_img = Image.open(path).convert("RGB")
+        cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        height, width = pil_img.size[1], pil_img.size[0]
+        return cv_img, height, width
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, None, None
+    
 def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='chương'):
     if not start_text:
         print(f'Hãy nhập từ khóa bắt đầu để làm mốc tách file.')
@@ -2720,50 +2715,55 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
         output_folder = os.path.dirname(input_file)
         with open(input_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        
+        lines = [llll for llll in lines if llll.strip()]
         chapter_count = 0
         contents = []
         start_chapter = None
         before_chapter = 0
+        skip_char = ['chữ', 'chương này', 'tiếp tục', 'các bạn', 'đọc', 'truyện', 'thưởng', 'phiếu', 'xếp hạng', 'vé tháng', 'sách', 'vị trí']
         for idx, line in enumerate(lines):
             line = line.strip()
             if not line:
                 continue
-            is_true = line.lower().startswith(start_text)
+            is_true = line.lower().strip().startswith(start_text)
             if start_text=='chương' or start_text=='chuong':
                 is_true = line.lower().startswith("chương") or line.lower().startswith("chuong")
             if is_true:
-                try:
-                    is_next_false = lines[idx+1].lower().startswith("chương") or lines[idx+1].lower().startswith("chuong")
-                except:
-                    is_next_false = True
-                if is_next_false:
-                    continue 
-                chuong = line.strip().split(' ')[1]
+                chuong = line.split(' ')[1].lower()
                 if ':' in chuong:
                     chuong = chuong.split(':')[0]
                 elif '-' in chuong:
                     chuong = chuong.split('-')[0]
                 chuong_int = int(chuong) if chuong.isdigit() else 0
                 if chuong_int == 0:
-                    continue
+                    number_in_text = ['một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín', 'mười', 'thứ']
+                    if chuong not in number_in_text:
+                        if not chuong[0].isdigit():
+                            continue
+                        if ',' in chuong:
+                            continue
+                        is_next = any(word.lower() in line.lower() for word in skip_char)
+                        if is_next:
+                            continue
+                try:
+                    is_next_false = lines[idx+1].lower().startswith("chương") or lines[idx+1].lower().startswith("chuong")
+                except:
+                    is_next_false = True
+                if is_next_false:
+                    continue 
                 chapter_count += 1
-                if chuong_int != before_chapter + 1:
-                    print(f'{thatbai} khong tim thay chuong {before_chapter + 1}')
+                # if chuong_int != before_chapter + 1:
+                #     print(f'{thatbai} khong tim thay chuong {before_chapter + 1}')
                 if start_chapter is None:
                     start_chapter = chapter_count
-                before_chapter = chuong_int
+                # before_chapter = chuong_int
                 
                 if chapter_count > 1 and (chapter_count - start_chapter + 1) > max_chapters_per_file:
-        
                     output_file = os.path.join(output_folder, f"{start_chapter} - {chapter_count-1}.txt")
                     with open(output_file, "w", encoding="utf-8") as out_f:
                         for content in contents:
                             out_f.writelines(f"{content}\n")
                     contents = []
-                    # contents.append(f"chương {chapter_count}")
-                    # if line not in contents:
-                    #     contents.append(line)
                     start_chapter = chapter_count
             contents.append(line)
         if contents:
@@ -2859,6 +2859,587 @@ supported_languages = {
       "en1": "English",
       "en2": "English",
       "vi": "Vietnamese"
+}
+
+
+special_word = {
+    "******":"",
+    "*****":"",
+    "****":"",
+    "***":"",
+    "**":"",
+    "*":"",
+    "<>>":"",
+    "<◆>":"",
+    "◆":"",
+    "<>":"",
+    "➡":"",
+    "✓✓✓":"",
+    "✓✓":"",
+    "✓":"",
+    "♣ ♣ ♣ ♣ ♣ ♣":"",
+    "♣ ♣ ♣ ♣ ♣":"",
+    "♣ ♣ ♣ ♣":"",
+    "♣ ♣ ♣":"",
+    "♣ ♣":"",
+    "♣":"",
+    "^":"",
+    "++++++":"",
+    "+++++":"",
+    "++++":"",
+    "+++":"",
+    "++":"",
+    " +":" cộng ",
+    "+":"",
+    "~~~~~~":"",
+    "~~~~~":"",
+    "~~~~":"",
+    "~~~":"",
+    "~~":"",
+    "~":"",
+    "(": ".",
+    ")": ".",
+    "}": ".",
+    "{": ".",
+    "[": " ",
+    "]": " ",
+    "|": " ",
+    "【": " ",
+    "】": " ",
+    ";": ".",
+    "------": "",
+    "-----": "",
+    "----": "",
+    "---": "",
+    "--": "",
+    "-": " ",
+    "_": " ",
+    ":": ".",
+    "......": "",
+    "...": ".",
+    "..": ".",
+    ",,,": ",",
+    ",,": ",",
+    "', ": ", ",
+    "',": ",",
+    "'. ": ".",
+    "'.": ".",
+    "  .": ".",
+    " .": ".",
+    "  ,": ",",
+    " ,": ",",
+    ",'": ",",
+    ".'": ".",
+    " '": " ",
+    "' ": " ",
+    " ,. ": ".",
+    ",. ": ",",
+    ",.": ",",
+    ",  .": ",",
+    ", .": ",",
+    ".  ,": ".",
+    ". ,": ".",
+    ".,": ".",
+    ",.": ".",
+    "...": ".",
+    "..": ".",
+    "…": "",
+    "“": "",
+    "”": "",
+    " — ": " ",
+    "—": " ",
+    "‘": "",
+    "’": "",
+    "\"": "",
+    "@@novelbin@@": "",
+    "@": "",
+    "#": "",
+    "   ": " ",
+    "  ": " ",
+    "«":"",
+    "»":"",
+    "`":"",
+    "(ΩДΩ)":"",
+    "ΩДΩ":"",
+    "======":"",
+    "=====":"",
+    "====":"",
+    "===":"",
+    "==":"",
+    "":"",
+    "✔":"",
+    "en thunderscans.com":"",
+    "thunderscans.com":"",
+    "vng.com":"",
+    "ng.com":"",
+    "♡":"",
+    "♥":"",
+    "☆☆☆":"",
+    "☆☆":"",
+    "☆":"",
+    "☑":"",
+    "▼":"",
+    "←":"",
+    "☆":"",
+    "!?":".",
+    "?!":".",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":""
+}
+
+loai_bo_tieng_anh = {
+    "???": "?",
+    "??": "?",
+    " ?": "?",
+    "?.": "?",
+    "!.": ".",
+    "!!!!": "!",
+    "!!!": "!",
+    "!!": "!",
+    " !": "!",
+    "Enhance your reading experience by removing ads for as low as $1!": "",
+    "20 chapters ahead on my patreon: /David_Lord": "",
+    "20 chapters ahead on patreon: /David_Lord": "",
+    "15 chapters ahead on my patreon: /David_Lord": "",
+    "15 chapters ahead on <a>patreon: /David_Lord": "",
+    "https://novelbin.me/":"",
+    "T/L: Please support me here:  ]":"",
+    "T/L: Subscribe for a membership on my Buy Me a Coffee page and receive 15 extra chapters upon joining, along with daily updates of one chapter:":"",
+    "If anyone is facing the issue of payment on Ko-Fi, please contact me on":"",
+    "T/L: Please support me and read further chapters here here:":"",
+    "T/L: Please support me AND read further chapters here:":"",
+    "Additional Info:":"",
+    "/revengerscans":"",
+    "So... How is the first chapter?": "",
+    "Discord Server:": "",
+    "https://discord.gg/hPxxHTeyFy": "",
+    "Do you like his decision?": "",
+    "https://discord.gg/Qv4K3rZv": "",
+    ".gg/hPxxHTeyFy": "",
+    "You can support me and read additional chapters (15 chapters ahead) on my /David_Lord": "",
+    "Thanks :D": "",
+    ":D": "",
+    ":c": "",
+    "Review the novel on novelupdate:": "",
+    "/series/creating-heavenly-laws/": "",
+    "When we reach 5 reviews, I will upload a bonus chapter!!": "",
+    "(Health lol haha :D)": "",
+    "I need POWAAAA :D": "",
+    "Help me buy a new computer :D /DavidLord": "",
+    "15 chapters ahead on patreon: /David_Lord": "",
+    "Guys I uploaded the chapters even in the summer, don't I deserve a reward?": "",
+    "Kidding, jokes aside can you help me buy a new computer? It has been months, but I still don't have enough money T.T I'm embarassed": "",
+    "Well, if you want to donate here's the link: /DavidLord": "",
+    "You've been reborn as a primordial":"",
+    "You've succeeded in completing the quest.":"",
+    "Apologies for the shorter chapter, I've decided to cut some content to make the story flow better.":"",
+    "www":"",
+    "Translator:":"",
+    "549690339":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "/":" over ",
+    "%":" percent"
+}
+
+loai_bo_tieng_viet = {
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "???": ".",
+    "??": ".",
+    " ?": ".",
+    "?": ".",
+    "?.": ".",
+    "!!!!": ".",
+    "!!!": ".",
+    "!!": ".",
+    "!.": ".",
+    " !": ".",
+    "!": ".",
+    "NPC": "nờ pê xê",
+    " nitơ ": " ni tơ ",
+    "bqhn": "bạo quân hắc nham ban",
+    "hartok": "ha tót",
+    "htok": "công trước ha tót",
+    "Asr": "a su rát",
+    "asurat": "huyết hoàng tử a su rát",
+    "zephyros ": "gie phay rót",
+    "zpr ": "gie phay rót",
+    "sorgi": "so ghi",
+    "sgi": "so ghi",
+    # "credos": "cờ re đót",
+    # "crd": "cờ re đót",
+    "jangcheol": "giang che on",
+    "Cheon": "che on",
+    "gentoons.com": "",
+    "con toons.com": "",
+    "(1/2)": "",
+    "(2/2)": "",
+    " +": " cộng ",
+    "Tìm kiếm màu xanh da trời, có thể đọc chương tiếp theo nhanh nhất": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "t r u y e n f u l l.": "",
+    "t r u y e n f u l l": "",
+    "/": " ",
+    "$": " đô",
+    "vnđ": "đồng",
+    "%": " phần trăm",
+    "&": " và ",
+    " = ": " bằng ",
+    " > ": " lớn hơn ",
+    " < ": " bé hơn ",
+    "chấm c.o.m":"",
+    "Noãn Tâm rơi vào vòng xoáy yêu, hận, dây dưa không dứt giữa thiên đàng và địa cùng Hoắc Thiên Kình": "",
+    "Minh Hoa Thường mơ thấy mình là thiên kim giả, liền nỗ lực lấy lòng huynh trưởng trên danh nghĩa của mình": "",
+    "Lâm Khê xuyên về 30 năm trước trong 1 tiểu viện ọp ẹp, bỗng dưng có thêm 1 người chồng, thân mặc quân trang, ánh mắt nhìn cô chứa sự ghét bỏ": "",
+    "Thứ trưởng nữ Ôn gia ác độc trèo được lên giường của Thái Tử, nhưng mà không ngờ được hắn càng ngủ càng hăng": "",
+    "TRUYỆN TRANH ĐANG HOT": "",
+    "Phế vật? Rác rưởi? Chỉ cần đi theo bản tọa, tất cả sẽ trở thành anh hùng thế gian!": "",
+    "Hắn xuyên qua và bước vào thế giới 10.000 năm sau, nhân loại diệt vong, võ học lên đến đỉnh cao, mà hắn là tia lửa duy nhất!": "",
+    "Một đại ma hoàng đầy thủ đoạn tàn độc, sẽ làm thế nào để khiến cho một gia tộc nhỏ bé trở mình thành một gia tộc đứng trên tất cả?": "",
+    "Thể chất bình thường? Thần thông khó luyện? Đốn ngộ liền xong việc!": "",
+    "bạn đang đọc truyện copy tại":"",
+    "bạn đang đọc chuyện tại":"",
+    "bạn đang đọc truyện tại":"",
+    "bạn đang xem tại":"",
+    "text được lấy tại":"",
+    "nguồn tại http://":"",
+    "nguồn http":"",
+    "bạn đang xem truyện được sao chép tại":"",
+    "đọc truyện online mới nhất ở":"",
+    "xem tại truyenfull.vn":"",
+    "nguồn truyenfull.vn":"",
+    "truyenfull.vn":"",
+    "truyện full":"",
+    "truyện được lấy tại":"",
+    "truyện được copy tại":"",
+    "truyện copy tại":"",
+    "--- o ---":"",
+    "-- o --":"",
+    "www.":"",
+    "www":"",
+    "'": "",
+    "nhóm dịch:":"",
+    "friendship":"",
+    "truyenyy.xyz":"",
+    "(conduongbachu.net là web chính chủ duy nhất của truyện...)":"",
+    "t. r. u. y. ệ. n. y.": "",
+    "t. r. u. y. ệ. n. y": "",
+    "t.r.u.y.ệ.n.y.": "",
+    "t.r.u.y.ệ.n.y": "",
+    "bạn đang đọc truyện copy tại": "",
+    "truyện đăng nhanh nhất và n miễn phí tại": "",
+    "truyện đăng nhanh nhất và miễn phí tại": "",
+    "bạn có thể đọc chương trên": "",
+    "truyện đăng nhanh nhất và  miễn phí tại": "",
+    "cập nhật chương mới sớm nhất tại website": "",
+    "truy cập ngay truyenqqq.com để ùng hộ nhóm dịch": "",
+    "truyen qqq để ủng hộ nhớm dịch": "",
+    "qq để ủng hộ nhớm dịch": "",
+    "tin tức về vương quốc webtoon": "",
+    "webtoon kingdom thỏ mới 468": "",
+    "webtoon kingdom thỏ mới": "",
+    "trang web có vấn đề phổ biến nhất webtoon kingdom": "",
+    "webtoon kingdom newto": "",
+    "truy cập ngày truyengo to.com để cập nhật các thông tin mới nhất về truyện": "",
+    "truy cập ngay truyengo to.com để cập nhật các thông tin mới nhất về truyện": "",
+    "web moon kingdom thỏ mới": "",
+    "trang web cung cấp webtoon nhanh nhất towangguk view rabbit 468": "",
+    "trang web cung cấp webtoon nhanh nhất towangguk view rabbit": "",
+    "trang web cung cấp webtoon nhanh nhất": "",
+    "trang web cung cấp webtoon nhanh": "",
+    "wtok3468.com hoặc": "",
+    "truy cập ngay truyenco": "",
+    "các thông tin mới nhất về truyện": "",
+    "trang web cung cấp toon mùa xuân nhanh nhất": "",
+    "toon kingdom thỏ mới 468": "",
+    "toon kingdom thỏ mới": "",
+    "trang web bói toán có thể webtoon kingdom new rabbit 468": "",
+    "trang web bói toán có thể webtoon kingdom new rabbit": "",
+    "truy cập ngay truyệng qto.com để cập nhật các thông tin mới nhất về truyện": "",
+    "truy cập ngay truyện qto.com để cập nhật các thông tin mới nhất về truyện": "",
+    "qto.com để cập nhật các thông tin mới nhất về truyện": "",
+    "nhà cung cấp webtoon nhanh nhất": "",
+    "có thể trang web hút webtoon kingdom new rabbit 468": "",
+    "có thể trang web hút webtoon kingdom new rabbit": "",
+    "trang web có vấn đề": "",
+    "webtoon kingdom new togae 468": "",
+    "webtoon kingdom new togae": "",
+    "trang web bói toán có thể": "",
+    "vương quốc webtoon ryu tokki": "",
+    "webtoon kingdom ryu tokki 468": "",
+    "webtoon kingdom ryu tokki": "",
+    "https. nertoktale cou": "",
+    "https. nertoktale": "",
+    "https.nertoktale": "",
+    "trang web việc làm nhanh nhất": "",
+    "trang web bói toán": "",
+    "webtoon kingdom vùng đất mới": "",
+    "truy cập ngay truyenq": "",
+    "vương quốc new rabbit 468": "",
+    "vương quốc new rabbit": "",
+    "to.com để cập nhật các thông tin mới nhất về truyện": "",
+    "truy cập ngay truyengo": "",
+    "trang web có nhiều vấn đề nhất": "",
+    "truy cập ngay": "",
+    "jun kingdom thỏ mới 468": "",
+    "jun kingdom thỏ mới": "",
+    "qq để ủng hộ nhóm dịch": "",
+    "ương quốc webtoon": "",
+    "trang web lớn": "",
+    "ttps. netoki": "",
+    "amentok1468": "",
+    "vua truyện tranh mới của webtoon 468": "",
+    "vua truyện tranh mới của webtoon": "",
+    "qt đ để cập nhật": "",
+    "vương quốc webtoon": "",
+    "trang web giao hàng tận nhà nhanh nhất": "",
+    "s kentokia68.co": "",
+    "truyeng qto để cập nhật": "",
+    "nttps. kiaar com": "",
+    "webtoon vương quốc thỏ 468": "",
+    "webtoon vương quốc thỏ": "",
+    "loki mới 468": "",
+    "loki mới": "",
+    "truyen go to để cập nhật": "",
+    "trang web xem bói đếm số": "",
+    "web moon kingdom 1468": "",
+    "web moon kingdom": "",
+    "trang web kiếm thuật nhanh nhất": "",
+    "văn bản gốc kingdom": "",
+    "trang web bói toán hút máu ảo,": "",
+    "trang web bói toán hút máu ảo": "",
+    "webtoon kingdom hai chú thỏ 468": "",
+    "webtoon kingdom hai chú thỏ": "",
+    "có thể trang web bói toán hút": "",
+    "trang web giải quyết vấn đề ngắn nhất": "",
+    "có thể trang web bói toán": "",
+    "ftps. newtoki 68.cov": "",
+    "để cập nhật các thông tin mới nhất": "",
+    "webtoon vua jinyu rabbit": "",
+    "trang web điện thoại có vấn đề nhanh nhất": "",
+    "moon kingdom thỏ mới 468": "",
+    "moon kingdom thỏ mới": "",
+    "có thể new rabbit 468": "",
+    "có thể new rabbit": "",
+    "truyện tranh vua thỏ 468": "",
+    "truyện tranh vua thỏ": "",
+    "trang web giải quyết vấn đề nhanh nhất": "",
+    "vua truyện tranh trên web": "",
+    "có thể trang web văn bản nhanh,": "",
+    "có thể trang web văn bản nhanh": "",
+    "vương quốc web thỏ mới 468": "",
+    "vương quốc web thỏ mới": "",
+    "trang web chính có thể": "",
+    "truy cập ngày truyen go to com để cập nhật": "",
+    "rất mong được giúp đỡ buyengqto.сом": "",
+    "truy cập ngày truyenqgto để cập nhật": "",
+    "trang web gari golden fortune": "",
+    "vương quốc lớn thỏ mới 468": "",
+    "vương quốc lớn thỏ mới": "",
+    "một trang web giải quyết các vấn đề về phụ âm,": "",
+    "một trang web giải quyết các vấn đề về phụ âm": "",
+    "địa điểm phổ biến nhất để kiểm tra và giao hàng,": "",
+    "địa điểm phổ biến nhất để kiểm tra và giao hàng": "",
+    "vua truyện tranh jinuyuromi468": "",
+    "s. nent x1468,com": "",
+    "truy cập ngày truyendoto com để cập nhật": "",
+    "trang web khắc chữ nhanh nhất": "",
+    "vương quốc ryutoki 468": "",
+    "vương quốc ryutoki": "",
+    "web sunguk new rabbit 468": "",
+    "web sunguk new rabbit": "",
+    "trang web xem bói nhanh nhất new rabbit 468": "",
+    "trang web xem bói nhanh nhất new rabbit": "",
+    "trang web xem bói nhanh nhất": "",
+    "được cung cấp bởi site": "",
+    "vua truyện tranh mới của webtoon 468": "",
+    "vua truyện tranh mới của webtoon": "",
+    "trang web nhanh nhất": "",
+    "trang web cung cấp webtoon được yêu thích": "",
+    "truy cập ngày truyện goto để cập nhật": "",
+    "truy cập ngày truyenggo to. còm để cập nhật": "",
+    "truyen qoto com để cập nhật": "",
+    "để cập truyen goto to com để cập n nhật": "",
+    "vương quốc thỏ đất 468": "",
+    "vương quốc thỏ đất": "",
+    "truyen goto để cập nhật": "",
+    "truy cập ngày truyengqto để cập nhật": "",
+    "qto để cập nhật": "",
+    "các trang web cung cấp webtoon khác": "",
+    "thỏ vương quốc thuần khiết 468": "",
+    "thỏ vương quốc thuần khiết": "",
+    "fff": "",
+    "fff": "",
+    "ntps.": "",
+    "tm": "",
+    "truyen qto": "",
+    "s. newkh com": "",
+    "ruyenqqto.co": "",
+    "ruyenqqto": "",
+    "krrrr.": "",
+    "s. new468.co": "",
+    "ftps. kimsr com": "",
+    "phổ biến nhất s.": "",
+    "tenok1468.": "",
+    "mentok1468 com": "",
+    "truyenqqq": "",
+    "https. newtoki468": "",
+    "https. nentokias": "",
+    "https.nentokias": "",
+    "nentokias": "",
+    "https.newtoki468": "",
+    "newtoki468": "",
+    "tuyenggo": "",
+    "webtoon kingdom": "",
+    "https. newtok1468": "",
+    "https.newtok1468": "",
+    "newtok1468": "",
+    "https. nento": "",
+    "https.nento": "",
+    "ftps. newtoki": "",
+    "https. newtorim": "",
+    "https. ewtok1468": "",
+    "https.newtorim": "",
+    "https. nentoka": "",
+    "https.nentoka": "",
+    "struyengoto": "",
+    "truyengoto": "",
+    "kentom 468": "",
+    "s nentoki68": "",
+    "tps. nemtok1468": "",
+    "nemtok1468": "",
+    "https newto": "",
+    "ewtok1468": "",
+    "autengoto": "",
+    "newto": "",
+    "nento": "",
+    "wtok3468": "",
+    "newtorim": "",
+    "nentoka": "",
+    "truyenoo": "",
+    "s trentokm88": "",
+    "new rabbit 468": "",
+    "new rabbit": "",
+    "s. netok1": "",
+    "s. netoki": "",
+    "s mentormse.con": "",
+    "thỏ quốc gia 468": "",
+    "thỏ quốc gia": "",
+    "trang web ảo": "",
+    "thỏ mới 468": "",
+    "thỏ mới": "",
+    "thỏ468": "",
+    "tin tức 468": "",
+    "truyenoto": "",
+    "thỏ mì 468": "",
+    "thỏ mì": "",
+    "truyencoto": "",
+    "truyendoto": "",
+    "tok1458": "",
+    "s. mentok1468.": "",
+    "s. tokiasr": "",
+    "s. mentokia68": "",
+    "s. ria": "",
+    "k1468.": "",
+    ".seongguk": "",
+    "s. ni 68": "",
+    "s. ni": "",
+    "s. n468 com": "",
+    "s. k1468 comi": "",
+    "s. k1468": "",
+    "s. k146r": "",
+    "s. com": "",
+    "s. neto": "",
+    "nutoki 468": "",
+    "nutoki": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "fff": "",
+    "arghhh": "a",
+    "s. n con": "",
+    "s. nentsk": "",
+    "s. ktass cou": "",
+    "s 468 comi": "",
+    "s. mentok1": "",
+    "s newitoki 68": "",
+    "s newitoki": "",
+    "s. n458 ": "",
+    "ttps.": "",
+    "s. newfo1": "",
+    "comi": "",
+    "uyengoto": "",
+    ".comi": "",
+    "http": "",
+    "468.com": "",
+    "https.": "",
+    ".com": "",
+    "ftps.": "",
+    "tps.": "",
+    "s..co": "",
+    "s. 0": "",
+    "s. k3": "",
+    "s. n1": "",
+    "s. ki45": "",
+    "s. kias": "",
+    "s..": "",
+    "s.": "",
 }
 
 skip_words = [
@@ -3183,549 +3764,72 @@ skip_words = [
     '탕',
     '컹',
     '찌',
-    'chap mới',
     '걱',
     'ハ',
     '핏',
     '暗',
-    'truy cập',
     '정',
     '페',
     '结',
+    '띠',
+    '딩',
+    '그',
+    '여',
+    '쉬',
+    '최',
+    'し',
+    '武',
+    '딱',
+    'ا',
+    '퉁',
+    '✓',
+    'اه',
+    'リ',
+    '쏙',
+    'manhwa',
+    'π',
+    '▼',
+    '꿈',
+    '☑',
+    '¡¿',
+    '폭',
+    '쭈',
+    '깡',
+    '←',
+    '마',
+    '톡',
+    '훌',
+    '썩',
+    '팔',
+    'வ',
+    '종',
+    '핑',
+    '빼',
+    '곰',
+    '☆',
+    '요',
+    'لو',
     'ffffff',
-    'ffffff'
+    'ffffff',
+    'ffffff',
+    'ffffff',
+    'ffffff',
+    'ffffff',
+    'ffffff',
+    'ffffff',
+    'ffffff',
+    'chill',
+    'baotan',
+    'envip',
+    'nhóm dịch',
+    'àngtruvi',
+    'bảot',
+    'truyện',
+    'đọc truyên',
+    ' web ',
+    'chap mới',
+    'truy cập'
     ]
-
-special_word = {
-    "******":"",
-    "*****":"",
-    "****":"",
-    "***":"",
-    "**":"",
-    "*":"",
-    "<>>":"",
-    "<◆>":"",
-    "◆":"",
-    "<>":"",
-    "➡":"",
-    "♣ ♣ ♣ ♣ ♣ ♣":"",
-    "♣ ♣ ♣ ♣ ♣":"",
-    "♣ ♣ ♣ ♣":"",
-    "♣ ♣ ♣":"",
-    "♣ ♣":"",
-    "♣":"",
-    "^":"",
-    "++++++":"",
-    "+++++":"",
-    "++++":"",
-    "+++":"",
-    "++":"",
-    " +":" cộng ",
-    "+":"",
-    "~~~~~~":"",
-    "~~~~~":"",
-    "~~~~":"",
-    "~~~":"",
-    "~~":"",
-    "~":"",
-    "(": ".",
-    ")": ".",
-    "}": ".",
-    "{": ".",
-    "[": " ",
-    "]": " ",
-    "|": " ",
-    "【": " ",
-    "】": " ",
-    ";": ".",
-    "------": "",
-    "-----": "",
-    "----": "",
-    "---": "",
-    "--": "",
-    "-": " ",
-    "_": " ",
-    ":": ".",
-    "???": ".",
-    "??": ".",
-    " ?": ".",
-    "?": ".",
-    "?.": ".",
-    "......": "",
-    "...": ".",
-    "..": ".",
-    ",,,": ",",
-    ",,": ",",
-    "!.": ".",
-    "!!!!": ".",
-    "!!!": ".",
-    "!!": ".",
-    " !": ".",
-    "!": ".",
-    "', ": ", ",
-    "',": ",",
-    "'. ": ".",
-    "'.": ".",
-    "  .": ".",
-    " .": ".",
-    "  ,": ",",
-    " ,": ",",
-    ",'": ",",
-    ".'": ".",
-    " '": " ",
-    "' ": " ",
-    " ,. ": ".",
-    ",. ": ",",
-    ",.": ",",
-    ",  .": ",",
-    ", .": ",",
-    ".  ,": ".",
-    ". ,": ".",
-    ".,": ".",
-    ",.": ".",
-    "...": ".",
-    "..": ".",
-    "…": "",
-    "“": "",
-    "”": "",
-    " — ": " ",
-    "—": " ",
-    "‘": "",
-    "’": "",
-    "\"": "",
-    "@@novelbin@@": "",
-    "@": "",
-    "#": "",
-    "   ": " ",
-    "  ": " ",
-    "«":"",
-    "»":"",
-    "`":"",
-    "(ΩДΩ)":"",
-    "ΩДΩ":"",
-    "======":"",
-    "=====":"",
-    "====":"",
-    "===":"",
-    "==":"",
-    "":"",
-    "✔":"",
-    "en thunderscans.com":"",
-    "thunderscans.com":"",
-    "vng.com":"",
-    "ng.com":"",
-    "♡":"",
-    "♥":"",
-    "☆☆☆":"",
-    "☆☆":"",
-    "☆":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":""
-}
-
-loai_bo_tieng_anh = {
-    "Enhance your reading experience by removing ads for as low as $1!": "",
-    "20 chapters ahead on my patreon: /David_Lord": "",
-    "20 chapters ahead on patreon: /David_Lord": "",
-    "15 chapters ahead on my patreon: /David_Lord": "",
-    "15 chapters ahead on <a>patreon: /David_Lord": "",
-    "https://novelbin.me/":"",
-    "T/L: Please support me here:  ]":"",
-    "T/L: Subscribe for a membership on my Buy Me a Coffee page and receive 15 extra chapters upon joining, along with daily updates of one chapter:":"",
-    "If anyone is facing the issue of payment on Ko-Fi, please contact me on":"",
-    "T/L: Please support me and read further chapters here here:":"",
-    "T/L: Please support me AND read further chapters here:":"",
-    "Additional Info:":"",
-    "/revengerscans":"",
-    "So... How is the first chapter?": "",
-    "Discord Server:": "",
-    "https://discord.gg/hPxxHTeyFy": "",
-    "Do you like his decision?": "",
-    "https://discord.gg/Qv4K3rZv": "",
-    ".gg/hPxxHTeyFy": "",
-    "You can support me and read additional chapters (15 chapters ahead) on my /David_Lord": "",
-    "Thanks :D": "",
-    ":D": "",
-    ":c": "",
-    "Review the novel on novelupdate:": "",
-    "/series/creating-heavenly-laws/": "",
-    "When we reach 5 reviews, I will upload a bonus chapter!!": "",
-    "(Health lol haha :D)": "",
-    "I need POWAAAA :D": "",
-    "Help me buy a new computer :D /DavidLord": "",
-    "15 chapters ahead on patreon: /David_Lord": "",
-    "Guys I uploaded the chapters even in the summer, don't I deserve a reward?": "",
-    "Kidding, jokes aside can you help me buy a new computer? It has been months, but I still don't have enough money T.T I'm embarassed": "",
-    "Well, if you want to donate here's the link: /DavidLord": "",
-    "You've been reborn as a primordial":"",
-    "You've succeeded in completing the quest.":"",
-    "Apologies for the shorter chapter, I've decided to cut some content to make the story flow better.":"",
-    "www":"",
-    "Translator:":"",
-    "549690339":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "/":" over ",
-    "%":" percent"
-}
-
-loai_bo_tieng_viet = {
-    "fff": "",
-    "fff": "",
-    "gentoons.com": "",
-    "con toons.com": "",
-    "(1/2)": "",
-    "(2/2)": "",
-    " +": " cộng ",
-    "avesbox": "",
-    "nettruyenid": "",
-    "ettruyenid": "",
-    "nettruyenfpt": "",
-    "nettruyen fpt": "",
-    "wattruyenfpt": "",
-    "nettruyent": "",
-    "nettruyen": "",
-    "t r u y e n f u l l.": "",
-    "t r u y e n f u l l": "",
-    "/": " ",
-    "$": " đô",
-    "vnđ": "đồng",
-    "%": " phần trăm",
-    "&": " và ",
-    " = ": " bằng ",
-    " > ": " lớn hơn ",
-    " < ": " bé hơn ",
-    "chấm c.o.m":"",
-    "Noãn Tâm rơi vào vòng xoáy yêu, hận, dây dưa không dứt giữa thiên đàng và địa cùng Hoắc Thiên Kình": "",
-    "Minh Hoa Thường mơ thấy mình là thiên kim giả, liền nỗ lực lấy lòng huynh trưởng trên danh nghĩa của mình": "",
-    "Lâm Khê xuyên về 30 năm trước trong 1 tiểu viện ọp ẹp, bỗng dưng có thêm 1 người chồng, thân mặc quân trang, ánh mắt nhìn cô chứa sự ghét bỏ": "",
-    "Thứ trưởng nữ Ôn gia ác độc trèo được lên giường của Thái Tử, nhưng mà không ngờ được hắn càng ngủ càng hăng": "",
-    "TRUYỆN TRANH ĐANG HOT": "",
-    "Phế vật? Rác rưởi? Chỉ cần đi theo bản tọa, tất cả sẽ trở thành anh hùng thế gian!": "",
-    "Hắn xuyên qua và bước vào thế giới 10.000 năm sau, nhân loại diệt vong, võ học lên đến đỉnh cao, mà hắn là tia lửa duy nhất!": "",
-    "Một đại ma hoàng đầy thủ đoạn tàn độc, sẽ làm thế nào để khiến cho một gia tộc nhỏ bé trở mình thành một gia tộc đứng trên tất cả?": "",
-    "Thể chất bình thường? Thần thông khó luyện? Đốn ngộ liền xong việc!": "",
-    "bạn đang đọc truyện copy tại":"",
-    "bạn đang đọc chuyện tại":"",
-    "bạn đang đọc truyện tại":"",
-    "bạn đang xem tại":"",
-    "text được lấy tại":"",
-    "nguồn tại http://":"",
-    "nguồn http":"",
-    "bạn đang xem truyện được sao chép tại":"",
-    "đọc truyện online mới nhất ở":"",
-    "xem tại truyenfull.vn":"",
-    "nguồn truyenfull.vn":"",
-    "truyenfull.vn":"",
-    "truyện full":"",
-    "truyện được lấy tại":"",
-    "truyện được copy tại":"",
-    "truyện copy tại":"",
-    "--- o ---":"",
-    "-- o --":"",
-    "www.":"",
-    "www":"",
-    "'": "",
-    "nhóm dịch:":"",
-    "friendship":"",
-    "truyenyy.xyz":"",
-    "(conduongbachu.net là web chính chủ duy nhất của truyện...)":"",
-    "t. r. u. y. ệ. n. y.": "",
-    "t. r. u. y. ệ. n. y": "",
-    "t.r.u.y.ệ.n.y.": "",
-    "t.r.u.y.ệ.n.y": "",
-    "bạn đang đọc truyện copy tại": "",
-    "truyện đăng nhanh nhất và n miễn phí tại": "",
-    "truyện đăng nhanh nhất và miễn phí tại": "",
-    "bạn có thể đọc chương trên": "",
-    "truyện đăng nhanh nhất và  miễn phí tại": "",
-    "cập nhật chương mới sớm nhất tại website": "",
-    "truy cập ngay truyenqqq.com để ùng hộ nhóm dịch": "",
-    "truyen qqq để ủng hộ nhớm dịch": "",
-    "qq để ủng hộ nhớm dịch": "",
-    "tin tức về vương quốc webtoon": "",
-    "webtoon kingdom thỏ mới 468": "",
-    "webtoon kingdom thỏ mới": "",
-    "trang web có vấn đề phổ biến nhất webtoon kingdom": "",
-    "webtoon kingdom newto": "",
-    "truy cập ngày truyengo to.com để cập nhật các thông tin mới nhất về truyện": "",
-    "truy cập ngay truyengo to.com để cập nhật các thông tin mới nhất về truyện": "",
-    "web moon kingdom thỏ mới": "",
-    "trang web cung cấp webtoon nhanh nhất towangguk view rabbit 468": "",
-    "trang web cung cấp webtoon nhanh nhất towangguk view rabbit": "",
-    "trang web cung cấp webtoon nhanh nhất": "",
-    "trang web cung cấp webtoon nhanh": "",
-    "wtok3468.com hoặc": "",
-    "truy cập ngay truyenco": "",
-    "các thông tin mới nhất về truyện": "",
-    "trang web cung cấp toon mùa xuân nhanh nhất": "",
-    "toon kingdom thỏ mới 468": "",
-    "toon kingdom thỏ mới": "",
-    "trang web bói toán có thể webtoon kingdom new rabbit 468": "",
-    "trang web bói toán có thể webtoon kingdom new rabbit": "",
-    "truy cập ngay truyệng qto.com để cập nhật các thông tin mới nhất về truyện": "",
-    "truy cập ngay truyện qto.com để cập nhật các thông tin mới nhất về truyện": "",
-    "qto.com để cập nhật các thông tin mới nhất về truyện": "",
-    "nhà cung cấp webtoon nhanh nhất": "",
-    "có thể trang web hút webtoon kingdom new rabbit 468": "",
-    "có thể trang web hút webtoon kingdom new rabbit": "",
-    "trang web có vấn đề": "",
-    "webtoon kingdom new togae 468": "",
-    "webtoon kingdom new togae": "",
-    "trang web bói toán có thể": "",
-    "vương quốc webtoon ryu tokki": "",
-    "webtoon kingdom ryu tokki 468": "",
-    "webtoon kingdom ryu tokki": "",
-    "https. nertoktale cou": "",
-    "https. nertoktale": "",
-    "https.nertoktale": "",
-    "trang web việc làm nhanh nhất": "",
-    "trang web bói toán": "",
-    "webtoon kingdom vùng đất mới": "",
-    "truy cập ngay truyenq": "",
-    "vương quốc new rabbit 468": "",
-    "vương quốc new rabbit": "",
-    "to.com để cập nhật các thông tin mới nhất về truyện": "",
-    "truy cập ngay truyengo": "",
-    "trang web có nhiều vấn đề nhất": "",
-    "truy cập ngay": "",
-    "jun kingdom thỏ mới 468": "",
-    "jun kingdom thỏ mới": "",
-    "qq để ủng hộ nhóm dịch": "",
-    "ương quốc webtoon": "",
-    "trang web lớn": "",
-    "ttps. netoki": "",
-    "amentok1468": "",
-    "vua truyện tranh mới của webtoon 468": "",
-    "vua truyện tranh mới của webtoon": "",
-    "qt đ để cập nhật": "",
-    "vương quốc webtoon": "",
-    "trang web giao hàng tận nhà nhanh nhất": "",
-    "s kentokia68.co": "",
-    "truyeng qto để cập nhật": "",
-    "nttps. kiaar com": "",
-    "webtoon vương quốc thỏ 468": "",
-    "webtoon vương quốc thỏ": "",
-    "loki mới 468": "",
-    "loki mới": "",
-    "truyen go to để cập nhật": "",
-    "trang web xem bói đếm số": "",
-    "web moon kingdom 1468": "",
-    "web moon kingdom": "",
-    "trang web kiếm thuật nhanh nhất": "",
-    "văn bản gốc kingdom": "",
-    "trang web bói toán hút máu ảo,": "",
-    "trang web bói toán hút máu ảo": "",
-    "webtoon kingdom hai chú thỏ 468": "",
-    "webtoon kingdom hai chú thỏ": "",
-    "có thể trang web bói toán hút": "",
-    "trang web giải quyết vấn đề ngắn nhất": "",
-    "có thể trang web bói toán": "",
-    "ftps. newtoki 68.cov": "",
-    "để cập nhật các thông tin mới nhất": "",
-    "webtoon vua jinyu rabbit": "",
-    "trang web điện thoại có vấn đề nhanh nhất": "",
-    "moon kingdom thỏ mới 468": "",
-    "moon kingdom thỏ mới": "",
-    "có thể new rabbit 468": "",
-    "có thể new rabbit": "",
-    "truyện tranh vua thỏ 468": "",
-    "truyện tranh vua thỏ": "",
-    "trang web giải quyết vấn đề nhanh nhất": "",
-    "vua truyện tranh trên web": "",
-    "có thể trang web văn bản nhanh,": "",
-    "có thể trang web văn bản nhanh": "",
-    "vương quốc web thỏ mới 468": "",
-    "vương quốc web thỏ mới": "",
-    "trang web chính có thể": "",
-    "truy cập ngày truyen go to com để cập nhật": "",
-    "rất mong được giúp đỡ buyengqto.сом": "",
-    "truy cập ngày truyenqgto để cập nhật": "",
-    "trang web gari golden fortune": "",
-    "vương quốc lớn thỏ mới 468": "",
-    "vương quốc lớn thỏ mới": "",
-    "một trang web giải quyết các vấn đề về phụ âm,": "",
-    "một trang web giải quyết các vấn đề về phụ âm": "",
-    "địa điểm phổ biến nhất để kiểm tra và giao hàng,": "",
-    "địa điểm phổ biến nhất để kiểm tra và giao hàng": "",
-    "vua truyện tranh jinuyuromi468": "",
-    "s. nent x1468,com": "",
-    "truy cập ngày truyendoto com để cập nhật": "",
-    "trang web khắc chữ nhanh nhất": "",
-    "vương quốc ryutoki 468": "",
-    "vương quốc ryutoki": "",
-    "web sunguk new rabbit 468": "",
-    "web sunguk new rabbit": "",
-    "trang web xem bói nhanh nhất new rabbit 468": "",
-    "trang web xem bói nhanh nhất new rabbit": "",
-    "trang web xem bói nhanh nhất": "",
-    "được cung cấp bởi site": "",
-    "vua truyện tranh mới của webtoon 468": "",
-    "vua truyện tranh mới của webtoon": "",
-    "trang web nhanh nhất": "",
-    "trang web cung cấp webtoon được yêu thích": "",
-    "truy cập ngày truyện goto để cập nhật": "",
-    "truy cập ngày truyenggo to. còm để cập nhật": "",
-    "truyen qoto com để cập nhật": "",
-    "để cập truyen goto to com để cập n nhật": "",
-    "vương quốc thỏ đất 468": "",
-    "vương quốc thỏ đất": "",
-    "truyen goto để cập nhật": "",
-    "truy cập ngày truyengqto để cập nhật": "",
-    "qto để cập nhật": "",
-    "các trang web cung cấp webtoon khác": "",
-    "thỏ vương quốc thuần khiết 468": "",
-    "thỏ vương quốc thuần khiết": "",
-    "fff": "",
-    "fff": "",
-    "ntps.": "",
-    "tm": "",
-    "truyen qto": "",
-    "s. newkh com": "",
-    "ruyenqqto.co": "",
-    "ruyenqqto": "",
-    "krrrr.": "",
-    "s. new468.co": "",
-    "ftps. kimsr com": "",
-    "phổ biến nhất s.": "",
-    "tenok1468.": "",
-    "mentok1468 com": "",
-    "truyenqqq": "",
-    "https. newtoki468": "",
-    "https. nentokias": "",
-    "https.nentokias": "",
-    "nentokias": "",
-    "https.newtoki468": "",
-    "newtoki468": "",
-    "tuyenggo": "",
-    "webtoon kingdom": "",
-    "https. newtok1468": "",
-    "https.newtok1468": "",
-    "newtok1468": "",
-    "https. nento": "",
-    "https.nento": "",
-    "ftps. newtoki": "",
-    "https. newtorim": "",
-    "https. ewtok1468": "",
-    "https.newtorim": "",
-    "https. nentoka": "",
-    "https.nentoka": "",
-    "struyengoto": "",
-    "truyengoto": "",
-    "kentom 468": "",
-    "s nentoki68": "",
-    "tps. nemtok1468": "",
-    "nemtok1468": "",
-    "https newto": "",
-    "ewtok1468": "",
-    "autengoto": "",
-    "newto": "",
-    "nento": "",
-    "wtok3468": "",
-    "newtorim": "",
-    "nentoka": "",
-    "truyenoo": "",
-    "s trentokm88": "",
-    "new rabbit 468": "",
-    "new rabbit": "",
-    "s. netok1": "",
-    "s. netoki": "",
-    "s mentormse.con": "",
-    "thỏ quốc gia 468": "",
-    "thỏ quốc gia": "",
-    "trang web ảo": "",
-    "thỏ mới 468": "",
-    "thỏ mới": "",
-    "thỏ468": "",
-    "tin tức 468": "",
-    "truyenoto": "",
-    "thỏ mì 468": "",
-    "thỏ mì": "",
-    "truyencoto": "",
-    "truyendoto": "",
-    "tok1458": "",
-    "s. mentok1468.": "",
-    "s. tokiasr": "",
-    "s. mentokia68": "",
-    "s. ria": "",
-    "k1468.": "",
-    ".seongguk": "",
-    "s. ni 68": "",
-    "s. ni": "",
-    "s. n468 com": "",
-    "s. k1468 comi": "",
-    "s. k1468": "",
-    "s. k146r": "",
-    "s. com": "",
-    "s. neto": "",
-    "nutoki 468": "",
-    "nutoki": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "s. n con": "",
-    "s. nentsk": "",
-    "s. ktass cou": "",
-    "s 468 comi": "",
-    "s. mentok1": "",
-    "s newitoki 68": "",
-    "s newitoki": "",
-    "s. n458 ": "",
-    "ttps.": "",
-    "s. newfo1": "",
-    "comi": "",
-    "uyengoto": "",
-    ".comi": "",
-    "http": "",
-    "468.com": "",
-    "https.": "",
-    ".com": "",
-    "ftps.": "",
-    "tps.": "",
-    "s..co": "",
-    "s. 0": "",
-    "s. k3": "",
-    "s. n1": "",
-    "s. ki45": "",
-    "s. kias": "",
-    "s..": "",
-    "s.": "",
-}
 
 viet_tat = {
     " ID ": " ai đi ",
@@ -3909,7 +4013,7 @@ loi_chinh_ta = {
     "mascara": "mát ca ra",
     "shampoo": "sam pu",
     "skincare": "sờ kin ke",
-    "game": "gêm",
+    "game": "ghêm",
     "live stream": "lai sờ trim",
     "like": "lai",
     "comment": "còm men",
@@ -7052,7 +7156,7 @@ loi_chinh_ta = {
 }
 
 
-def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
+def cleaner_text(text, is_loi_chinh_ta=True, language='vi', is_conver_number=True):
     try:
         if not text:
             return None
@@ -7068,7 +7172,8 @@ def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
             if is_loi_chinh_ta:
                 for wrong, correct in loi_chinh_ta.items():
                     text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
-            text = number_to_vietnamese_with_units(text)
+            if is_conver_number:
+                text = number_to_vietnamese_with_units(text)
         elif language == 'en':
             text = text.lower()
             for word1, replacement1 in loai_bo_tieng_anh.items():
@@ -7076,7 +7181,8 @@ def cleaner_text(text, is_loi_chinh_ta=True, language='vi'):
                 text = text.replace(word1, replacement1)
             for word, replacement in special_word.items():
                 text = text.replace(word, replacement)
-            text = number_to_english_with_units(text)
+            if is_conver_number:
+                text = number_to_english_with_units(text)
         return text.strip()
     except:
         getlog()
@@ -7235,7 +7341,7 @@ def adjust_audio_speed(input_folder, output_folder, speed=0.98, volume_factor=1.
                 ]
                 
                 # Thực thi command
-                subprocess.run(ffmpeg_command)
+                run_command_ffmpeg(ffmpeg_command)
                 print(f"Đã xử lý: {file_name}")
                 
     except Exception as e:

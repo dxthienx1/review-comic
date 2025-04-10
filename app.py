@@ -277,10 +277,29 @@ class MainApp:
                                     for p_ele in list_contents:
                                         content = p_ele.text
                                         chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+
+                                    if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
+                                        first_content = chapter_content.strip()
+                                        file.write(f'{chapter_content.strip()}')
+                                        start_chapter += 1
+                                        cnt_err = 0
+                                    else:
+                                        if cnt_err < 2:
+                                            webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
+                                            sleep(2)
+                                            webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
+                                            print(f'Xác minh capcha')
+                                            sleep(5)
+                                            cnt_err += 1
+                                            continue
+                                        else:
+                                            print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                            break
                                     next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
                                     if next_chap_ele:
                                         next_chap_ele.click()
                                         sleep(3)
+                                        continue
                         elif 'https://truyenfull' in  base_url or 'https://truyenhoan' in base_url:
                             xpath = get_xpath('div', 'chapter-c', contain=True)
                             ele = get_element_by_xpath(driver, xpath)
@@ -295,6 +314,24 @@ class MainApp:
                                     lines = [line.strip() for line in liness if line.strip()]
                                     for content in lines:
                                         chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+
+                                    if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
+                                        first_content = chapter_content.strip()
+                                        file.write(f'{chapter_content.strip()}')
+                                        start_chapter += 1
+                                        cnt_err = 0
+                                    else:
+                                        if cnt_err < 2:
+                                            webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
+                                            sleep(2)
+                                            webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
+                                            print(f'Xác minh capcha')
+                                            sleep(5)
+                                            cnt_err += 1
+                                            continue
+                                        else:
+                                            print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                            break
                                 next_xpath = get_xpath_by_multi_attribute('a', ['id="next_chap"'])
                                 next_ele = get_element_by_xpath(driver, next_xpath)
                                 if next_ele:
@@ -304,23 +341,6 @@ class MainApp:
                                             driver.get(next_chap)
                                             sleep(3)
 
-                        if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
-                            first_content = chapter_content.strip()
-                            file.write(f'{chapter_content.strip()}')
-                            start_chapter += 1
-                            cnt_err = 0
-                        else:
-                            if cnt_err < 2:
-                                webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
-                                sleep(2)
-                                webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
-                                print(f'Xác minh capcha')
-                                sleep(5)
-                                cnt_err += 1
-                                continue
-                            else:
-                                print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
-                                break
         except:
             remove_file(txt_path)
             getlog()
@@ -347,28 +367,6 @@ class MainApp:
         try:
             lang = self.language_var.get().strip()
             def extract_text_from_images(chapter_folder, lang=lang):
-                # def click_copy_text():
-                #     try:
-                #         if self.en_language:
-                #             xpath = get_xpath_by_multi_attribute('button', ['aria-label="Copy text"'])
-                #         else:
-                #             xpath = get_xpath_by_multi_attribute('button', ['aria-label="Sao chép văn bản"'])
-                #         ele = get_element_by_xpath(self.driver, xpath, index=1)
-                #         if ele:
-                #             ele.click()
-                #             self.en_language = False
-                #         else:
-                #             if self.en_language:
-                #                 self.en_language = False
-                #                 xpath = get_xpath_by_multi_attribute('button', ['aria-label="Sao chép văn bản"'])
-                #             else:
-                #                 self.en_language = True
-                #                 xpath = get_xpath_by_multi_attribute('button', ['aria-label="Copy text"'])
-                #             ele = get_element_by_xpath(self.driver, xpath, index=1)
-                #             ele.click()
-                #             self.en_language = True
-                #     except:
-                #         self.is_stop_edit = True
 
                 def input_image_to_gg(image_path):
                     try:
@@ -389,7 +387,7 @@ class MainApp:
                 if lang == 'vi':
                     link = f'https://translate.google.com/?sl=en&tl={lang}&op=images'
                 else:
-                    link = f'https://translate.google.com/?sl=auto&tl={lang}&op=images'
+                    link = f'https://translate.google.com/?sl=vi&tl={lang}&op=images'
                 with open(file_path, 'w', encoding='utf-8') as file:
                     for filename in natsorted(os.listdir(chapter_folder)):
                         text = None
@@ -422,8 +420,8 @@ class MainApp:
                                     if not text_s:
                                         continue
                                     text = "\n".join(text_s)
-                                    text = cleaner_text(text, language=lang)
-                                    print(f'nội dung ảnh {filename} --> {text}')
+                                    # text = cleaner_text(text, language=lang, is_conver_number=False, is_loi_chinh_ta=False)
+                                    print(f'{thanhcong} nội dung ảnh {filename} --> {text}')
                                     file.write(f"{filename.split('.')[0]}\n{text.strip()}\n")
 
                                 except:
@@ -443,7 +441,7 @@ class MainApp:
             for chapter_folder in chapters_folder:
                 print(f'Bắt đầu xử lý ảnh chương {chapter_folder}')
                 chapter_folder = os.path.join(main_folder, chapter_folder)
-                extract_text_from_images(chapter_folder, lang='vi')
+                extract_text_from_images(chapter_folder, lang=lang)
                 if self.is_stop_edit:
                     break
         except:
@@ -775,12 +773,30 @@ class MainApp:
                         is_merge_videos = True
                         output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
                         print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
-                        # process_image_to_video_with_movement(img_path, output_audio_path, output_video_path)
+
+                        def is_static_image(path):
+                            return path.lower().endswith(('.jpg', '.jpeg', '.png'))
+
+                        def is_gif(path):
+                            return path.lower().endswith('.gif')
+
+                        def is_video(path):
+                            return path.lower().endswith(('.mp4', '.mov', '.mkv', '.avi'))
+
+                        if is_static_image(img_path):
+                            input_flags = ["-loop", "1", "-i", img_path]
+                        elif is_gif(img_path) or is_video(img_path):
+                            input_flags = ["-stream_loop", "-1", "-i", img_path]  # lặp vô hạn
+                        else:
+                            print("Định dạng không hỗ trợ.")
+                            return
+                        
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path ]
+                            command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
                         else:
-                            command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
+                            input_str = ' '.join(input_flags)
+                            command = f'ffmpeg -y {input_str} -i "{output_audio_path}" -c:v libx264 -pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_or_move_file(txt_path)
@@ -809,6 +825,159 @@ class MainApp:
         except:
             getlog()
             return False
+    # def export_text_story_to_video(self):
+    #     try:
+    #         start_time = time()
+    #         is_merge_videos = False
+    #         start_idx = self.start_idx_var.get().strip()
+    #         channel_name = self.channel_name_var.get().strip()
+    #         language = self.language_var.get().strip()
+    #         model_path = os.path.join(current_dir, "models", "last_version_en")
+    #         end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
+    #         first_text = f"welcome to {channel_name}, please leave a like and subscribe to support me!"
+    #         if language == 'vi':
+    #             end_text = f"Bạn đang nghe truyện tại {channel_name}, hãy like và đăng ký kênh để giúp mình có thêm động lực ra nhiều truyện hay nhé."
+    #             first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các truyện dịch bản thu phí trên các trang web đọc truyện online, hãy giúp mình để lại một like và một đăng ký nhé."
+    #             model_path = os.path.join(current_dir, "models", "last_version_vi")  
+    #         xtts_config_path = os.path.join(model_path, "config.json")
+
+    #         speed_talk = self.speed_talk_var.get().strip()
+    #         if speed_talk:
+    #             try:
+    #                 speed_talk = float(speed_talk)
+    #             except:
+    #                 speed_talk = 1.0
+    #         speaker_wav = get_ref_speaker_by_language(language)
+    #         if not speaker_wav:
+    #             return
+            
+    #         is_merge = self.is_merge_var.get().strip() == "Yes"
+    #         output_folder = self.output_folder_var.get().strip()
+    #         folder_story = self.videos_edit_folder_var.get().strip()
+    #         if not check_folder(folder_story):
+    #             print(f"Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
+    #             return False
+    #         if not check_folder(output_folder):
+    #             print(f"Thư mục {output_folder} không hợp lệ hoặc không tồn tại.")
+    #             return False
+    #         self.config["language_tts"] = language
+    #         self.config["speed_talk"] = str(speed_talk)
+    #         self.config["current_channel"] = channel_name
+    #         self.config["output_folder"] = output_folder
+    #         self.config["folder_story"] = folder_story
+    #         if channel_name not in self.config["channels"]:
+    #             self.config["channels"].append(channel_name)
+    #         self.save_config()
+    #         txt_files = get_file_in_folder_by_type(folder_story, file_type='.txt') or []
+    #         if len(txt_files) == 0:
+    #             print(f'Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
+    #             return False
+
+    #         images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
+    #         if len(images) == 0:
+    #             print("Phải có ít nhất 1 ảnh để ghép vào video")
+    #             return False
+    #         temp_output_folder = os.path.join(folder_story, 'temp_output')
+    #         os.makedirs(temp_output_folder, exist_ok=True)
+    #         current_image = os.path.join(folder_story, images[0])
+    #         file_name = ""
+    #         start_idx = int(start_idx) if start_idx.isdigit() else None
+    #         num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+            
+    #         tts_list = []
+    #         device = f"cuda:0" 
+    #         if num_gpus == 0:
+    #             device = 'cpu'
+    #         if start_idx is not None:
+    #             tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+
+    #         print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
+
+    #         for i, txt_file in enumerate(txt_files):
+    #             one_file_start_time = time()
+    #             print(f'  --->  Bắt đầu chuyển text sang audio: {txt_file}')
+    #             t = time()
+    #             file_name = txt_file.replace('.txt', '')
+    #             txt_path = os.path.join(folder_story, txt_file)
+
+    #             if speed_talk == 1.0:
+    #                 temp_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
+    #             else:
+    #                 temp_audio_path = os.path.join(temp_output_folder, f'origin_{file_name}.wav')
+
+    #             img_path = os.path.join(folder_story, f'{file_name}.png')
+    #             if os.path.exists(img_path):
+    #                 current_image = img_path
+    #             else:
+    #                 img_path = current_image
+    #             cnt_err = 0
+    #             if start_idx is not None:
+    #                 if len(tts_list) == 0:
+    #                     tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+    #                 if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text):
+    #                     if not self.stop_audio_file:
+    #                         return False
+    #                     self.config['stop_audio_file'] = self.stop_audio_file
+    #                     self.save_config()
+    #                     cnt_err += 1
+    #                     sleep(30)
+    #                     tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
+    #                     if cnt_err > 1:
+    #                         print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
+    #                         return False
+    #                     file_name_err = self.stop_audio_file.replace('.wav', '')
+    #                     start_idx = int(file_name_err.split('_')[-1])
+    #                     print(f'Bắt đầu lại với file audio thứ {start_idx}')
+    #                     self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx)
+    #             start_idx = 0
+    #             if speed_talk == 1.0:
+    #                 output_audio_path = temp_audio_path
+    #             else:
+    #                 output_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
+    #                 if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
+    #                     output_audio_path = temp_audio_path
+    #                 else:
+    #                     remove_file(temp_audio_path)
+
+    #             if os.path.exists(output_audio_path):
+    #                 print(f'{thanhcong} Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
+    #                 if img_path and os.path.exists(img_path):
+    #                     is_merge_videos = True
+    #                     output_video_path = os.path.join(output_folder, f'{file_name}.mp4')
+    #                     print("Đang ghép ảnh và audio thành video. Hãy đợi đến khi có thông báo hoàn thành ...")
+    #                     if torch.cuda.is_available():
+    #                         print("---> Dùng GPU để xuất video...")
+    #                         command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path ]
+    #                     else:
+    #                         command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
+    #                     if run_command_ffmpeg(command, False):
+    #                         print(f'{thanhcong} Xuất video thành công: {output_video_path}')
+    #                         remove_or_move_file(txt_path)
+    #                         remove_file(output_audio_path)
+    #                         print(f'Tổng thời gian xử lý file {txt_file} là {time() - one_file_start_time}s')
+    #                         if self.is_stop_export_next_video:
+    #                             print(f'  --> Đã dừng xuất video !!!')
+    #                             return True
+
+    #             else:
+    #                 print(f'{thatbai} xuất file {txt_path} sang audio không thành công ---> Dừng chương trình !!!')
+    #                 return False
+
+    #         if is_merge:
+    #             export_file_name = f"{txt_files[0].replace('.txt', '')} - {txt_files[-1].replace('.txt', '')}"
+    #             if is_merge_videos:
+    #                 merge_videos_use_ffmpeg(output_folder, export_file_name, hide=False)
+    #                 print("  -->  Xuất video hoàn tất.")
+    #             else:
+    #                 merge_audio_use_ffmpeg(output_folder, export_file_name)
+    #                 print("  -->  Xuất audio hoàn tất.")
+
+    #         print(f'Tổng thời gian xử lý: {time() - start_time}s')
+    #         self.stop_audio_file = None
+    #         return True
+    #     except:
+    #         getlog()
+    #         return False
 
     def export_comic_video_from_subtitles(self):
         try:
@@ -839,7 +1008,7 @@ class MainApp:
 
             self.xtts = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
             for chapter_folder in chapters_folder:
-                print(f'Bắt đầu xử lý ảnh chương {chapter_folder}')
+                print(f'Bắt đầu xử lý --> {chapter_folder} ...')
                 chapter_folder = os.path.join(main_folder, chapter_folder)
                 self.processing_subtitle_file_and_export_video(chapter_folder, language=language, end_text=end_text, speed_talk=speed_talk, main_file_path=main_txt_path)
                 if self.is_stop_edit:
@@ -847,7 +1016,7 @@ class MainApp:
             self.xtts = None
         except:
             getlog()
-            print("Có lỗi trong quá trình xử lý các file phụ đề")
+            print(f"{thatbai} Có lỗi trong quá trình xử lý các file phụ đề")
             self.xtts = None
 
     def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=1.0, end_text=None, main_file_path=None, min_lenth_text=30, max_lenth_text=250):
@@ -856,112 +1025,226 @@ class MainApp:
             subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
             temp_folder = os.path.join(chapter_folder, 'temp_folder')
             os.makedirs(temp_folder, exist_ok=True)
+
             with open(subtitle_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
 
             cnt, idx = 0, 0
-            max_height = 1080
+            max_height = 1100
             type_image = 'png'
             first_image_path = None
+            entries = []  # Lưu danh sách các entry ảnh + nội dung
+
+            current_image_name = None
             total_content = ""
-            result_content = {}
 
             while idx < len(lines):
-                if lines[idx].strip().isdigit():  # Bắt đầu một ảnh mới
-                    if total_content and len(total_content) >= min_lenth_text:  # Nếu có nội dung trước đó, lưu lại
-                        result_content[image_name] = total_content
+                line = lines[idx].strip()
+                if line.isdigit():  # Bắt đầu một ảnh mới
+                    if current_image_name and total_content.strip():
+                        entries.append((current_image_name, total_content.strip()))
                         total_content = ""
 
-                    
-                    # Khởi tạo cho ảnh mới
-                    
-                    image_name = f"{lines[idx].strip()}.{type_image}"
+                    image_number = line
+                    image_name = f"{image_number}.{type_image}"
                     image_path = os.path.join(chapter_folder, image_name)
 
                     if not os.path.exists(image_path):
                         type_image = 'jpg'
-                        image_name = f"{lines[idx].strip()}.{type_image}"
+                        image_name = f"{image_number}.{type_image}"
                         image_path = os.path.join(chapter_folder, image_name)
+
                         if not os.path.exists(image_path):
                             if first_image_path:
                                 image_path = first_image_path
 
                     if not image_path or not os.path.exists(image_path):
-                        print(f'Không tìm thấy ảnh {image_name} trong thư mục {chapter_folder}')
+                        print(f'{thatbai} Không tìm thấy ảnh {image_name} trong thư mục {chapter_folder}')
                         return
 
+                    current_image_name = image_name
                     first_image_path = image_path
                     idx += 1
                 else:
-                    # Thêm nội dung vào total_content
-                    content = lines[idx].strip()
-                    content = cleaner_text(content, language=language)
+                    content = cleaner_text(line, language=language)
+                    if not content:
+                        idx += 1
+                        continue
                     if content.endswith(' .'):
                         content = f"{content[:-2]}."
-                    elif not content.endswith('.') and not content.endswith(','):  # Đảm bảo nội dung kết thúc bằng dấu chấm
+                    elif not content.endswith('.') and not content.endswith(','):
                         content += ','
-                    
-                    total_content += f" {content}"  # Gộp nội dung, cách nhau bởi dấu cách
+                    total_content += f" {content}"
                     idx += 1
-            if total_content:
+
+            if current_image_name and total_content.strip():
                 if not total_content.endswith('.') and not total_content.endswith(','):
-                    total_content = total_content + "."
-                if len(total_content) < min_lenth_text:
+                    total_content += '.'
+                if len(total_content) < min_lenth_text and end_text:
                     total_content += f" {end_text}"
-                result_content[image_name] = total_content
-                
-            if result_content:
-                cnt = 0
-                for key in result_content.keys():
-                    image_name = key
-                    image_path = os.path.join(chapter_folder, f"{image_name}")
-                    content = result_content[key]
-                    content = cleaner_text(content, language=language)
+                entries.append((current_image_name, total_content.strip()))
 
-                    
-                    if len(content) > max_lenth_text:
-                        contents = split_text_into_chunks(content, max_lenth_text)
+            cnt = 0
+            for image_name, content in entries:
+                content = cleaner_text(content, language=language)
+
+                if len(content) > max_lenth_text:
+                    contents = split_text_into_chunks(content, max_lenth_text)
+                else:
+                    contents = [content]
+
+                image_path = os.path.join(chapter_folder, image_name)
+
+                for text in contents:
+                    audio_path = os.path.join(temp_folder, f"{cnt}.wav")
+                    if text.endswith(','):
+                        text = f"{text[:-1]}."
+
+                    if not text_to_audio_with_xtts(self.xtts, text, audio_path, language):
+                        print(f"{thatbai} Không thể TTS: {text}")
+                        return
+
+                    if speed_talk != 1.0:
+                        speed_audio_path = os.path.join(temp_folder, f"{cnt}_speed.wav")
+                        if change_audio_speed(audio_path, speed_audio_path, speed_talk):
+                            if os.path.exists(speed_audio_path):
+                                remove_file(audio_path)
+                                audio_path = speed_audio_path
+
+                    img, image_height, image_width = get_image_size_by_cv2(image_path)
+                    if image_height < max_height:
+                        scale_factor = max_height / image_height
+                        new_width = int(image_width * scale_factor)
+                        resized_image_path = os.path.join(temp_folder, f"{cnt}_resized.png")
+                        resize_command = ['ffmpeg', '-y', '-i', image_path, '-vf', f"scale={new_width}:{max_height}", resized_image_path]
+                        run_command_ffmpeg(resize_command, True)
+                        image_path = resized_image_path
+
+                    video_path = f"{temp_folder}/video_{cnt}.mp4"
+                    if process_image_to_video_with_movement(image_path, audio_path, video_path, hide=True):
+                        print(f"{thanhcong} Xuất thành công video {video_path}")
                     else:
-                        contents = [content]
-                    for text in contents:
-                        audio_path = os.path.join(temp_folder, f"{cnt}.wav")
-                        if text.endswith(','):
-                            text = f"{text[:-1]}."
-                        if not text_to_audio_with_xtts(self.xtts, text, audio_path, language):
-                            print(f"{thatbai} Không thể TTS: {text}")
-                            return
+                        print(f"{thatbai} có lỗi trong quá trình xuất video {video_path}")
+                        return
+                    cnt += 1
 
-                        if speed_talk != 1.0:
-                            speed_audio_path = os.path.join(temp_folder, f"{cnt}_speed.wav")
-                            if change_audio_speed(audio_path, speed_audio_path, speed_talk):
-                                if os.path.exists(speed_audio_path):
-                                    remove_file(audio_path)
-                                    audio_path = speed_audio_path
-                        # Kiểm tra kích thước ảnh
-                        img = cv2.imread(image_path)
-                        image_height, image_width = img.shape[:2]
-                        # Nếu chiều cao ảnh nhỏ hơn chiều cao tối đa, phóng to ảnh
-                        if image_height < max_height:
-                            scale_factor = max_height / image_height
-                            new_width = int(image_width * scale_factor)
-                            resized_image_path = os.path.join(temp_folder, f"{cnt}_resized.png")  # Đường dẫn ảnh mới
-                            resize_command = [ 'ffmpeg', '-y', '-i', image_path, '-vf', f"scale={new_width}:{max_height}", resized_image_path ]
-                            run_command_ffmpeg(resize_command, True)
-                            image_path = resized_image_path
-                        
-                        video_path =  f"{temp_folder}/video_{cnt}.mp4"
-                        if process_image_to_video_with_movement(image_path, audio_path, video_path, hide=True):
-                            print(f"{thanhcong} Xuất thành công video {video_path}")
-                        else:
-                            print(f"{thatbai} có lỗi trong quá trình xuất video {video_path}")
-                            return
-                        cnt += 1
-                
             merge_videos_use_ffmpeg(temp_folder, file_name, hide=False)
-            with open(main_file_path, 'w') as main_file:
+            with open(main_file_path, 'w', encoding='utf-8') as main_file:
                 main_file.write(f"file '{video_path}'\n")
+
         except:
             getlog()
+    # def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=1.0, end_text=None, main_file_path=None, min_lenth_text=30, max_lenth_text=250):
+    #     try:
+    #         file_name = os.path.basename(os.path.normpath(chapter_folder))
+    #         subtitle_path = os.path.join(chapter_folder, f'{file_name}.txt')
+    #         temp_folder = os.path.join(chapter_folder, 'temp_folder')
+    #         os.makedirs(temp_folder, exist_ok=True)
+    #         with open(subtitle_path, 'r', encoding='utf-8') as f:
+    #             lines = f.readlines()
+
+    #         cnt, idx = 0, 0
+    #         max_height = 1100
+    #         type_image = 'png'
+    #         first_image_path = None
+    #         total_content = ""
+    #         result_content = {}
+
+    #         while idx < len(lines):
+    #             if lines[idx].strip().isdigit():  # Bắt đầu một ảnh mới
+    #                 if total_content and len(total_content) >= min_lenth_text:  # Nếu có nội dung trước đó, lưu lại
+    #                     result_content[image_name] = total_content
+    #                     total_content = ""
+
+    #                 image_name = f"{lines[idx].strip()}.{type_image}"
+    #                 image_path = os.path.join(chapter_folder, image_name)
+
+    #                 if not os.path.exists(image_path):
+    #                     type_image = 'jpg'
+    #                     image_name = f"{lines[idx].strip()}.{type_image}"
+    #                     image_path = os.path.join(chapter_folder, image_name)
+    #                     if not os.path.exists(image_path):
+    #                         if first_image_path:
+    #                             image_path = first_image_path
+
+    #                 if not image_path or not os.path.exists(image_path):
+    #                     print(f'{thatbai} Không tìm thấy ảnh {image_name} trong thư mục {chapter_folder}')
+    #                     return
+
+    #                 first_image_path = image_path
+    #                 idx += 1
+    #             else:
+    #                 # Thêm nội dung vào total_content
+    #                 content = lines[idx].strip()
+    #                 content = cleaner_text(content, language=language)
+    #                 if not content:
+    #                     idx += 1
+    #                     continue
+    #                 if content.endswith(' .'):
+    #                     content = f"{content[:-2]}."
+    #                 elif not content.endswith('.') and not content.endswith(','):  # Đảm bảo nội dung kết thúc bằng dấu chấm
+    #                     content += ','
+                    
+    #                 total_content += f" {content}"  # Gộp nội dung, cách nhau bởi dấu cách
+    #                 idx += 1
+    #         if total_content:
+    #             if not total_content.endswith('.') and not total_content.endswith(','):
+    #                 total_content = total_content + "."
+    #             if len(total_content) < min_lenth_text:
+    #                 total_content += f" {end_text}"
+    #             result_content[image_name] = total_content
+    #         if end_text:
+    #             result_content[image_name] = end_text
+            
+    #         if result_content:
+    #             cnt = 0
+    #             for key in result_content.keys():
+    #                 image_name = key
+    #                 image_path = os.path.join(chapter_folder, f"{image_name}")
+    #                 content = result_content[key]
+    #                 content = cleaner_text(content, language=language)
+                    
+    #                 if len(content) > max_lenth_text:
+    #                     contents = split_text_into_chunks(content, max_lenth_text)
+    #                 else:
+    #                     contents = [content]
+    #                 for text in contents:
+    #                     audio_path = os.path.join(temp_folder, f"{cnt}.wav")
+    #                     if text.endswith(','):
+    #                         text = f"{text[:-1]}."
+    #                     if not text_to_audio_with_xtts(self.xtts, text, audio_path, language):
+    #                         print(f"{thatbai} Không thể TTS: {text}")
+    #                         return
+
+    #                     if speed_talk != 1.0:
+    #                         speed_audio_path = os.path.join(temp_folder, f"{cnt}_speed.wav")
+    #                         if change_audio_speed(audio_path, speed_audio_path, speed_talk):
+    #                             if os.path.exists(speed_audio_path):
+    #                                 remove_file(audio_path)
+    #                                 audio_path = speed_audio_path
+    #                     # Kiểm tra kích thước ảnh
+    #                     img, image_height, image_width = get_image_size_by_cv2(image_path)
+    #                     if image_height < max_height:
+    #                         scale_factor = max_height / image_height
+    #                         new_width = int(image_width * scale_factor)
+    #                         resized_image_path = os.path.join(temp_folder, f"{cnt}_resized.png")  # Đường dẫn ảnh mới
+    #                         resize_command = [ 'ffmpeg', '-y', '-i', image_path, '-vf', f"scale={new_width}:{max_height}", resized_image_path ]
+    #                         run_command_ffmpeg(resize_command, True)
+    #                         image_path = resized_image_path
+                        
+    #                     video_path =  f"{temp_folder}/video_{cnt}.mp4"
+    #                     if process_image_to_video_with_movement(image_path, audio_path, video_path, hide=True):
+    #                         print(f"{thanhcong} Xuất thành công video {video_path}")
+    #                     else:
+    #                         print(f"{thatbai} có lỗi trong quá trình xuất video {video_path}")
+    #                         return
+    #                     cnt += 1
+                
+    #         merge_videos_use_ffmpeg(temp_folder, file_name, hide=False)
+    #         with open(main_file_path, 'w') as main_file:
+    #             main_file.write(f"file '{video_path}'\n")
+    #     except:
+    #         getlog()
 
     def open_download_image_window(self):
         def start_thread_download_image_from_truyenqqto():
@@ -989,10 +1272,15 @@ class MainApp:
             if not check_folder(main_folder):
                 return
             chapter_url = self.download_image_from_truyenqqto_var.get()
-            try:
-                current_chapters = self.chapters_var.get().strip().split(',') or []
-            except:
-                current_chapters = []
+            current_chapter = self.chapters_var.get().strip()
+            if '<idx>' in chapter_url:
+                current_chapters = current_chapter.split('-') if '-' in current_chapter else []
+                if not current_chapters:
+                    print(f"Hãy nhập chương muốn tải. Ví dụ: 1-20 (chương 1 đến chương 20)")
+                    return
+            else:
+                current_chapters = current_chapter.split(',') if ',' in current_chapter else []
+
 
             if not chapter_url:
                 self.noti("Hãy nhập link truyện muốn tải trước.")
@@ -1038,40 +1326,58 @@ class MainApp:
                     click_view_more()
                     return get_element_by_text(driver, "Chapter ", tag_name="a", multiple=True, not_contain_attribute='title')
             
-            def get_all_image_of_chapter(folder):
-                xpath = '//div[@class="page-chapter"]//img'
-                eles = get_element_by_xpath(driver, xpath, multiple=True)
+            def get_all_image_of_chapter(folder, link=None, session=None):
+                if not link:
+                    print("Không tìm thấy link tải truyện.")
+                    return
+                if not session:
+                    return
+                self.driver.get(link)
+                sleep(4)
+                if 'asura' in chapter_url:
+                    xpath = "//img[contains(@alt, 'chapter page')]"
+                    eles = get_element_by_xpath(self.driver, xpath, multiple=True)
+                elif 'manhuafast' in chapter_url:
+                    xpath = "//img[substring(@src, string-length(@src) - 3) = '.jpg']"
+                    eles = get_element_by_xpath(self.driver, xpath, multiple=True)
+                else:
+                    xpath = '//div[@class="page-chapter"]//img'
+                    eles = get_element_by_xpath(self.driver, xpath, multiple=True)
                 if eles:
-                    headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-                    }
-                    if 'truyenqqto.com' in chapter_url:
-                        headers['referer'] = 'https://truyenqqto.com/'
                     idx = 0
-                    with requests.Session() as session:
-                        session.headers.update(headers)  # Cập nhật headers dùng chung cho mọi request
-                        for ele in eles:
-                            link_image = ele.get_attribute('src')
-                            # Bỏ qua các liên kết không hợp lệ
-                            if 'imgur' in link_image or 'data:image' in link_image or '/tmp/' in link_image:
-                                continue
-                            idx += 1
-                            image_name = f'{idx}.jpg'
-                            img_path = os.path.join(folder, image_name)
-                            try:
-                                response = session.get(link_image, timeout=10)
-                                if response.status_code == 200:
-                                    with open(img_path, 'wb') as file:
-                                        file.write(response.content)
-                                    print(f'{thanhcong} Tải ảnh thành công: {image_name}')
-                                else:
-                                    print(f"{thatbai} Tải ảnh không thành công (status {response.status_code}) --> {image_name}")
-                            except:
-                                getlog()
+
+                    for ele in eles:
+                        link_image = ele.get_attribute('src')
+                        # Bỏ qua các liên kết không hợp lệ
+                        if 'imgur' in link_image or 'data:image' in link_image or '/tmp/' in link_image:
+                            continue
+                        idx += 1
+                        image_name = f'{idx}.jpg'
+                        img_path = os.path.join(folder, image_name)
+                        try:
+                            response = session.get(link_image, timeout=10)
+                            if response.status_code == 200:
+                                with open(img_path, 'wb') as file:
+                                    file.write(response.content)
+                                print(f'{thanhcong} Tải ảnh thành công: {image_name}')
+                            else:
+                                print(f"{thatbai} Tải ảnh không thành công (status {response.status_code}) --> {image_name}")
+                        except:
+                            getlog()
 
             list_linkes = []
             end_link = chapter_url.split('/')[-1].strip()
-            if end_link.startswith('chapter-') or end_link.endswith('.html'):
+            if '<idx>' in chapter_url:
+                try:
+                    start_chap = int(current_chapters[0])
+                    end_chap = int(current_chapters[1])
+                except:
+                    print(f"Số chương tải không hợp lệ, định dạng 1-20")
+                    return
+                for current_chap in range(start_chap, end_chap+1):
+                    link = chapter_url.replace('<idx>', str(current_chap))
+                    list_linkes.append(link)
+            elif end_link.startswith('chapter-') or end_link.endswith('.html'):
                 list_linkes.append(chapter_url)
             else:
                 link_chapters_ele = get_list_chapter()
@@ -1090,20 +1396,29 @@ class MainApp:
                         list_linkes.append(link)
 
             if len(list_linkes) > 0:
-                merge_img_folder = os.path.join(main_folder, "merge_img_folder")
-                os.makedirs(merge_img_folder, exist_ok=True)
-                for idx, link in enumerate(list_linkes):
-                    name = link.split('-')[-1].strip() or idx
-                    if '.' in name:
-                        name = name.split('.')[0].strip()
-                    print(f' --> Bắt đầu tải chương {name}')
-                    folder = os.path.join(main_folder, f'chuong {name}')
-                    os.makedirs(folder, exist_ok=True)
-                    driver.get(link)
-                    sleep(4)
-                    get_all_image_of_chapter(folder)
-                    output_folder = os.path.join(merge_img_folder, f'chuong {name}')
-                    merge_images(folder, output_folder)
+                # merge_img_folder = os.path.join(main_folder, "merge_img_folder")
+                # os.makedirs(merge_img_folder, exist_ok=True)
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+                }
+                if 'truyenqqto.com' in chapter_url:
+                    headers['referer'] = 'https://truyenqqto.com/'
+                with requests.Session() as session:
+                    session.headers.update(headers)  # Cập nhật headers dùng chung cho mọi request
+                    for idx, link in enumerate(list_linkes):
+                        name = link.split('-')[-1].strip() or idx
+                        if 'asura' in link:
+                            name = link.split('/')[-1].strip() or idx
+                        elif 'manhuafast' in link:
+                            name = name.replace('/', '')
+                        elif '.' in name:
+                            name = name.split('.')[0].strip()
+                        print(f' --> Bắt đầu tải chương {name}')
+                        folder = os.path.join(main_folder, f'chuong {name}')
+                        os.makedirs(folder, exist_ok=True)
+                        get_all_image_of_chapter(folder, link, session)
+                        # output_folder = os.path.join(merge_img_folder, f'chuong {name}')
+                        # merge_images(folder, output_folder)
 
             self.close_driver()
         except:
