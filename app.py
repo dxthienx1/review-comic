@@ -700,11 +700,14 @@ class MainApp:
             if len(txt_files) == 0:
                 print(f'Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
                 return False
-
-            images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
+            is_mp4 = True
+            images = get_file_in_folder_by_type(folder_story, file_type='.mp4', noti=False) or []
             if len(images) == 0:
-                print("Phải có ít nhất 1 ảnh để ghép vào video")
-                return False
+                images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
+                if len(images) == 0:
+                    print("Phải có ít nhất 1 ảnh (.png) để ghép vào video")
+                    return False
+                is_mp4 = False
             temp_output_folder = os.path.join(folder_story, 'temp_output')
             os.makedirs(temp_output_folder, exist_ok=True)
             current_image = os.path.join(folder_story, images[0])
@@ -732,8 +735,10 @@ class MainApp:
                     temp_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
                 else:
                     temp_audio_path = os.path.join(temp_output_folder, f'origin_{file_name}.wav')
-
-                img_path = os.path.join(folder_story, f'{file_name}.png')
+                if is_mp4:
+                    img_path = os.path.join(folder_story, f'{file_name}.mp4')
+                else:
+                    img_path = os.path.join(folder_story, f'{file_name}.png')
                 if os.path.exists(img_path):
                     current_image = img_path
                 else:
