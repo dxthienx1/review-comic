@@ -48,6 +48,8 @@ import zipfile
 import mouse
 import pyautogui
 import numpy as np
+from itertools import groupby
+from operator import itemgetter
 
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
@@ -1211,7 +1213,10 @@ def get_file_in_folder_by_type(folder, file_type=".mp4", start_with=None, is_sor
             return None
         list_items = os.listdir(folder)
         if "." not in file_type:
-            list_dirs = [d for d in list_items if os.path.isdir(os.path.join(folder, d)) and d.lower().startswith(file_type)]
+            if start_with:
+                list_dirs = [d for d in list_items if os.path.isdir(os.path.join(folder, d)) and d.lower().startswith(start_with)]
+            else:
+                list_dirs = [d for d in list_items if os.path.isdir(os.path.join(folder, d))]
             if len(list_dirs) == 0:
                 if noti:
                     print(f"Không tìm thấy thư mục bắt đầu với '{start_with}' trong {folder} !!!")
@@ -1949,7 +1954,7 @@ def text_to_audio_with_xtts(xtts, text, output_path, language="vi", speed_talk=1
         if not xtts:
             return False
         speaker_wav = get_ref_speaker_by_language(language)
-        text = cleaner_text(text)
+        text = cleaner_text(text, language=language)
         xtts.tts_to_file(text=text, speaker_wav=speaker_wav, language=language, speed=speed_talk, file_path=output_path, split_sentences=split_sentences)
         return True
     except:
@@ -1969,10 +1974,180 @@ def change_audio_speed(input_audio, output_audio, speed=1.0, hide=True):
             print(f"Không thể tăng tốc audio {input_audio} với tốc độ {speed}")
     return False
 
-
-def merge_images(image_folder, output_folder=None, max_height="1800"):
+def split_images(image_folder=None, chapter_folder=None, output_folder=None, min_space_height=70, threshold_value=230):
     try:
-        max_height = int(max_height) if max_height.isdigit() else 1800
+        if not output_folder or not os.path.isdir(output_folder):
+            output_folder = os.path.join(image_folder, 'split_images')
+        os.makedirs(output_folder, exist_ok=True)
+
+        image_paths = []
+        if image_folder:
+            images = get_file_in_folder_by_type(image_folder, '.jpg', noti=False) or []
+            if not images:
+                images = get_file_in_folder_by_type(image_folder, '.png', noti=False) or []
+            if not images:
+                print(f'{thatbai} Không tìm thấy ảnh trong thư mục {image_folder}')
+                return
+            for img in images:
+                image_path = os.path.join(image_folder, img)
+                image_paths.append(image_path)
+        elif chapter_folder:
+            image_folders = get_file_in_folder_by_type(chapter_folder, file_type='', start_with='chuong') or None
+            if not image_folders:
+                print(f'{thatbai} Không tìm thấy thư mục nào bắt đầu bằng "chuong" trong thư mục {chapter_folder}')
+                return
+            for image_folder in image_folders:
+                image_folder = os.path.join(chapter_folder, image_folder)
+                images = get_file_in_folder_by_type(image_folder, '.jpg', noti=False) or []
+                if not images:
+                    images = get_file_in_folder_by_type(image_folder, '.png', noti=False) or []
+                if not images:
+                    print(f'{thatbai} Không tìm thấy ảnh trong thư mục {image_folder}')
+                    return
+                for img in images:
+                    image_path = os.path.join(image_folder, img)
+                    image_paths.append(image_path)
+        else:
+            print(f'{thatbai} Phải chọn thư mục chứa chương truyện hoặc chứa ảnh')
+            return
+
+        def find_blocks(gray_img, condition_fn, min_height):
+            """Tìm các block (vùng liên tiếp) thỏa điều kiện dòng."""
+            row_avg = np.mean(gray_img, axis=1)
+            lines = np.where(condition_fn(row_avg))[0]
+            blocks = []
+            for k, g in groupby(enumerate(lines), lambda ix: ix[0] - ix[1]):
+                block = list(map(itemgetter(1), g))
+                if len(block) >= min_height:
+                    blocks.append((block[0], block[-1]))
+            return blocks
+
+        for image_path in image_paths:
+            img = cv2.imread(image_path)
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img_height = img.shape[0]
+            prev_cut = 0
+            count = 1
+
+            # Ưu tiên cắt theo vùng trắng (dòng rất sáng)
+            white_blocks = find_blocks(gray, lambda row: row > 245, min_space_height)
+
+            if white_blocks:
+                print(f"🟨 Cắt theo vùng trắng: {os.path.basename(image_path)}")
+                for top, bottom in white_blocks:
+                    middle = (top + bottom) // 2
+                    if middle - prev_cut > 200:
+                        crop = img[prev_cut:middle, :]
+                        out_path = get_next_filename('1', output_folder, 'jpg')
+                        cv2.imwrite(out_path, crop)
+                        print(f"✅ Đã lưu: {out_path}")
+                        count += 1
+                        prev_cut = middle
+            else:
+                # Nếu không có vùng trắng, cắt theo vùng đen (dòng tối)
+                print(f"⬛ Cắt theo vùng đen: {os.path.basename(image_path)}")
+                black_blocks = find_blocks(gray, lambda row: row < 40, min_space_height)
+                for top, bottom in black_blocks:
+                    middle = (top + bottom) // 2
+                    if middle - prev_cut > 200:
+                        crop = img[prev_cut:middle, :]
+                        out_path = get_next_filename('1', output_folder, 'jpg')
+                        cv2.imwrite(out_path, crop)
+                        print(f"✅ Đã lưu: {out_path}")
+                        count += 1
+                        prev_cut = middle
+
+            # Cắt phần còn lại nếu vẫn còn dư phía dưới
+            if img_height - prev_cut > 200:
+                crop = img[prev_cut:, :]
+                out_path = get_next_filename('1', output_folder, 'jpg')
+                cv2.imwrite(out_path, crop)
+                print(f"✅ Đã lưu: {out_path}")
+
+        print(f"{tot} Hoàn tất cắt ảnh.")
+    except Exception as e:
+        getlog()
+# def split_images(image_folder=None, chapter_folder=None, output_folder=None, min_space_height=80, threshold_value=230):
+#     try:
+#         if not output_folder or not os.path.isdir(output_folder):
+#             output_folder = os.path.join(image_folder, 'split_images')
+#         os.makedirs(output_folder, exist_ok=True)
+#         image_paths = []
+#         if image_folder:
+#             images = get_file_in_folder_by_type(image_folder, '.jpg', noti=False) or []
+#             if not images:
+#                 images = get_file_in_folder_by_type(image_folder, '.png', noti=False) or []
+#             if not images:
+#                 print(f'{thatbai} Không tìm thấy ảnh trong thư mục {image_folder}')
+#                 return
+#             for img in images:
+#                 image_path = os.path.join(image_folder, img)
+#                 image_paths.append(image_path)
+#         elif chapter_folder:
+#             image_folders = get_file_in_folder_by_type(chapter_folder, file_type='', start_with='chuong') or None
+#             if not image_folders:
+#                 print(f'{thatbai} Không tìm thấy thư mục nào bắt đầu bằng "chuong" trong thư mục {chapter_folder}')
+#                 return
+#             for image_folder in image_folders:
+#                 image_folder = os.path.join(chapter_folder, image_folder)
+#                 images = get_file_in_folder_by_type(image_folder, '.jpg', noti=False) or []
+#                 if not images:
+#                     images = get_file_in_folder_by_type(image_folder, '.png', noti=False) or []
+#                 if not images:
+#                     print(f'{thatbai} Không tìm thấy ảnh trong thư mục {image_folder}')
+#                     return
+#                 for img in images:
+#                     image_path = os.path.join(image_folder, img)
+#                     image_paths.append(image_path)
+#         else:
+#             print(f'{thatbai} Phải chọn thư mục chứa chương truyện hoặc chứa ảnh')
+#             return
+
+#         for image_path in image_paths:
+#             # Đọc ảnh và chuyển sang ảnh xám
+#             img = cv2.imread(image_path)
+#             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+#             # Nhị phân hóa ảnh trắng đen
+#             _, binary = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
+#             # Tính trung bình độ sáng theo từng dòng
+#             row_avg = np.mean(binary, axis=1)
+#             # Tìm các dòng có độ trắng gần như tuyệt đối
+#             white_lines = np.where(row_avg > 245)[0]
+#             # Gom các dòng trắng liên tiếp thành các cụm
+#             white_blocks = []
+#             for k, g in groupby(enumerate(white_lines), lambda ix: ix[0] - ix[1]):
+#                 block = list(map(itemgetter(1), g))
+#                 if len(block) >= min_space_height:
+#                     white_blocks.append((block[0], block[-1]))
+#             # Cắt hình tại vị trí trung tâm của mỗi vùng trắng
+#             img_height = img.shape[0]
+#             prev_cut = 0
+#             count = 1
+#             for top, bottom in white_blocks:
+#                 middle = (top + bottom) // 2
+#                 # Kiểm tra nếu vùng cắt đủ lớn để không bị cắt trúng chữ
+#                 if middle - prev_cut > 200:
+#                     crop = img[prev_cut:middle, :]
+#                     # out_path = os.path.join(output_folder, f"{os.path.basename(image_path).split('.')[0]}_part_{count}.png")
+#                     out_path = get_next_filename('1', output_folder, 'jpg')
+#                     cv2.imwrite(out_path, crop)
+#                     print(f"✅ Đã lưu: {out_path}")
+#                     count += 1
+#                     prev_cut = middle
+#             # Cắt phần còn lại nếu vẫn còn dư dưới
+#             if img_height - prev_cut > 200:
+#                 crop = img[prev_cut:, :]
+#                 out_path = get_next_filename('1', output_folder, 'jpg')
+#                 cv2.imwrite(out_path, crop)
+#                 print(f"✅ Đã lưu: {out_path}")
+
+#         print(f"{tot} Hoàn tất cắt ảnh.")
+#     except:
+#         getlog()
+
+def merge_images(image_folder, output_folder=None, target_height="2000"):
+    try:
+        target_height = int(target_height) if target_height.isdigit() else 2000
         image_files = get_file_in_folder_by_type(image_folder, '.jpg')
         if not image_files:
             image_files = get_file_in_folder_by_type(image_folder, '.png')
@@ -1991,7 +2166,7 @@ def merge_images(image_folder, output_folder=None, max_height="1800"):
             img_height = img.height
 
             # Kiểm tra tổng chiều cao hiện tại
-            if current_height + img_height > max_height:
+            if current_height + img_height > target_height:
                 save_merged_images(images_to_merge, output_folder)
                 group_idx += 1
                 current_height = 0
@@ -2229,12 +2404,32 @@ def get_next_filename(name="1", save_folder=".", img_type="png"):
         file_path = os.path.join(save_folder, f"{file_name}.{img_type}")
     return file_path
 
-def capture_region(x1, y1, x2, y2, save_folder, name, img_type):
-    bbox = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
-    img = ImageGrab.grab(bbox)
-    file_path = get_next_filename(name=name, save_folder=save_folder, img_type=img_type)
-    img.save(file_path)
-    print(f"✅ Đã lưu ảnh: {file_path}")
+# def capture_region(x1, y1, x2, y2, save_folder, name, img_type):
+#     bbox = (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
+#     img = ImageGrab.grab(bbox)
+#     file_path = get_next_filename(name=name, save_folder=save_folder, img_type=img_type)
+#     img.save(file_path)
+#     print(f"✅ Đã lưu ảnh: {file_path}")
+def capture_region(x1, y1, x2, y2, save_folder, name, img_type='png'):
+    # Đảm bảo tọa độ nằm đúng thứ tự
+    left, top = min(x1, x2), min(y1, y2)
+    right, bottom = max(x1, x2), max(y1, y2)
+
+    # Chụp vùng ảnh màn hình
+    img = ImageGrab.grab(bbox=(left, top, right, bottom))
+
+    # Tạo thư mục nếu chưa có
+    os.makedirs(save_folder, exist_ok=True)
+
+    # Lưu ảnh với chất lượng cao
+    save_path = get_next_filename(name=name, save_folder=save_folder, img_type=img_type)
+    if img_type.lower() == 'jpg' or img_type.lower() == 'jpeg':
+        img = img.convert("RGB")
+        img.save(save_path, format='JPEG', quality=100, subsampling=0)
+    else:
+        img.save(save_path, format=img_type.upper())
+
+    print(f"{thanhcong} Ảnh đã lưu tại: {save_path}")
 
 def take_screenshot(save_folder="screenshots", name="1", img_type='png'):
     if not check_folder(save_folder):
@@ -2548,31 +2743,28 @@ def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', s
         getlog()
 
 def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.2, movement_speed=0.6, hide=False, subtitle_text=None):
-    """
-    Parameters:
-        img_path: Đường dẫn đến ảnh đầu vào.
-        audio_path: Đường dẫn file âm thanh.
-        output_video_path: Đường dẫn file video đầu ra.
-        fps: Số khung hình trên giây (int).
-        zoom_factor: Hệ số phóng to khung hình (float).
-        movement_speed: Tốc độ di chuyển ảnh (pixel mỗi frame).
-    """
     try:
-        # Kiểm tra file đầu vào
-        if not os.path.exists(img_path) or not os.path.exists(audio_path):
-            print("File ảnh hoặc âm thanh không tồn tại!")
+        # Kiểm tra ảnh tồn tại
+        if not os.path.exists(img_path):
+            print("File ảnh không tồn tại!")
             return False
-        
-        # Lấy thời lượng audio
-        audio_info = get_audio_info(audio_path)
-        duration = audio_info.get('duration', None)
-        if not duration:
-            print("Không lấy được thông tin file âm thanh.")
-            return False
+
+        # Mặc định thời lượng là 1 giây nếu không có audio
+        duration = 1.0
+        has_audio = audio_path and os.path.exists(audio_path)
+
+        if has_audio:
+            # Lấy thời lượng audio nếu có
+            audio_info = get_audio_info(audio_path)
+            duration = audio_info.get('duration', None)
+            if not duration:
+                print("Không lấy được thông tin file âm thanh.")
+                return False
+
         total_frames = int(fps * float(duration))
 
         img, height, width = get_image_size_by_cv2(img_path)
-        if width < 600:
+        if height > 2000:
             scale_ratio = 700 / width
             width = 700
             height = int(height * scale_ratio)
@@ -2586,12 +2778,13 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
         offset_x, offset_y = 0, 0
         movement_types = ['down', 'up', 'zoom_in', 'zoom_out']
         if width > height:
-            movement_types = ['down', 'up', 'zoom_in', 'zoom_out', 'left', 'right']
+            movement_types += ['left', 'right']
         movement_type = random.choice(movement_types)
-        if width < 600:
+
+        if height > 2000:
             movement_type = 'up'
-            movement_speed = 1
-            print(f'{canhbao} Ảnh {img_path} có chiều rộng nhỏ hơn 600')
+            movement_speed = 1.5
+            print(f'{canhbao} Ảnh {img_path} có chiều cao lớn hơn 2000')
 
         print(f'movement_type: {movement_type}')
         if movement_type == 'down':
@@ -2606,57 +2799,52 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
             pass
 
         for frame_idx in range(total_frames):
-            # Cập nhật chuyển động chỉ khi frame nằm trong chu kỳ movement_step
             if movement_type == 'right':
                 offset_x += movement_speed
-                if offset_x + width >= int(width * current_zoom_factor):  # Giới hạn chiều ngang
+                if offset_x + width >= int(width * current_zoom_factor):
                     offset_x = int(width * current_zoom_factor) - width
-                # Đặt ảnh theo phương dọc ở trung tâm
                 offset_y = (int(height * current_zoom_factor) - height) // 2
             elif movement_type == 'left':
                 offset_x -= movement_speed
-                if offset_x <= 0:  # Giới hạn chiều ngang (trái)
+                if offset_x <= 0:
                     offset_x = 0
-                # Đặt ảnh theo phương dọc ở trung tâm
                 offset_y = (int(height * current_zoom_factor) - height) // 2
             elif movement_type == 'down':
                 offset_y += movement_speed
                 if offset_y + height >= int(height * current_zoom_factor):
                     offset_y = int(height * current_zoom_factor) - height
-                # Đặt ảnh theo phương ngang ở trung tâm
                 offset_x = (int(width * current_zoom_factor) - width) // 2
             elif movement_type == 'up':
                 offset_y -= movement_speed
                 if offset_y <= 0:
                     offset_y = 0
-                # Đặt ảnh theo phương ngang ở trung tâm
                 offset_x = (int(width * current_zoom_factor) - width) // 2
             elif movement_type == 'zoom_in':
-                current_zoom_factor += 0.001  # Tăng dần hệ số zoom
-                if current_zoom_factor > zoom_factor*1.2:  # Giới hạn zoom in tối đa
-                    current_zoom_factor = zoom_factor*1.2
+                current_zoom_factor += 0.001
+                if current_zoom_factor > zoom_factor * 1.2:
+                    current_zoom_factor = zoom_factor * 1.2
             elif movement_type == 'zoom_out':
-                current_zoom_factor -= 0.001  # Giảm dần hệ số zoom
-                if current_zoom_factor < 0.7:  # Giới hạn zoom out tối thiểu
+                current_zoom_factor -= 0.001
+                if current_zoom_factor < 0.7:
                     current_zoom_factor = 0.7
 
             while int(height * current_zoom_factor) < height or int(width * current_zoom_factor) < width:
-                current_zoom_factor += 0.01  # Tăng nhẹ hệ số zoom
+                current_zoom_factor += 0.01
             zoomed_width = int(width * current_zoom_factor)
             zoomed_height = int(height * current_zoom_factor)
-            # Kiểm tra và điều chỉnh nếu kích thước zoom nhỏ hơn kích thước gốc
+
             while zoomed_width < width or zoomed_height < height:
-                current_zoom_factor += 0.01  # Tăng hệ số zoom nhẹ
+                current_zoom_factor += 0.01
                 zoomed_width = int(width * current_zoom_factor)
                 zoomed_height = int(height * current_zoom_factor)
-            # Resize ảnh theo kích thước zoom
+
             zoomed_img = cv2.resize(img, (zoomed_width, zoomed_height))
-            # Kiểm tra tọa độ cắt ảnh
+
             if offset_x + width > zoomed_width:
-                offset_x = zoomed_width - width  # Điều chỉnh offset_x
+                offset_x = zoomed_width - width
             if offset_y + height > zoomed_height:
-                offset_y = zoomed_height - height  # Điều chỉnh offset_y
-            # Cắt ảnh theo vị trí offset
+                offset_y = zoomed_height - height
+
             cropped_frame = zoomed_img[int(offset_y):int(offset_y + height), int(offset_x):int(offset_x + width)]
             if subtitle_text:
                 font_scale = 1.0
@@ -2664,29 +2852,254 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 text_size, _ = cv2.getTextSize(subtitle_text, font, font_scale, font_thickness)
                 text_x = (width - text_size[0]) // 2
-                text_y = height - 50  # 50px cách mép dưới
-                cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness + 2, cv2.LINE_AA)  # viền đen
-                cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)  # text trắng
+                text_y = height - 50
+                cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness + 2, cv2.LINE_AA)
+                cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)
+
             out.write(cropped_frame)
-        # Giải phóng tài nguyên
         out.release()
 
-        # Ghép âm thanh vào video bằng ffmpeg
-        if torch.cuda.is_available():
-            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps), "-threads", "4", output_video_path]
+        # Ghép âm thanh nếu có, nếu không thì chỉ tạo video không âm
+        if has_audio:
+            if torch.cuda.is_available():
+                command = [
+                    "ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path,
+                    "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "128k", "-r", str(fps), "-threads", "4", output_video_path
+                ]
+            else:
+                command = [
+                    "ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path,
+                    "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "128k", "-r", str(fps), "-threads", "4", output_video_path
+                ]
         else:
-            command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps) , "-threads", "4", output_video_path]
+            # Nếu không có audio, chỉ giữ lại video
+            command = [
+                "ffmpeg", "-y", "-i", temp_video_path,
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
+                "-an",  # không thêm âm thanh
+                output_video_path
+            ]
+
         if not run_command_ffmpeg(command, hide):
             return False
 
-        # Xóa file tạm
         if os.path.exists(temp_video_path):
             os.remove(temp_video_path)
         return True
     except:
         getlog()
         return False
+    
+# def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.2, movement_speed=0.6, hide=False, subtitle_text=None):
+#     try:
+#         # Kiểm tra file đầu vào
+#         if not os.path.exists(img_path) or not os.path.exists(audio_path):
+#             print("File ảnh hoặc âm thanh không tồn tại!")
+#             return False
+        
+#         # Lấy thời lượng audio
+#         audio_info = get_audio_info(audio_path)
+#         duration = audio_info.get('duration', None)
+#         if not duration:
+#             print("Không lấy được thông tin file âm thanh.")
+#             return False
+#         total_frames = int(fps * float(duration))
 
+#         img, height, width = get_image_size_by_cv2(img_path)
+#         if height > 2000:
+#             scale_ratio = 700 / width
+#             width = 700
+#             height = int(height * scale_ratio)
+#             img = cv2.resize(img, (width, height))
+
+#         temp_video_path = "temp_video.mp4"
+#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+#         out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
+
+#         current_zoom_factor = zoom_factor
+#         offset_x, offset_y = 0, 0
+#         movement_types = ['down', 'up', 'zoom_in', 'zoom_out']
+#         if width > height:
+#             movement_types = ['down', 'up', 'zoom_in', 'zoom_out', 'left', 'right']
+#         movement_type = random.choice(movement_types)
+#         if height > 2000:
+#             movement_type = 'up'
+#             movement_speed = 1.5
+#             print(f'{canhbao} Ảnh {img_path} có chiều cao lớn hơn 2000')
+
+#         print(f'movement_type: {movement_type}')
+#         if movement_type == 'down':
+#             offset_y = 0
+#             offset_x = (int(width * current_zoom_factor) - width) // 2
+#         elif movement_type == 'up':
+#             offset_y = int(height * current_zoom_factor) - height
+#             offset_x = (int(width * current_zoom_factor) - width) // 2
+#         elif movement_type == 'right':
+#             offset_x = int(width * current_zoom_factor) - width
+#         elif movement_type == 'left':
+#             pass
+
+#         for frame_idx in range(total_frames):
+#             # Cập nhật chuyển động chỉ khi frame nằm trong chu kỳ movement_step
+#             if movement_type == 'right':
+#                 offset_x += movement_speed
+#                 if offset_x + width >= int(width * current_zoom_factor):  # Giới hạn chiều ngang
+#                     offset_x = int(width * current_zoom_factor) - width
+#                 # Đặt ảnh theo phương dọc ở trung tâm
+#                 offset_y = (int(height * current_zoom_factor) - height) // 2
+#             elif movement_type == 'left':
+#                 offset_x -= movement_speed
+#                 if offset_x <= 0:  # Giới hạn chiều ngang (trái)
+#                     offset_x = 0
+#                 # Đặt ảnh theo phương dọc ở trung tâm
+#                 offset_y = (int(height * current_zoom_factor) - height) // 2
+#             elif movement_type == 'down':
+#                 offset_y += movement_speed
+#                 if offset_y + height >= int(height * current_zoom_factor):
+#                     offset_y = int(height * current_zoom_factor) - height
+#                 # Đặt ảnh theo phương ngang ở trung tâm
+#                 offset_x = (int(width * current_zoom_factor) - width) // 2
+#             elif movement_type == 'up':
+#                 offset_y -= movement_speed
+#                 if offset_y <= 0:
+#                     offset_y = 0
+#                 # Đặt ảnh theo phương ngang ở trung tâm
+#                 offset_x = (int(width * current_zoom_factor) - width) // 2
+#             elif movement_type == 'zoom_in':
+#                 current_zoom_factor += 0.001  # Tăng dần hệ số zoom
+#                 if current_zoom_factor > zoom_factor*1.2:  # Giới hạn zoom in tối đa
+#                     current_zoom_factor = zoom_factor*1.2
+#             elif movement_type == 'zoom_out':
+#                 current_zoom_factor -= 0.001  # Giảm dần hệ số zoom
+#                 if current_zoom_factor < 0.7:  # Giới hạn zoom out tối thiểu
+#                     current_zoom_factor = 0.7
+
+#             while int(height * current_zoom_factor) < height or int(width * current_zoom_factor) < width:
+#                 current_zoom_factor += 0.01  # Tăng nhẹ hệ số zoom
+#             zoomed_width = int(width * current_zoom_factor)
+#             zoomed_height = int(height * current_zoom_factor)
+#             # Kiểm tra và điều chỉnh nếu kích thước zoom nhỏ hơn kích thước gốc
+#             while zoomed_width < width or zoomed_height < height:
+#                 current_zoom_factor += 0.01  # Tăng hệ số zoom nhẹ
+#                 zoomed_width = int(width * current_zoom_factor)
+#                 zoomed_height = int(height * current_zoom_factor)
+#             # Resize ảnh theo kích thước zoom
+#             zoomed_img = cv2.resize(img, (zoomed_width, zoomed_height))
+#             # Kiểm tra tọa độ cắt ảnh
+#             if offset_x + width > zoomed_width:
+#                 offset_x = zoomed_width - width  # Điều chỉnh offset_x
+#             if offset_y + height > zoomed_height:
+#                 offset_y = zoomed_height - height  # Điều chỉnh offset_y
+#             # Cắt ảnh theo vị trí offset
+#             cropped_frame = zoomed_img[int(offset_y):int(offset_y + height), int(offset_x):int(offset_x + width)]
+#             if subtitle_text:
+#                 font_scale = 1.0
+#                 font_thickness = 2
+#                 font = cv2.FONT_HERSHEY_SIMPLEX
+#                 text_size, _ = cv2.getTextSize(subtitle_text, font, font_scale, font_thickness)
+#                 text_x = (width - text_size[0]) // 2
+#                 text_y = height - 50  # 50px cách mép dưới
+#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness + 2, cv2.LINE_AA)  # viền đen
+#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)  # text trắng
+#             out.write(cropped_frame)
+#         # Giải phóng tài nguyên
+#         out.release()
+
+#         # Ghép âm thanh vào video bằng ffmpeg
+#         if torch.cuda.is_available():
+#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps), "-threads", "4", output_video_path]
+#         else:
+#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps) , "-threads", "4", output_video_path]
+#         if not run_command_ffmpeg(command, hide):
+#             return False
+
+#         # Xóa file tạm
+#         if os.path.exists(temp_video_path):
+#             os.remove(temp_video_path)
+#         return True
+#     except:
+#         getlog()
+#         return False
+
+# def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=60, zoom_factor=1.2, hide=False, subtitle_text=None):
+#     try:
+#         if not os.path.exists(img_path) or not os.path.exists(audio_path):
+#             print("File ảnh hoặc âm thanh không tồn tại!")
+#             return False
+        
+#         audio_info = get_audio_info(audio_path)
+#         duration = audio_info.get('duration', None)
+#         if not duration:
+#             print("Không lấy được thông tin file âm thanh.")
+#             return False
+#         total_frames = int(fps * float(duration))
+
+#         img, height, width = get_image_size_by_cv2(img_path)
+#         if width < 600:
+#             scale_ratio = 700 / width
+#             width = 700
+#             height = int(height * scale_ratio)
+#             img = cv2.resize(img, (width, height))
+
+#         frame_height = 1080
+#         frame_width = width
+
+#         total_scroll_pixels = height - frame_height
+#         if total_scroll_pixels <= 0:
+#             print("Ảnh không đủ cao để lướt.")
+#             return False
+
+#         pixels_per_frame = int(total_scroll_pixels / total_frames)
+
+#         temp_video_path = "temp_video.mp4"
+#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+#         out = cv2.VideoWriter(temp_video_path, fourcc, fps, (frame_width, frame_height))
+
+#         for frame_idx in range(total_frames):
+#             float_offset_y = frame_idx * pixels_per_frame
+#             offset_y = int(round(float_offset_y))
+#             offset_y = min(offset_y, total_scroll_pixels)
+
+#             cropped_frame = img[offset_y:offset_y + frame_height, 0:frame_width]
+
+#             if subtitle_text:
+#                 font_scale = 1.0
+#                 font_thickness = 2
+#                 font = cv2.FONT_HERSHEY_SIMPLEX
+#                 text_size, _ = cv2.getTextSize(subtitle_text, font, font_scale, font_thickness)
+#                 text_x = (frame_width - text_size[0]) // 2
+#                 text_y = frame_height - 50
+#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness + 2, cv2.LINE_AA)
+#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)
+
+#             out.write(cropped_frame)
+
+#         out.release()
+
+#         if torch.cuda.is_available():
+#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path,
+#                        "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4",
+#                        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+#                        "-r", str(fps), "-threads", "4", output_video_path]
+#         else:
+#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path,
+#                        "-c:v", "libx264", "-tune", "stillimage",
+#                        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+#                        "-r", str(fps), "-threads", "4", output_video_path]
+
+#         if not run_command_ffmpeg(command, hide):
+#             return False
+
+#         remove_file(temp_video_path)
+#         remove_file(audio_path)
+#         return True
+
+#     except Exception as e:
+#         print(f"Lỗi: {e}")
+#         return False
+    
 def get_image_size_by_cv2(path):
     try:
         pil_img = Image.open(path).convert("RGB")
@@ -2715,7 +3128,7 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
         output_folder = os.path.dirname(input_file)
         with open(input_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        lines = [llll for llll in lines if llll.strip()]
+        lines = [llll.strip() for llll in lines if llll.strip()]
         chapter_count = 0
         contents = []
         start_chapter = None
@@ -2946,8 +3359,6 @@ special_word = {
     "…": "",
     "“": "",
     "”": "",
-    " — ": " ",
-    "—": " ",
     "‘": "",
     "’": "",
     "\"": "",
@@ -2983,7 +3394,14 @@ special_word = {
     "☆":"",
     "!?":".",
     "?!":".",
-    "fff":"",
+    "——————":" ",
+    "—————":" ",
+    "————":" ",
+    "———":" ",
+    "——":" ",
+    " — ": " ",
+    "— ":" ",
+    "—":"-",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -3027,6 +3445,7 @@ loai_bo_tieng_anh = {
     "Thanks :D": "",
     ":D": "",
     ":c": "",
+    "TL: Hanguk": "",
     "Review the novel on novelupdate:": "",
     "/series/creating-heavenly-laws/": "",
     "When we reach 5 reviews, I will upload a bonus chapter!!": "",
@@ -3043,10 +3462,9 @@ loai_bo_tieng_anh = {
     "www":"",
     "Translator:":"",
     "549690339":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
-    "fff":"",
+    "LV. ":"level ",
+    "To be continued":"",
+    "FOR THE FASTEST RELEASES":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -3085,19 +3503,6 @@ loai_bo_tieng_viet = {
     "!": ".",
     "NPC": "nờ pê xê",
     " nitơ ": " ni tơ ",
-    "bqhn": "bạo quân hắc nham ban",
-    "hartok": "ha tót",
-    "htok": "công trước ha tót",
-    "Asr": "a su rát",
-    "asurat": "huyết hoàng tử a su rát",
-    "zephyros ": "gie phay rót",
-    "zpr ": "gie phay rót",
-    "sorgi": "so ghi",
-    "sgi": "so ghi",
-    # "credos": "cờ re đót",
-    # "crd": "cờ re đót",
-    "jangcheol": "giang che on",
-    "Cheon": "che on",
     "gentoons.com": "",
     "con toons.com": "",
     "(1/2)": "",
@@ -3443,17 +3848,6 @@ loai_bo_tieng_viet = {
 }
 
 skip_words = [
-    'nettru',
-    'truyenqq',
-    '.com',
-    'truy cập ngay',
-    'mới nhất về truyện',
-    'webstite',
-    'http',
-    'qto',
-    'www',
-    'mộng tiên giới',
-    'chương mới',
     '滴',
     '动',
     '西',
@@ -3510,8 +3904,6 @@ skip_words = [
     '뉴',
     '하',
     '촤',
-    'newt',
-    'cto',
     '홱',
     '협',
     '웅',
@@ -3527,10 +3919,7 @@ skip_words = [
     '방',
     '멈',
     '빠',
-    'ki68',
-    'ky8',
     '큰',
-    'toki',
     '소',
     '나',
     '누',
@@ -3538,13 +3927,11 @@ skip_words = [
     '타',
     '토',
     '덜',
-    'k68',
     '부',
     '우',
     '척',
     '운',
     '잉',
-    'oto',
     '툭',
     '生',
     '둥',
@@ -3552,22 +3939,16 @@ skip_words = [
     '짹',
     '사',
     '바',
-    'torta',
-    'tokto',
     '저',
     '힐',
     '달',
-    'n1468',
     '째',
     '덕',
-    'com',
     '쿠',
     '쓰',
     '턱',
     '후',
     '농',
-    's. k',
-    's..',
     'ㅂ',
     '번',
     '슥',
@@ -3576,9 +3957,6 @@ skip_words = [
     '붕',
     '휘',
     '움',
-    's. n',
-    's. m',
-    'ito',
     '지',
     '편',
     '피',
@@ -3591,7 +3969,6 @@ skip_words = [
     '긁',
     '라',
     '훅',
-    'gto',
     '짜',
     '자',
     '헛',
@@ -3608,7 +3985,6 @@ skip_words = [
     '꾸',
     '르',
     '잔',
-    'nemt',
     '쓱',
     '오',
     'コ',
@@ -3616,10 +3992,7 @@ skip_words = [
     '쩌',
     '宮',
     '氷',
-    's. x',
     '주',
-    'r.c',
-    'oto',
     '액',
     '닷',
     '탓',
@@ -3635,7 +4008,6 @@ skip_words = [
     '새',
     '깜',
     '키',
-    'ập nhật',
     '듯',
     '보',
     '더',
@@ -3648,7 +4020,6 @@ skip_words = [
     '중',
     '떡',
     '화',
-    'nent',
     '핫',
     '반',
     '허',
@@ -3659,20 +4030,17 @@ skip_words = [
     'tm',
     '仙',
     'با',
-    'truye',
     '옥',
     '꼬',
     '콰',
     '광',
     '고',
-    'newpo',
     '흥',
     '카',
     '샥',
     '藥',
     'τα',
     '욱',
-    's. h',
     '퍽',
     '득',
     '철',
@@ -3687,10 +4055,8 @@ skip_words = [
     '꽉',
     '끼',
     '블',
-    'eto',
     '차',
     'つ',
-    'ewto',
     '커',
     '억',
     '小',
@@ -3786,7 +4152,6 @@ skip_words = [
     'اه',
     'リ',
     '쏙',
-    'manhwa',
     'π',
     '▼',
     '꿈',
@@ -3809,6 +4174,31 @@ skip_words = [
     '☆',
     '요',
     'لو',
+    '칵',
+    '앙',
+    '과',
+    '과',
+    '직',
+    '٩',
+    'の',
+    'ㅋ',
+    '콩',
+    '王',
+    '백',
+    '콸',
+    '我',
+    '刻',
+    'ง',
+    '끝',
+    '옹',
+    'イ',
+    'د',
+    '딸',
+    'レ',
+    '^^',
+    '肖',
+    '응',
+    'の',
     'ffffff',
     'ffffff',
     'ffffff',
@@ -3818,17 +4208,9 @@ skip_words = [
     'ffffff',
     'ffffff',
     'ffffff',
-    'chill',
-    'baotan',
-    'envip',
-    'nhóm dịch',
-    'àngtruvi',
-    'bảot',
-    'truyện',
-    'đọc truyên',
-    ' web ',
-    'chap mới',
-    'truy cập'
+    'ffffff',
+    'ffffff',
+    'ffffff'
     ]
 
 viet_tat = {
@@ -7156,7 +7538,7 @@ loi_chinh_ta = {
 }
 
 
-def cleaner_text(text, is_loi_chinh_ta=True, language='vi', is_conver_number=True):
+def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=True):
     try:
         if not text:
             return None
