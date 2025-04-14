@@ -7581,7 +7581,7 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
 # with open(new_txt, 'w', encoding='utf-8') as ggg:
 #     for line in lines:
 #         if line and not line.strip().isdigit():
-#             line = cleaner_text(line.strip())
+#             line = cleaner_text(line.strip(), is_loi_chinh_ta=True, is_conver_number=True)
 #             ggg.write(f'{cnt}\n{line}\n')
 #             cnt += 1
 
@@ -7620,7 +7620,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                             
                             if line_content not in unique_lines and len(line_content) < max_lenth_text:
                                 index += 1
-                                processed_text = cleaner_text(line_content)
+                                processed_text = cleaner_text(line_content, is_loi_chinh_ta=True, is_conver_number=True)
                                 total.write(f'{index}\n{processed_text}\n')
                                 unique_lines.add(line_content)  # Thêm vào set để tránh trùng lặp
                                 audio_path = os.path.join(audio_folder, audios[i_au])
@@ -7631,7 +7631,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                     print(f"Lỗi khi xử lý file {txt_f}: {e}")
     except Exception as e:
         print(f"Lỗi khi ghi file tổng {txt_total}: {e}")
-# folder = "E:\\Python\\developping\\review comic\\test\\extract_audios"
+# folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\New folder"
 # total_txt = os.path.join(folder, 'total.txt')
 # audio_total_folder = os.path.join(folder, 'total_audios')
 # get_text_and_audio_in_folder(folder, total_txt, audio_total_folder)

@@ -1993,7 +1993,7 @@ class MainApp:
                                 audio_output_path = os.path.join(output_dir, f"{self.index}.wav")
                                 audio_cut_cmd = [ "ffmpeg", "-y", "-i", audio_path, "-ss", str(current_start_time), "-to", str(end_time), audio_output_path ]
                                 if run_command_ffmpeg(audio_cut_cmd):
-                                    current_text = cleaner_text(current_text, language=language)
+                                    current_text = cleaner_text(current_text, language=language, is_loi_chinh_ta=True)
                                     file.write(f"{self.index}\n{current_text}\n")
                                     #reset
                                     current_text = ""
