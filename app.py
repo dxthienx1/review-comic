@@ -1959,7 +1959,7 @@ class MainApp:
                 try:
                     if not self.whisper_model:
                         print(f'Đang sử dụng {device} để xử lý video')
-                        self.whisper_model = whisper.load_model("large-v2", device=device)
+                        self.whisper_model = whisper.load_model("large-v2", device='cpu')
                     result = self.whisper_model.transcribe(audio_path, language=language)
                     return result['segments']
                 except:

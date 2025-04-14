@@ -7633,7 +7633,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
         print(f"Lỗi khi ghi file tổng {txt_total}: {e}")
 # folder = "E:\\Python\\developping\\review comic\\test\\extract_audios"
 # total_txt = os.path.join(folder, 'total.txt')
-# audio_total_folder = os.path.join(folder, 'total_audios')   
+# audio_total_folder = os.path.join(folder, 'total_audios')
 # get_text_and_audio_in_folder(folder, total_txt, audio_total_folder)
 
 
