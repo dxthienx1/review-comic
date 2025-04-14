@@ -1912,10 +1912,10 @@ def extract_audio_ffmpeg(audio_path=None, video_path=None, video_url=None, video
             for target_path in target_paths:
                 if '.wav' in target_path or '.mp3' in target_path:
                     audio_info = get_audio_info(target_path)
-                    duration = audio_info.get('duration', None)
+                    duration = float(audio_info.get('duration', "0"))
                 else:
                     video_info = get_video_info(target_path)
-                    duration = video_info.get('duration', None)
+                    duration = float(video_info.get('duration', "0"))
                 if not duration:
                     print(f"không lấy được thông tin {target_path}")
                     return
