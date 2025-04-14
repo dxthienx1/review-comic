@@ -2489,198 +2489,96 @@ def take_screenshot(save_folder="screenshots", name="1", img_type='png'):
     app.mainloop()
 
 def number_to_vietnamese_with_units(text):
+    number_words = {
+        0: "không", 1: "một", 2: "hai", 3: "ba", 4: "bốn", 5: "năm",
+        6: "sáu", 7: "bảy", 8: "tám", 9: "chín", 10: "mười",
+        11: "mười một", 12: "mười hai", 13: "mười ba", 14: "mười bốn",
+        15: "mười lăm", 16: "mười sáu", 17: "mười bảy", 18: "mười tám", 19: "mười chín",
+        20: "hai mươi", 30: "ba mươi", 40: "bốn mươi", 50: "năm mươi",
+        60: "sáu mươi", 70: "bảy mươi", 80: "tám mươi", 90: "chín mươi"
+    }
+
     unit_mapping = {
-        "h": "giờ",
-        "m": "mét",
-        "cm": "xen ti mét",
-        "mm": "mi li mét",
-        "km": "ki lô mét",
-        "kg": "ki lô gam",
-        "g": "gam",
-        "s": "giây",
-        "ms": "mi li giây"
+        "km": "ki lô mét", "m": "mét", "cm": "xen ti mét", "mm": "mi li mét",
+        "h": "giờ", "s": "giây", "ms": "mi li giây", "%": "phần trăm",
+        "kg": "ki lô gam", "g": "gam"
     }
 
-    words = {
-        0: "không",
-        1: "một",
-        2: "hai",
-        3: "ba",
-        4: "bốn",
-        5: "năm",
-        6: "sáu",
-        7: "bảy",
-        8: "tám",
-        9: "chín"
-    }
+    def read_number(n):
+        n = int(n)
+        if n < 20:
+            return number_words[n]
+        elif n < 100:
+            chuc = (n // 10) * 10
+            donvi = n % 10
+            if donvi == 0:
+                return number_words[chuc]
+            if donvi == 5:
+                return number_words[chuc] + " lăm"
+            return number_words[chuc] + " " + number_words[donvi]
+        elif n < 1000:
+            tram = n // 100
+            chuc_dv = n % 100
+            res = number_words[tram] + " trăm"
+            if chuc_dv == 0:
+                return res
+            return res + " " + read_number(chuc_dv)
+        else:
+            parts = []
+            unit_names = ["", "nghìn", "triệu", "tỷ"]
+            str_n = str(n)
+            while len(str_n) % 3 != 0:
+                str_n = '0' + str_n
+            groups = [str_n[i:i+3] for i in range(0, len(str_n), 3)]
+            for i, group in enumerate(groups):
+                val = int(group)
+                if val == 0:
+                    continue
+                words = read_number(val)
+                unit = unit_names[len(groups) - 1 - i]
+                parts.append(words + (" " + unit if unit else ""))
+            return " ".join(parts)
 
-    units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
-
-    def read_three_digits(num, is_end):
-        hundreds = num // 100
-        tens = (num % 100) // 10
-        ones = num % 10
-        result = []
-
-        if hundreds > 0:
-            result.append(f"{words[hundreds]} trăm")
-        elif not is_end and (tens > 0 or ones > 0):
-            result.append("không trăm")
-
-        if tens > 1:
-            result.append(f"{words[tens]} mươi")
-            if ones == 1:
-                result.append("mốt")
-            elif ones == 5:
-                result.append("lăm")
-            elif ones > 0:
-                result.append(words[ones])
-        elif tens == 1:
-            result.append("mười")
-            if ones > 0:
-                result.append(words[ones])
-        elif tens == 0:
-            if ones > 0:
-                if hundreds > 0 or (hundreds == 0 and not is_end):
-                    result.append("linh")
-                result.append(words[ones])
-
-        return " ".join(result)
-
-    def number_to_vietnamese(number_str):
-        number_str = number_str.replace(',', '.')  # chuyển dấu , sang . để xử lý chuẩn
-        if '.' in number_str:
-            integer_part, decimal_part = number_str.split('.')
-            result = number_to_vietnamese(integer_part) + " phẩy"
-            for digit in decimal_part:
-                result += " " + words[int(digit)]
-            return result.strip()
-
-        number = int(number_str)
-        if not (0 <= number < 1_000_000_000_000_000):
-            return "Số nằm ngoài phạm vi hỗ trợ."
-
-        parts = []
-        idx = 0
-        while number > 0:
-            num_part = number % 1000
-            if num_part > 0:
-                if number < 1000:
-                    part = read_three_digits(num_part, is_end=True)
-                else:
-                    part = read_three_digits(num_part, is_end=False)
-                if idx > 0:
-                    part += f" {units[idx]}"
-                parts.append(part)
-            number //= 1000
-            idx += 1
-
-        return " ".join(reversed(parts)) if parts else "không"
-
-    def convert(match):
-        number_str = match.group(1)
+    def convert_units(match):
+        raw_num = match.group(1)
         unit = match.group(2)
-        number_text = number_to_vietnamese(number_str)
-        if unit:
-            unit_word = unit_mapping.get(unit, unit)
-            return f"{number_text} {unit_word}"
-        return number_text
+        unit_text = unit_mapping.get(unit, unit)
 
-    # Hỗ trợ dấu chấm hoặc phẩy làm số thập phân
-    pattern = r"\b(\d+(?:[.,]\d+)?)(h|m|cm|mm|km|kg|g|s|ms)?\b"
-    return re.sub(pattern, convert, text)
-# def number_to_vietnamese_with_units(text):
-#     # Bản đồ đơn vị và cách đọc
-#     unit_mapping = {
-#         "h": "giờ",
-#         "m": "mét",
-#         "cm": "xen ti mét",
-#         "mm": "mi li mét",
-#         "km": "ki lô mét",
-#         "s": "giây",
-#         "ms": "mi li giây"
-#     }
+        if re.match(r"^\d{1,3}(\.\d{3})+$", raw_num):  # 1.000.000 style
+            raw_num = raw_num.replace(".", "")
+        elif re.match(r"^\d+[.,]\d+$", raw_num):  # 97.05 or 1,4
+            sep = "." if "." in raw_num else ","
+            int_part, dec_part = raw_num.split(sep)
+            int_text = read_number(int_part)
+            dec_text = " ".join([number_words[int(d)] for d in dec_part])
+            return f"{int_text} phẩy {dec_text} {unit_text}"
+        
+        num = int(raw_num.replace(".", ""))
+        return read_number(num) + " " + unit_text
 
-#     # Hàm chuyển đổi số thành chữ
-#     def number_to_vietnamese(number):
-#         if not (0 <= number < 1_000_000_000_000_000):
-#             return "Số nằm ngoài phạm vi hỗ trợ."
-#         words = {
-#             0: "không",
-#             1: "một",
-#             2: "hai",
-#             3: "ba",
-#             4: "bốn",
-#             5: "năm",
-#             6: "sáu",
-#             7: "bảy",
-#             8: "tám",
-#             9: "chín"
-#         }
-#         units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
+    def convert_decimal(match):
+        int_part = match.group(1)
+        dec_part = match.group(2)
+        return read_number(int_part) + " phẩy " + " ".join([number_words[int(d)] for d in dec_part])
 
-#         def read_three_digits(num, is_end):
-#             hundreds = num // 100
-#             tens = (num % 100) // 10
-#             ones = num % 10
-#             result = []
-#             # Đọc hàng trăm
-#             if hundreds > 0:
-#                 result.append(f"{words[hundreds]} trăm")
-#             elif not is_end and (tens > 0 or ones > 0):
-#                 result.append("không trăm")
-#             # Đọc hàng chục và hàng đơn vị
-#             if tens > 1:
-#                 result.append(f"{words[tens]} mươi")
-#                 if ones == 1:
-#                     result.append("mốt")
-#                 elif ones == 5:
-#                     result.append("lăm")
-#                 elif ones > 0:
-#                     result.append(words[ones])
-#             elif tens == 1:
-#                 result.append("mười")
-#                 if ones > 0:
-#                     result.append(words[ones])
-#             elif tens == 0:
-#                 if ones > 0:
-#                     if hundreds > 0 or (hundreds == 0 and not is_end):
-#                         result.append("linh")
-#                     result.append(words[ones])
+    def convert_integer(match):
+        return read_number(match.group(0))
 
-#             return " ".join(result)
+    # Xử lý số có đơn vị trước
+    text = re.sub(r"(\d+(?:[.,]\d+)?)(km|m|cm|mm|h|s|ms|%|kg|g)\b", convert_units, text)
 
-#         parts = []
-#         idx = 0
-#         while number > 0:
-#             num_part = number % 1000
-#             if num_part > 0:
-#                 if number < 1000:
-#                     part = read_three_digits(num_part, is_end=True)
-#                 else:
-#                     part = read_three_digits(num_part, is_end=False)
-#                 if idx > 0:
-#                     part += f" {units[idx]}"
-#                 parts.append(part)
-#             number //= 1000
-#             idx += 1
+    # Số thập phân
+    text = re.sub(r"(\d+)[.,](\d+)", convert_decimal, text)
 
-#         return " ".join(reversed(parts))
+    # Số nguyên (hàng nghìn có thể có dấu chấm)
+    text = re.sub(r"\b(\d{1,3}(?:\.\d{3})+)\b", lambda m: read_number(m.group(1).replace(".", "")), text)
 
-#     # Hàm xử lý từng cụm số và đơn vị
-#     def convert(match):
-#         number = int(match.group(1))
-#         unit = match.group(2)
-#         if unit:
-#             unit_word = unit_mapping.get(unit, unit)
-#             return f"{number_to_vietnamese(number)} {unit_word}"
-#         return number_to_vietnamese(number)
+    # Số nguyên thông thường
+    text = re.sub(r"\b\d+\b", convert_integer, text)
 
-#     # Biểu thức chính quy tìm số và số kèm đơn vị
-#     pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
-#     return re.sub(pattern, convert, text)
+    return text
 
-def number_to_english(number):
+def number_to_english_with_units(text):
     words = {
         0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
         6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
@@ -2689,91 +2587,178 @@ def number_to_english(number):
         19: "nineteen", 20: "twenty", 30: "thirty", 40: "forty",
         50: "fifty", 60: "sixty", 70: "seventy", 80: "eighty", 90: "ninety"
     }
+
     units = ["", "thousand", "million", "billion", "trillion"]
+    unit_mapping = {
+        "km": "kilometers", "m": "meters", "cm": "centimeters", "mm": "millimeters",
+        "h": "hours", "s": "seconds", "ms": "milliseconds", "%": "percent",
+        "kg": "kilograms", "g": "grams"
+    }
 
-    def read_three_digits(num):
-        hundreds = num // 100
-        tens = (num % 100) // 10
-        ones = num % 10
-        result = []
+    def number_to_english(number):
+        if isinstance(number, str):
+            number = int(number.replace(",", ""))
+        if number == 0:
+            return "zero"
 
-        if hundreds > 0:
-            result.append(f"{words[hundreds]} hundred")
+        def read_three_digits(num):
+            hundreds = num // 100
+            tens = (num % 100) // 10
+            ones = num % 10
+            result = []
 
-        if tens >= 2:
-            result.append(words[tens * 10])
-            if ones > 0:
-                result.append(words[ones])
-        elif tens == 1 or ones > 0:
-            result.append(words[tens * 10 + ones])
+            if hundreds > 0:
+                result.append(f"{words[hundreds]} hundred")
 
-        return " ".join(result)
+            if tens >= 2:
+                result.append(words[tens * 10])
+                if ones > 0:
+                    result.append(words[ones])
+            elif tens == 1 or ones > 0:
+                result.append(words[tens * 10 + ones])
 
-    if number == 0:
-        return "zero"
+            return " ".join(result)
 
-    parts = []
-    idx = 0
-    while number > 0:
-        num_part = number % 1000
-        if num_part > 0:
-            part = read_three_digits(num_part)
-            if idx > 0:
-                part += f" {units[idx]}"
-            parts.append(part)
-        number //= 1000
-        idx += 1
+        parts = []
+        idx = 0
+        while number > 0:
+            num_part = number % 1000
+            if num_part > 0:
+                part = read_three_digits(num_part)
+                if idx > 0:
+                    part += f" {units[idx]}"
+                parts.append(part)
+            number //= 1000
+            idx += 1
 
-    return " ".join(reversed(parts))
+        return " ".join(reversed(parts))
 
-# Ánh xạ đơn vị
-unit_mapping = {
-    "km": "kilometers", "m": "meters", "cm": "centimeters", "mm": "millimeters",
-    "h": "hours", "s": "seconds", "ms": "milliseconds", "%": "percent"
-}
-
-def process_fractions(text):
-    # Xử lý phân số (ví dụ: 444/7000)
     def convert_fraction(match):
         numerator = int(match.group(1))
         denominator = int(match.group(2))
         return f"{number_to_english(numerator)} over {number_to_english(denominator)}"
-    
-    return re.sub(r"(\d+)/(\d+)", convert_fraction, text)
 
-def process_decimals(text):
-    # Xử lý số thập phân (ví dụ: 55.65)
+    def convert_units(match):
+        number = match.group(1).replace(",", "")  # remove thousands separator
+        unit = match.group(2)
+        unit_word = unit_mapping.get(unit, unit)
+
+        if "." in number:
+            integer_part, decimal_part = number.split(".")
+            number_text = f"{number_to_english(integer_part)} point {' '.join([words[int(d)] for d in decimal_part])}"
+        else:
+            number_text = number_to_english(number)
+        return f"{number_text} {unit_word}"
+
     def convert_decimal(match):
         integer_part = int(match.group(1))
         decimal_part = match.group(2)
-        decimal_words = " ".join([number_to_english(int(digit)) for digit in decimal_part])
+        decimal_words = " ".join([words[int(digit)] for digit in decimal_part])
         return f"{number_to_english(integer_part)} point {decimal_words}"
-    
-    return re.sub(r"(\d+)\.(\d+)", convert_decimal, text)
 
-def process_units(text):
-    # Xử lý số có đơn vị (ví dụ: 5649km → "five thousand six hundred forty-nine kilometers")
-    def convert_units(match):
-        number = int(match.group(1))
-        unit = match.group(2)
-        unit_word = unit_mapping.get(unit, unit)
-        return f"{number_to_english(number)} {unit_word}"
-    
-    return re.sub(r"(\d+)(km|m|cm|mm|h|s|ms|%)\b", convert_units, text)
-
-def process_integers(text):
-    # Xử lý số nguyên (ví dụ: 5649 → "five thousand six hundred forty-nine")
     def convert_integer(match):
-        return number_to_english(int(match.group(0)))
-    
-    return re.sub(r"\b\d+\b", convert_integer, text)
+        return number_to_english(match.group(0))
 
-def number_to_english_with_units(text):
-    text = process_fractions(text)  # Chuyển đổi phân số trước
-    text = process_decimals(text)   # Chuyển đổi số thập phân
-    text = process_units(text)      # Chuyển đổi số có đơn vị
-    text = process_integers(text)   # Cuối cùng, chuyển đổi số nguyên
+    # THỨ TỰ ĐÚNG ĐỂ TRÁNH GÂY TRÙNG
+    text = re.sub(r"(\d+(?:[.,]\d+)?)(km|m|cm|mm|h|s|ms|%|kg|g)\b", convert_units, text)
+    text = re.sub(r"(\d+)/(\d+)", convert_fraction, text)
+    text = re.sub(r"(\d+)[.,](\d+)", convert_decimal, text)
+    text = re.sub(r"\b\d+\b", convert_integer, text)
     return text
+# def number_to_english(number):
+#     words = {
+#         0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+#         6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+#         11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen",
+#         15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen",
+#         19: "nineteen", 20: "twenty", 30: "thirty", 40: "forty",
+#         50: "fifty", 60: "sixty", 70: "seventy", 80: "eighty", 90: "ninety"
+#     }
+#     units = ["", "thousand", "million", "billion", "trillion"]
+
+#     def read_three_digits(num):
+#         hundreds = num // 100
+#         tens = (num % 100) // 10
+#         ones = num % 10
+#         result = []
+
+#         if hundreds > 0:
+#             result.append(f"{words[hundreds]} hundred")
+
+#         if tens >= 2:
+#             result.append(words[tens * 10])
+#             if ones > 0:
+#                 result.append(words[ones])
+#         elif tens == 1 or ones > 0:
+#             result.append(words[tens * 10 + ones])
+
+#         return " ".join(result)
+
+#     if number == 0:
+#         return "zero"
+
+#     parts = []
+#     idx = 0
+#     while number > 0:
+#         num_part = number % 1000
+#         if num_part > 0:
+#             part = read_three_digits(num_part)
+#             if idx > 0:
+#                 part += f" {units[idx]}"
+#             parts.append(part)
+#         number //= 1000
+#         idx += 1
+
+#     return " ".join(reversed(parts))
+
+# # Ánh xạ đơn vị
+# unit_mapping = {
+#     "km": "kilometers", "m": "meters", "cm": "centimeters", "mm": "millimeters",
+#     "h": "hours", "s": "seconds", "ms": "milliseconds", "%": "percent"
+# }
+
+# def process_fractions(text):
+#     # Xử lý phân số (ví dụ: 444/7000)
+#     def convert_fraction(match):
+#         numerator = int(match.group(1))
+#         denominator = int(match.group(2))
+#         return f"{number_to_english(numerator)} over {number_to_english(denominator)}"
+    
+#     return re.sub(r"(\d+)/(\d+)", convert_fraction, text)
+
+# def process_decimals(text):
+#     # Xử lý số thập phân (ví dụ: 55.65)
+#     def convert_decimal(match):
+#         integer_part = int(match.group(1))
+#         decimal_part = match.group(2)
+#         decimal_words = " ".join([number_to_english(int(digit)) for digit in decimal_part])
+#         return f"{number_to_english(integer_part)} point {decimal_words}"
+    
+#     return re.sub(r"(\d+)\.(\d+)", convert_decimal, text)
+
+# def process_units(text):
+#     # Xử lý số có đơn vị (ví dụ: 5649km → "five thousand six hundred forty-nine kilometers")
+#     def convert_units(match):
+#         number = int(match.group(1))
+#         unit = match.group(2)
+#         unit_word = unit_mapping.get(unit, unit)
+#         return f"{number_to_english(number)} {unit_word}"
+    
+#     return re.sub(r"(\d+)(km|m|cm|mm|h|s|ms|%)\b", convert_units, text)
+
+# def process_integers(text):
+#     # Xử lý số nguyên (ví dụ: 5649 → "five thousand six hundred forty-nine")
+#     def convert_integer(match):
+#         return number_to_english(int(match.group(0)))
+    
+#     return re.sub(r"\b\d+\b", convert_integer, text)
+
+# def number_to_english_with_units(text):
+#     text = process_fractions(text)  # Chuyển đổi phân số trước
+#     text = process_decimals(text)   # Chuyển đổi số thập phân
+#     text = process_units(text)      # Chuyển đổi số có đơn vị
+#     text = process_integers(text)   # Cuối cùng, chuyển đổi số nguyên
+#     return text
 
 def merge_txt_files(input_dir, output_dir=None, group_file=50):
     try:

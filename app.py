@@ -1944,7 +1944,7 @@ class MainApp:
                         return
                     for i, audio_path in enumerate(audio_paths):
                         t = time()
-                        print(f'Bắt đầu nhận diện giọng nói cho đoạn {i + 1}/{len(audio_paths)} ({datetime.now().strftime("%H:%M:%S")}) --> Vui lòng chờ ...')
+                        print(f'  -->  Bắt đầu nhận diện giọng nói cho đoạn {i + 1}/{len(audio_paths)} ({datetime.now().strftime("%H:%M:%S")}) --> Vui lòng chờ ...')
                         segments = transcribe_with_whisper(audio_path)
                         if not segments:
                             print(f'<Cảnh Báo> trích xuất phụ đề từ video {video_path} thất bại')
