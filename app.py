@@ -1949,11 +1949,12 @@ class MainApp:
                             print(f'<Cảnh Báo> trích xuất phụ đề từ video {video_path} thất bại')
                             return False
                         if cut_audio_and_image(audio_path, segments):
-                            print(f'Thời gian xử lý đoạn {i + 1}/{len(audio_paths)}: {int(time() - t)}s')
+                            print(f'{thanhcong} Thời gian xử lý đoạn {i + 1}/{len(audio_paths)}: {int(time() - t)}s')
                             remove_file(audio_path)
+                            return True
                 except:
                     getlog()
-                    return None
+                    return False
 
             def transcribe_with_whisper(audio_path):
                 try:
