@@ -1910,13 +1910,15 @@ def extract_audio_ffmpeg(audio_path=None, video_path=None, video_url=None, video
             output_folder = os.path.join(os.path.dirname(target_path), 'extract_audios')
             os.makedirs(output_folder, exist_ok=True)
             for target_path in target_paths:
-                video_clip = None
                 if '.wav' in target_path or '.mp3' in target_path:
-                    audio_clip = AudioFileClip(target_path)
+                    audio_info = get_audio_info(target_path)
+                    duration = audio_info.get('duration', None)
                 else:
-                    video_clip = VideoFileClip(target_path)
-                    audio_clip = video_clip.audio
-                duration = audio_clip.duration
+                    video_info = get_video_info(target_path)
+                    duration = video_info.get('duration', None)
+                if not duration:
+                    print(f"không lấy được thông tin {target_path}")
+                    return
                 if end > duration:
                     end = duration
                 file_name = os.path.basename(target_path)
@@ -1935,10 +1937,6 @@ def extract_audio_ffmpeg(audio_path=None, video_path=None, video_url=None, video
                     getlog()
                     print(f'Có lỗi trong khi trích xuất audio')
                     
-                if audio_clip:
-                    audio_clip.close()
-                if video_clip:
-                    video_clip.close()
                 print(f"  --> Trích xuất thành công audio từ video {target_path}")
         if video_url:
             remove_file(video_path)
