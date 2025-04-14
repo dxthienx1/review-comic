@@ -391,7 +391,7 @@ class MainApp:
                 if lang == 'vi':
                     link = f'https://translate.google.com/?sl=en&tl={lang}&op=images'
                 else:
-                    link = f'https://translate.google.com/?sl=vi&tl={lang}&op=images'
+                    link = f'https://translate.google.com/?sl=fr&tl={lang}&op=images'
                 with open(file_path, 'w', encoding='utf-8') as file:
                     for filename in natsorted(os.listdir(chapter_folder)):
                         text = None
