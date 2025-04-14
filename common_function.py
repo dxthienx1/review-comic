@@ -2489,65 +2489,76 @@ def take_screenshot(save_folder="screenshots", name="1", img_type='png'):
     app.mainloop()
 
 def number_to_vietnamese_with_units(text):
-    # Bản đồ đơn vị và cách đọc
     unit_mapping = {
         "h": "giờ",
         "m": "mét",
         "cm": "xen ti mét",
         "mm": "mi li mét",
         "km": "ki lô mét",
+        "kg": "ki lô gam",
+        "g": "gam",
         "s": "giây",
         "ms": "mi li giây"
     }
 
-    # Hàm chuyển đổi số thành chữ
-    def number_to_vietnamese(number):
+    words = {
+        0: "không",
+        1: "một",
+        2: "hai",
+        3: "ba",
+        4: "bốn",
+        5: "năm",
+        6: "sáu",
+        7: "bảy",
+        8: "tám",
+        9: "chín"
+    }
+
+    units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
+
+    def read_three_digits(num, is_end):
+        hundreds = num // 100
+        tens = (num % 100) // 10
+        ones = num % 10
+        result = []
+
+        if hundreds > 0:
+            result.append(f"{words[hundreds]} trăm")
+        elif not is_end and (tens > 0 or ones > 0):
+            result.append("không trăm")
+
+        if tens > 1:
+            result.append(f"{words[tens]} mươi")
+            if ones == 1:
+                result.append("mốt")
+            elif ones == 5:
+                result.append("lăm")
+            elif ones > 0:
+                result.append(words[ones])
+        elif tens == 1:
+            result.append("mười")
+            if ones > 0:
+                result.append(words[ones])
+        elif tens == 0:
+            if ones > 0:
+                if hundreds > 0 or (hundreds == 0 and not is_end):
+                    result.append("linh")
+                result.append(words[ones])
+
+        return " ".join(result)
+
+    def number_to_vietnamese(number_str):
+        number_str = number_str.replace(',', '.')  # chuyển dấu , sang . để xử lý chuẩn
+        if '.' in number_str:
+            integer_part, decimal_part = number_str.split('.')
+            result = number_to_vietnamese(integer_part) + " phẩy"
+            for digit in decimal_part:
+                result += " " + words[int(digit)]
+            return result.strip()
+
+        number = int(number_str)
         if not (0 <= number < 1_000_000_000_000_000):
             return "Số nằm ngoài phạm vi hỗ trợ."
-        words = {
-            0: "không",
-            1: "một",
-            2: "hai",
-            3: "ba",
-            4: "bốn",
-            5: "năm",
-            6: "sáu",
-            7: "bảy",
-            8: "tám",
-            9: "chín"
-        }
-        units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
-
-        def read_three_digits(num, is_end):
-            hundreds = num // 100
-            tens = (num % 100) // 10
-            ones = num % 10
-            result = []
-            # Đọc hàng trăm
-            if hundreds > 0:
-                result.append(f"{words[hundreds]} trăm")
-            elif not is_end and (tens > 0 or ones > 0):
-                result.append("không trăm")
-            # Đọc hàng chục và hàng đơn vị
-            if tens > 1:
-                result.append(f"{words[tens]} mươi")
-                if ones == 1:
-                    result.append("mốt")
-                elif ones == 5:
-                    result.append("lăm")
-                elif ones > 0:
-                    result.append(words[ones])
-            elif tens == 1:
-                result.append("mười")
-                if ones > 0:
-                    result.append(words[ones])
-            elif tens == 0:
-                if ones > 0:
-                    if hundreds > 0 or (hundreds == 0 and not is_end):
-                        result.append("linh")
-                    result.append(words[ones])
-
-            return " ".join(result)
 
         parts = []
         idx = 0
@@ -2564,20 +2575,110 @@ def number_to_vietnamese_with_units(text):
             number //= 1000
             idx += 1
 
-        return " ".join(reversed(parts))
+        return " ".join(reversed(parts)) if parts else "không"
 
-    # Hàm xử lý từng cụm số và đơn vị
     def convert(match):
-        number = int(match.group(1))
+        number_str = match.group(1)
         unit = match.group(2)
+        number_text = number_to_vietnamese(number_str)
         if unit:
             unit_word = unit_mapping.get(unit, unit)
-            return f"{number_to_vietnamese(number)} {unit_word}"
-        return number_to_vietnamese(number)
+            return f"{number_text} {unit_word}"
+        return number_text
 
-    # Biểu thức chính quy tìm số và số kèm đơn vị
-    pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
+    # Hỗ trợ dấu chấm hoặc phẩy làm số thập phân
+    pattern = r"\b(\d+(?:[.,]\d+)?)(h|m|cm|mm|km|kg|g|s|ms)?\b"
     return re.sub(pattern, convert, text)
+# def number_to_vietnamese_with_units(text):
+#     # Bản đồ đơn vị và cách đọc
+#     unit_mapping = {
+#         "h": "giờ",
+#         "m": "mét",
+#         "cm": "xen ti mét",
+#         "mm": "mi li mét",
+#         "km": "ki lô mét",
+#         "s": "giây",
+#         "ms": "mi li giây"
+#     }
+
+#     # Hàm chuyển đổi số thành chữ
+#     def number_to_vietnamese(number):
+#         if not (0 <= number < 1_000_000_000_000_000):
+#             return "Số nằm ngoài phạm vi hỗ trợ."
+#         words = {
+#             0: "không",
+#             1: "một",
+#             2: "hai",
+#             3: "ba",
+#             4: "bốn",
+#             5: "năm",
+#             6: "sáu",
+#             7: "bảy",
+#             8: "tám",
+#             9: "chín"
+#         }
+#         units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
+
+#         def read_three_digits(num, is_end):
+#             hundreds = num // 100
+#             tens = (num % 100) // 10
+#             ones = num % 10
+#             result = []
+#             # Đọc hàng trăm
+#             if hundreds > 0:
+#                 result.append(f"{words[hundreds]} trăm")
+#             elif not is_end and (tens > 0 or ones > 0):
+#                 result.append("không trăm")
+#             # Đọc hàng chục và hàng đơn vị
+#             if tens > 1:
+#                 result.append(f"{words[tens]} mươi")
+#                 if ones == 1:
+#                     result.append("mốt")
+#                 elif ones == 5:
+#                     result.append("lăm")
+#                 elif ones > 0:
+#                     result.append(words[ones])
+#             elif tens == 1:
+#                 result.append("mười")
+#                 if ones > 0:
+#                     result.append(words[ones])
+#             elif tens == 0:
+#                 if ones > 0:
+#                     if hundreds > 0 or (hundreds == 0 and not is_end):
+#                         result.append("linh")
+#                     result.append(words[ones])
+
+#             return " ".join(result)
+
+#         parts = []
+#         idx = 0
+#         while number > 0:
+#             num_part = number % 1000
+#             if num_part > 0:
+#                 if number < 1000:
+#                     part = read_three_digits(num_part, is_end=True)
+#                 else:
+#                     part = read_three_digits(num_part, is_end=False)
+#                 if idx > 0:
+#                     part += f" {units[idx]}"
+#                 parts.append(part)
+#             number //= 1000
+#             idx += 1
+
+#         return " ".join(reversed(parts))
+
+#     # Hàm xử lý từng cụm số và đơn vị
+#     def convert(match):
+#         number = int(match.group(1))
+#         unit = match.group(2)
+#         if unit:
+#             unit_word = unit_mapping.get(unit, unit)
+#             return f"{number_to_vietnamese(number)} {unit_word}"
+#         return number_to_vietnamese(number)
+
+#     # Biểu thức chính quy tìm số và số kèm đơn vị
+#     pattern = r"\b(\d+)(h|m|cm|mm|km|s|ms)?\b"
+#     return re.sub(pattern, convert, text)
 
 def number_to_english(number):
     words = {

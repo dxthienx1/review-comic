@@ -1937,7 +1937,8 @@ class MainApp:
                         if run_command_ffmpeg(ffmpeg_cmd):
                             if os.path.exists(output_path):
                                 audio_paths.append(output_path)
-                    print(f'Đã chia video thành {len(audio_paths)} đoạn để xử lý')
+                    if len(audio_paths) > 1:
+                        print(f'Đã chia video thành {len(audio_paths)} đoạn để xử lý')
                     if len(audio_paths) == 0:
                         print(f'Không trích xuất được audio từ video {video_path}')
                         return
