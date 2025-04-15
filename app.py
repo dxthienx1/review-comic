@@ -798,31 +798,13 @@ class MainApp:
                         else:
                             print("Định dạng không hỗ trợ.")
                             return
-                        # if torch.cuda.is_available():
-                        #     print("---> Dùng GPU để xuất video...")
-                        #     command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
-                        # else:
-                        #     input_str = ' '.join(input_flags)
-                        #     command = f'ffmpeg -y {input_str} -i "{output_audio_path}" -c:v libx264 -pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            command = [
-                                "ffmpeg", "-y", *input_flags, "-i", output_audio_path,
-                                "-vf", "scale=1280:720",
-                                "-c:v", "h264_nvenc",
-                                "-b:v", "500k", "-maxrate", "500k", "-bufsize", "1M",
-                                "-pix_fmt", "yuv420p",
-                                "-c:a", "aac", "-b:a", "128k",
-                                "-shortest", "-threads", "4",
-                                output_video_path
-                            ]
+                            command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
                         else:
                             input_str = ' '.join(input_flags)
-                            command = (
-                                f'ffmpeg -y {input_str} -i "{output_audio_path}" '
-                                f'-vf scale=1280:720 -c:v libx264 -b:v 500k -maxrate 500k -bufsize 1M '
-                                f'-pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
-                            )
+                            command = f'ffmpeg -y {input_str} -i "{output_audio_path}" -c:v libx264 -pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
+
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_or_move_file(txt_path)
