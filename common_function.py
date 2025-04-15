@@ -2745,7 +2745,7 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
             return False
 
         # Mặc định thời lượng là 1 giây nếu không có audio
-        duration = 1.0
+        duration = 2.0
         has_audio = audio_path and os.path.exists(audio_path)
 
         if has_audio:
@@ -2755,6 +2755,9 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
             if not duration:
                 print("Không lấy được thông tin file âm thanh.")
                 return False
+            duration = float(duration)
+            if duration < 2.0:
+                duration = 2.0
 
         total_frames = int(fps * float(duration))
 
@@ -2776,9 +2779,12 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
             movement_types += ['left', 'right']
         movement_type = random.choice(movement_types)
 
-        if height > 2000:
-            movement_type = 'up'
-            movement_speed = 1.5
+        if height > 3000:
+            movement_type = 'down'
+            movement_speed = 5
+        elif height > 2000:
+            movement_type = 'down'
+            movement_speed = 3
             print(f'{canhbao} Ảnh {img_path} có chiều cao lớn hơn 2000')
 
         print(f'movement_type: {movement_type}')
@@ -7359,8 +7365,7 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
 
 # # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
 # cnt = 1
-# old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1.txt"
-# # old_txt = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1.txt"
+# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\da hoan thanh\\2.txt"
 
 # fol = os.path.dirname(old_txt)
 # file_name = os.path.basename(old_txt).split('.')[0]

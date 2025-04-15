@@ -798,13 +798,31 @@ class MainApp:
                         else:
                             print("Định dạng không hỗ trợ.")
                             return
-                        
+                        # if torch.cuda.is_available():
+                        #     print("---> Dùng GPU để xuất video...")
+                        #     command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+                        # else:
+                        #     input_str = ' '.join(input_flags)
+                        #     command = f'ffmpeg -y {input_str} -i "{output_audio_path}" -c:v libx264 -pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+                            command = [
+                                "ffmpeg", "-y", *input_flags, "-i", output_audio_path,
+                                "-vf", "scale=1280:720",
+                                "-c:v", "h264_nvenc",
+                                "-b:v", "500k", "-maxrate", "500k", "-bufsize", "1M",
+                                "-pix_fmt", "yuv420p",
+                                "-c:a", "aac", "-b:a", "128k",
+                                "-shortest", "-threads", "4",
+                                output_video_path
+                            ]
                         else:
                             input_str = ' '.join(input_flags)
-                            command = f'ffmpeg -y {input_str} -i "{output_audio_path}" -c:v libx264 -pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
+                            command = (
+                                f'ffmpeg -y {input_str} -i "{output_audio_path}" '
+                                f'-vf scale=1280:720 -c:v libx264 -b:v 500k -maxrate 500k -bufsize 1M '
+                                f'-pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
+                            )
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_or_move_file(txt_path)
@@ -1167,19 +1185,23 @@ class MainApp:
 
             current_image_name = None
             total_content = ""
-            first_number = 1
+            first_number = 0
             while idx < len(lines):
                 line = lines[idx].strip()
                 if line.isdigit():  # Bắt đầu một ảnh mới
                     if int(line) == 0 or int(line) <= first_number or int(line) > first_number + 10:
+                        idx += 1
                         continue
-                    # Nếu đã có ảnh trước và có nội dung thì lưu lại
-                    if current_image_name and total_content.strip():
-                        if not total_content.endswith('.') and not total_content.endswith(','):
-                            total_content += '.'
-                        if len(total_content) < min_lenth_text and end_text:
-                            total_content += f" {end_text}"
-                        entries.append((current_image_name, total_content.strip()))
+
+                    # Nếu có ảnh trước thì lưu lại, kể cả khi không có nội dung
+                    if current_image_name:
+                        cleaned_content = total_content.strip()
+                        if cleaned_content:
+                            if not cleaned_content.endswith('.') and not cleaned_content.endswith(','):
+                                cleaned_content += '.'
+                            entries.append((current_image_name, cleaned_content))
+                        else:
+                            entries.append((current_image_name, None))
 
                     total_content = ""
 
@@ -1217,26 +1239,37 @@ class MainApp:
                     total_content += f" {content}"
                     idx += 1
 
-            # Sau vòng lặp, thêm ảnh cuối cùng nếu có nội dung
-            if current_image_name and total_content.strip():
-                if not total_content.endswith('.') and not total_content.endswith(','):
-                    total_content += '.'
-                if len(total_content) < min_lenth_text and end_text:
-                    total_content += f" {end_text}"
-                entries.append((current_image_name, total_content.strip()))
+            # Sau vòng lặp, thêm ảnh cuối cùng (dù có nội dung hay không)
+            if current_image_name:
+                cleaned_content = total_content.strip()
+                if cleaned_content:
+                    if not cleaned_content.endswith('.') and not cleaned_content.endswith(','):
+                        cleaned_content += '.'
+                    if len(cleaned_content) < min_lenth_text and end_text:
+                        cleaned_content += f" {end_text}"
+                    entries.append((current_image_name, cleaned_content.strip()))
+                else:
+                    entries.append((current_image_name, None))
 
             cnt = 0
             for image_name, content in entries:
-                content = cleaner_text(content, language=language)
-
-                if len(content) > max_lenth_text:
-                    contents = split_text_into_chunks(content, max_lenth_text)
+                if content:
+                    content = cleaner_text(content, language=language)
+                    if len(content) > max_lenth_text:
+                        contents = split_text_into_chunks(content, max_lenth_text)
+                    elif len(content) < min_lenth_text:
+                        for i in range(35):
+                            content = content + ' '
+                            if len(content) >= min_lenth_text:
+                                content = content + '.'
+                                break
+                        contents = [content]
+                    else:
+                        contents = [content]
+                    merge_audio_path = os.path.join(temp_folder, f"{image_name.split('.')[0]}.wav")
+                    merge_audio_path = self.get_audio_for_all_text_of_image(contents, temp_folder, language=language, speed_talk=speed_talk, merge_audio_path=merge_audio_path)
                 else:
-                    contents = [content]
-                merge_audio_path = os.path.join(temp_folder, f"{image_name.split('.')[0]}.wav")
-                if not self.get_audio_for_all_text_of_image(contents, temp_folder, language=language, speed_talk=speed_talk, merge_audio_path=merge_audio_path):
-                    print(f'{thatbai} Có lỗi trong quá trình xuất audio của ảnh {image_name}')
-                    return
+                    merge_audio_path = None
                 image_path = os.path.join(chapter_folder, image_name)
                 img, image_height, image_width = get_image_size_by_cv2(image_path)
                 if image_height < max_height:
@@ -1247,7 +1280,7 @@ class MainApp:
                     run_command_ffmpeg(resize_command, True)
                     image_path = resized_image_path
 
-                video_path = f"{temp_folder}/video_{cnt}.mp4"
+                video_path = f"{temp_folder}/video_{image_name.split('.')[0]}.mp4"
                 if process_image_to_video_with_movement(image_path, merge_audio_path, video_path, hide=True):
                     print(f"{thanhcong} Xuất thành công video {video_path}")
                 else:
@@ -1264,6 +1297,8 @@ class MainApp:
 
     def get_audio_for_all_text_of_image(self, contents, temp_folder, language='vi', speed_talk='1', merge_audio_path='merge.wav'):
         try:
+            if not merge_audio_path:
+                return None
             audio_paths = []
             cnt = 0
             for text in contents:
@@ -1273,7 +1308,7 @@ class MainApp:
 
                 if not text_to_audio_with_xtts(self.xtts, text, audio_path, language):
                     print(f"{thatbai} Không thể TTS: {text}")
-                    return
+                    return None
                 # Thay đổi tốc độ nói nếu cần
                 if speed_talk != 1.0:
                     speed_audio_path = os.path.join(temp_folder, f"{cnt}_speed.wav")
@@ -1281,7 +1316,8 @@ class MainApp:
                         if os.path.exists(speed_audio_path):
                             remove_file(audio_path)
                             audio_path = speed_audio_path
-
+                if len(contents) == 1:
+                    return audio_path
                 audio_paths.append(audio_path)
                 cnt += 1
             # Tạo file danh sách cho ffmpeg
@@ -1295,10 +1331,10 @@ class MainApp:
                 remove_file(concat_list_path)
                 for audio in audio_paths:
                     remove_file(audio)
-                return True
+                return merge_audio_path
         except:
             getlog()
-        return False
+        return None
     # def processing_subtitle_file_and_export_video(self, chapter_folder, language='vi', speed_talk=1.0, end_text=None, main_file_path=None, min_lenth_text=30, max_lenth_text=250):
     #     try:
     #         file_name = os.path.basename(os.path.normpath(chapter_folder))
