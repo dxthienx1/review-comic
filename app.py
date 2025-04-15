@@ -419,7 +419,7 @@ class MainApp:
                                         text = ' '
                                     else:
                                         texts = text.split('\n')
-                                        text_s = texts[:]
+                                        text_s = [ttt.strip() for ttt in texts if ttt.strip() and not ttt.strip().isdigit()]
                                         for word in black_words:
                                             text_s = [tex for tex in text_s if tex.strip() and word.lower() not in tex.lower()]
                                         if not text_s:

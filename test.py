@@ -1,5 +1,6 @@
 # from common_function import *
 import re
+
 def number_to_english_with_units(text):
     words = {
         0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
@@ -61,7 +62,6 @@ def number_to_english_with_units(text):
             raw_number = raw_number.replace(",", "")
         if "." in raw_number:
             integer_part, decimal_part = raw_number.split(".")
-            integer_part = integer_part.replace(",", "")
             integer_text = number_to_english(integer_part)
             decimal_text = " ".join([words[int(d)] for d in decimal_part])
             return f"{integer_text} point {decimal_text} {unit_text}"
@@ -77,21 +77,27 @@ def number_to_english_with_units(text):
         number = match.group(0).replace(",", "")
         return number_to_english(number)
 
-    # Xử lý số có đơn vị
-    text = re.sub(r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+\.\d+)(km|m|cm|mm|h|s|ms|%|kg|g)\b", convert_units, text)
+    # Xử lý số có đơn vị và tránh trùng lặp đơn vị
+    text = re.sub(r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+\.\d+)(?=\s*(km|m|cm|mm|h|s|ms|%|kg|g))", convert_units, text)
 
-    # Xử lý số thập phân độc lập
-    text = re.sub(r"\b(\d{1,3}(?:,\d{3})*)\.(\d+)", convert_decimal, text)
+    # Decimal độc lập (không có đơn vị)
+    text = re.sub(r"\b(\d{1,3}(?:,\d{3})*)\.(\d+)\b", convert_decimal, text)
 
-    # Xử lý số nguyên có dấu `,` (1,000,000)
+    # Số nguyên có dấu phẩy
     text = re.sub(r"\b\d{1,3}(?:,\d{3})+\b", convert_integer, text)
 
-    # Xử lý các số còn lại (sau khi đã xử lý decimal & units)
-    text = re.sub(r"\b\d+\b", convert_integer, text)
+    # Tránh đổi sai các dạng giờ, ký hiệu, etc.
+    text = re.sub(r"\b\d+\b", lambda m: convert_integer(m) if not re.match(r"\d+:\d+", text[m.start():]) else m.group(0), text)
+
+    # Xử lý các đơn vị đã gán vào cuối (để tránh lặp đơn vị)
+    text = re.sub(r"(kg|g|km|m|cm|mm|h|s|ms|%)(?=\b)", lambda m: m.group(1) if m.group(1) not in ["kg", "g", "km", "m", "cm", "mm", "h", "s", "ms", "%"] else "", text)
 
     return text
 
-tttt = "1,4 - 12.5 - 250kg - 57g - 97,05km - 2345h - 15mm - 300cm 340.56 - 1000500000 - 2000000"
+
+
+
+tttt = "1.4 - 12.5 - 250kg - 57g - 97.05km - 2345 - - 15mm - 300cm - 340.56 - 1000500000 - 2000000"
 gg = number_to_english_with_units(tttt)
 print(gg)
 

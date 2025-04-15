@@ -2587,7 +2587,6 @@ def number_to_english_with_units(text):
         19: "nineteen", 20: "twenty", 30: "thirty", 40: "forty",
         50: "fifty", 60: "sixty", 70: "seventy", 80: "eighty", 90: "ninety"
     }
-
     units = ["", "thousand", "million", "billion", "trillion"]
     unit_mapping = {
         "km": "kilometers", "m": "meters", "cm": "centimeters", "mm": "millimeters",
@@ -2596,27 +2595,26 @@ def number_to_english_with_units(text):
     }
 
     def number_to_english(number):
-        if isinstance(number, str):
-            number = int(number.replace(",", ""))
+        number = int(number)
         if number == 0:
             return "zero"
 
         def read_three_digits(num):
             hundreds = num // 100
-            tens = (num % 100) // 10
-            ones = num % 10
+            tens_units = num % 100
             result = []
 
             if hundreds > 0:
                 result.append(f"{words[hundreds]} hundred")
-
-            if tens >= 2:
-                result.append(words[tens * 10])
-                if ones > 0:
-                    result.append(words[ones])
-            elif tens == 1 or ones > 0:
-                result.append(words[tens * 10 + ones])
-
+            if tens_units > 0:
+                if tens_units < 20:
+                    result.append(words[tens_units])
+                else:
+                    tens = tens_units // 10 * 10
+                    ones = tens_units % 10
+                    result.append(words[tens])
+                    if ones > 0:
+                        result.append(words[ones])
             return " ".join(result)
 
         parts = []
@@ -2625,140 +2623,53 @@ def number_to_english_with_units(text):
             num_part = number % 1000
             if num_part > 0:
                 part = read_three_digits(num_part)
-                if idx > 0:
+                if units[idx]:
                     part += f" {units[idx]}"
                 parts.append(part)
             number //= 1000
             idx += 1
-
         return " ".join(reversed(parts))
 
-    def convert_fraction(match):
-        numerator = int(match.group(1))
-        denominator = int(match.group(2))
-        return f"{number_to_english(numerator)} over {number_to_english(denominator)}"
-
     def convert_units(match):
-        number = match.group(1).replace(",", "")  # remove thousands separator
+        raw_number = match.group(1)
         unit = match.group(2)
-        unit_word = unit_mapping.get(unit, unit)
+        unit_text = unit_mapping.get(unit, unit)
 
-        if "." in number:
-            integer_part, decimal_part = number.split(".")
-            number_text = f"{number_to_english(integer_part)} point {' '.join([words[int(d)] for d in decimal_part])}"
+        if "," in raw_number:
+            raw_number = raw_number.replace(",", "")
+        if "." in raw_number:
+            integer_part, decimal_part = raw_number.split(".")
+            integer_text = number_to_english(integer_part)
+            decimal_text = " ".join([words[int(d)] for d in decimal_part])
+            return f"{integer_text} point {decimal_text} {unit_text}"
         else:
-            number_text = number_to_english(number)
-        return f"{number_text} {unit_word}"
+            return f"{number_to_english(raw_number)} {unit_text}"
 
     def convert_decimal(match):
-        integer_part = int(match.group(1))
+        integer_part = match.group(1).replace(",", "")
         decimal_part = match.group(2)
-        decimal_words = " ".join([words[int(digit)] for digit in decimal_part])
-        return f"{number_to_english(integer_part)} point {decimal_words}"
+        return f"{number_to_english(integer_part)} point {' '.join([words[int(d)] for d in decimal_part])}"
 
     def convert_integer(match):
-        return number_to_english(match.group(0))
+        number = match.group(0).replace(",", "")
+        return number_to_english(number)
 
-    # THỨ TỰ ĐÚNG ĐỂ TRÁNH GÂY TRÙNG
-    text = re.sub(r"(\d+(?:[.,]\d+)?)(km|m|cm|mm|h|s|ms|%|kg|g)\b", convert_units, text)
-    text = re.sub(r"(\d+)/(\d+)", convert_fraction, text)
-    text = re.sub(r"(\d+)[.,](\d+)", convert_decimal, text)
-    text = re.sub(r"\b\d+\b", convert_integer, text)
+    # Xử lý số có đơn vị và tránh trùng lặp đơn vị
+    text = re.sub(r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+\.\d+)(?=\s*(km|m|cm|mm|h|s|ms|%|kg|g))", convert_units, text)
+
+    # Decimal độc lập (không có đơn vị)
+    text = re.sub(r"\b(\d{1,3}(?:,\d{3})*)\.(\d+)\b", convert_decimal, text)
+
+    # Số nguyên có dấu phẩy
+    text = re.sub(r"\b\d{1,3}(?:,\d{3})+\b", convert_integer, text)
+
+    # Tránh đổi sai các dạng giờ, ký hiệu, etc.
+    text = re.sub(r"\b\d+\b", lambda m: convert_integer(m) if not re.match(r"\d+:\d+", text[m.start():]) else m.group(0), text)
+
+    # Xử lý các đơn vị đã gán vào cuối (để tránh lặp đơn vị)
+    text = re.sub(r"(kg|g|km|m|cm|mm|h|s|ms|%)(?=\b)", lambda m: m.group(1) if m.group(1) not in ["kg", "g", "km", "m", "cm", "mm", "h", "s", "ms", "%"] else "", text)
+
     return text
-# def number_to_english(number):
-#     words = {
-#         0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
-#         6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
-#         11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen",
-#         15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen",
-#         19: "nineteen", 20: "twenty", 30: "thirty", 40: "forty",
-#         50: "fifty", 60: "sixty", 70: "seventy", 80: "eighty", 90: "ninety"
-#     }
-#     units = ["", "thousand", "million", "billion", "trillion"]
-
-#     def read_three_digits(num):
-#         hundreds = num // 100
-#         tens = (num % 100) // 10
-#         ones = num % 10
-#         result = []
-
-#         if hundreds > 0:
-#             result.append(f"{words[hundreds]} hundred")
-
-#         if tens >= 2:
-#             result.append(words[tens * 10])
-#             if ones > 0:
-#                 result.append(words[ones])
-#         elif tens == 1 or ones > 0:
-#             result.append(words[tens * 10 + ones])
-
-#         return " ".join(result)
-
-#     if number == 0:
-#         return "zero"
-
-#     parts = []
-#     idx = 0
-#     while number > 0:
-#         num_part = number % 1000
-#         if num_part > 0:
-#             part = read_three_digits(num_part)
-#             if idx > 0:
-#                 part += f" {units[idx]}"
-#             parts.append(part)
-#         number //= 1000
-#         idx += 1
-
-#     return " ".join(reversed(parts))
-
-# # Ánh xạ đơn vị
-# unit_mapping = {
-#     "km": "kilometers", "m": "meters", "cm": "centimeters", "mm": "millimeters",
-#     "h": "hours", "s": "seconds", "ms": "milliseconds", "%": "percent"
-# }
-
-# def process_fractions(text):
-#     # Xử lý phân số (ví dụ: 444/7000)
-#     def convert_fraction(match):
-#         numerator = int(match.group(1))
-#         denominator = int(match.group(2))
-#         return f"{number_to_english(numerator)} over {number_to_english(denominator)}"
-    
-#     return re.sub(r"(\d+)/(\d+)", convert_fraction, text)
-
-# def process_decimals(text):
-#     # Xử lý số thập phân (ví dụ: 55.65)
-#     def convert_decimal(match):
-#         integer_part = int(match.group(1))
-#         decimal_part = match.group(2)
-#         decimal_words = " ".join([number_to_english(int(digit)) for digit in decimal_part])
-#         return f"{number_to_english(integer_part)} point {decimal_words}"
-    
-#     return re.sub(r"(\d+)\.(\d+)", convert_decimal, text)
-
-# def process_units(text):
-#     # Xử lý số có đơn vị (ví dụ: 5649km → "five thousand six hundred forty-nine kilometers")
-#     def convert_units(match):
-#         number = int(match.group(1))
-#         unit = match.group(2)
-#         unit_word = unit_mapping.get(unit, unit)
-#         return f"{number_to_english(number)} {unit_word}"
-    
-#     return re.sub(r"(\d+)(km|m|cm|mm|h|s|ms|%)\b", convert_units, text)
-
-# def process_integers(text):
-#     # Xử lý số nguyên (ví dụ: 5649 → "five thousand six hundred forty-nine")
-#     def convert_integer(match):
-#         return number_to_english(int(match.group(0)))
-    
-#     return re.sub(r"\b\d+\b", convert_integer, text)
-
-# def number_to_english_with_units(text):
-#     text = process_fractions(text)  # Chuyển đổi phân số trước
-#     text = process_decimals(text)   # Chuyển đổi số thập phân
-#     text = process_units(text)      # Chuyển đổi số có đơn vị
-#     text = process_integers(text)   # Cuối cùng, chuyển đổi số nguyên
-#     return text
 
 def merge_txt_files(input_dir, output_dir=None, group_file=50):
     try:
@@ -2975,214 +2886,6 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
     except:
         getlog()
         return False
-    
-# def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.2, movement_speed=0.6, hide=False, subtitle_text=None):
-#     try:
-#         # Kiểm tra file đầu vào
-#         if not os.path.exists(img_path) or not os.path.exists(audio_path):
-#             print("File ảnh hoặc âm thanh không tồn tại!")
-#             return False
-        
-#         # Lấy thời lượng audio
-#         audio_info = get_audio_info(audio_path)
-#         duration = audio_info.get('duration', None)
-#         if not duration:
-#             print("Không lấy được thông tin file âm thanh.")
-#             return False
-#         total_frames = int(fps * float(duration))
-
-#         img, height, width = get_image_size_by_cv2(img_path)
-#         if height > 2000:
-#             scale_ratio = 700 / width
-#             width = 700
-#             height = int(height * scale_ratio)
-#             img = cv2.resize(img, (width, height))
-
-#         temp_video_path = "temp_video.mp4"
-#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-#         out = cv2.VideoWriter(temp_video_path, fourcc, fps, (width, height))
-
-#         current_zoom_factor = zoom_factor
-#         offset_x, offset_y = 0, 0
-#         movement_types = ['down', 'up', 'zoom_in', 'zoom_out']
-#         if width > height:
-#             movement_types = ['down', 'up', 'zoom_in', 'zoom_out', 'left', 'right']
-#         movement_type = random.choice(movement_types)
-#         if height > 2000:
-#             movement_type = 'up'
-#             movement_speed = 1.5
-#             print(f'{canhbao} Ảnh {img_path} có chiều cao lớn hơn 2000')
-
-#         print(f'movement_type: {movement_type}')
-#         if movement_type == 'down':
-#             offset_y = 0
-#             offset_x = (int(width * current_zoom_factor) - width) // 2
-#         elif movement_type == 'up':
-#             offset_y = int(height * current_zoom_factor) - height
-#             offset_x = (int(width * current_zoom_factor) - width) // 2
-#         elif movement_type == 'right':
-#             offset_x = int(width * current_zoom_factor) - width
-#         elif movement_type == 'left':
-#             pass
-
-#         for frame_idx in range(total_frames):
-#             # Cập nhật chuyển động chỉ khi frame nằm trong chu kỳ movement_step
-#             if movement_type == 'right':
-#                 offset_x += movement_speed
-#                 if offset_x + width >= int(width * current_zoom_factor):  # Giới hạn chiều ngang
-#                     offset_x = int(width * current_zoom_factor) - width
-#                 # Đặt ảnh theo phương dọc ở trung tâm
-#                 offset_y = (int(height * current_zoom_factor) - height) // 2
-#             elif movement_type == 'left':
-#                 offset_x -= movement_speed
-#                 if offset_x <= 0:  # Giới hạn chiều ngang (trái)
-#                     offset_x = 0
-#                 # Đặt ảnh theo phương dọc ở trung tâm
-#                 offset_y = (int(height * current_zoom_factor) - height) // 2
-#             elif movement_type == 'down':
-#                 offset_y += movement_speed
-#                 if offset_y + height >= int(height * current_zoom_factor):
-#                     offset_y = int(height * current_zoom_factor) - height
-#                 # Đặt ảnh theo phương ngang ở trung tâm
-#                 offset_x = (int(width * current_zoom_factor) - width) // 2
-#             elif movement_type == 'up':
-#                 offset_y -= movement_speed
-#                 if offset_y <= 0:
-#                     offset_y = 0
-#                 # Đặt ảnh theo phương ngang ở trung tâm
-#                 offset_x = (int(width * current_zoom_factor) - width) // 2
-#             elif movement_type == 'zoom_in':
-#                 current_zoom_factor += 0.001  # Tăng dần hệ số zoom
-#                 if current_zoom_factor > zoom_factor*1.2:  # Giới hạn zoom in tối đa
-#                     current_zoom_factor = zoom_factor*1.2
-#             elif movement_type == 'zoom_out':
-#                 current_zoom_factor -= 0.001  # Giảm dần hệ số zoom
-#                 if current_zoom_factor < 0.7:  # Giới hạn zoom out tối thiểu
-#                     current_zoom_factor = 0.7
-
-#             while int(height * current_zoom_factor) < height or int(width * current_zoom_factor) < width:
-#                 current_zoom_factor += 0.01  # Tăng nhẹ hệ số zoom
-#             zoomed_width = int(width * current_zoom_factor)
-#             zoomed_height = int(height * current_zoom_factor)
-#             # Kiểm tra và điều chỉnh nếu kích thước zoom nhỏ hơn kích thước gốc
-#             while zoomed_width < width or zoomed_height < height:
-#                 current_zoom_factor += 0.01  # Tăng hệ số zoom nhẹ
-#                 zoomed_width = int(width * current_zoom_factor)
-#                 zoomed_height = int(height * current_zoom_factor)
-#             # Resize ảnh theo kích thước zoom
-#             zoomed_img = cv2.resize(img, (zoomed_width, zoomed_height))
-#             # Kiểm tra tọa độ cắt ảnh
-#             if offset_x + width > zoomed_width:
-#                 offset_x = zoomed_width - width  # Điều chỉnh offset_x
-#             if offset_y + height > zoomed_height:
-#                 offset_y = zoomed_height - height  # Điều chỉnh offset_y
-#             # Cắt ảnh theo vị trí offset
-#             cropped_frame = zoomed_img[int(offset_y):int(offset_y + height), int(offset_x):int(offset_x + width)]
-#             if subtitle_text:
-#                 font_scale = 1.0
-#                 font_thickness = 2
-#                 font = cv2.FONT_HERSHEY_SIMPLEX
-#                 text_size, _ = cv2.getTextSize(subtitle_text, font, font_scale, font_thickness)
-#                 text_x = (width - text_size[0]) // 2
-#                 text_y = height - 50  # 50px cách mép dưới
-#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness + 2, cv2.LINE_AA)  # viền đen
-#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)  # text trắng
-#             out.write(cropped_frame)
-#         # Giải phóng tài nguyên
-#         out.release()
-
-#         # Ghép âm thanh vào video bằng ffmpeg
-#         if torch.cuda.is_available():
-#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps), "-threads", "4", output_video_path]
-#         else:
-#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path, "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-r", str(fps) , "-threads", "4", output_video_path]
-#         if not run_command_ffmpeg(command, hide):
-#             return False
-
-#         # Xóa file tạm
-#         if os.path.exists(temp_video_path):
-#             os.remove(temp_video_path)
-#         return True
-#     except:
-#         getlog()
-#         return False
-
-# def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=60, zoom_factor=1.2, hide=False, subtitle_text=None):
-#     try:
-#         if not os.path.exists(img_path) or not os.path.exists(audio_path):
-#             print("File ảnh hoặc âm thanh không tồn tại!")
-#             return False
-        
-#         audio_info = get_audio_info(audio_path)
-#         duration = audio_info.get('duration', None)
-#         if not duration:
-#             print("Không lấy được thông tin file âm thanh.")
-#             return False
-#         total_frames = int(fps * float(duration))
-
-#         img, height, width = get_image_size_by_cv2(img_path)
-#         if width < 600:
-#             scale_ratio = 700 / width
-#             width = 700
-#             height = int(height * scale_ratio)
-#             img = cv2.resize(img, (width, height))
-
-#         frame_height = 1080
-#         frame_width = width
-
-#         total_scroll_pixels = height - frame_height
-#         if total_scroll_pixels <= 0:
-#             print("Ảnh không đủ cao để lướt.")
-#             return False
-
-#         pixels_per_frame = int(total_scroll_pixels / total_frames)
-
-#         temp_video_path = "temp_video.mp4"
-#         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-#         out = cv2.VideoWriter(temp_video_path, fourcc, fps, (frame_width, frame_height))
-
-#         for frame_idx in range(total_frames):
-#             float_offset_y = frame_idx * pixels_per_frame
-#             offset_y = int(round(float_offset_y))
-#             offset_y = min(offset_y, total_scroll_pixels)
-
-#             cropped_frame = img[offset_y:offset_y + frame_height, 0:frame_width]
-
-#             if subtitle_text:
-#                 font_scale = 1.0
-#                 font_thickness = 2
-#                 font = cv2.FONT_HERSHEY_SIMPLEX
-#                 text_size, _ = cv2.getTextSize(subtitle_text, font, font_scale, font_thickness)
-#                 text_x = (frame_width - text_size[0]) // 2
-#                 text_y = frame_height - 50
-#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness + 2, cv2.LINE_AA)
-#                 cv2.putText(cropped_frame, subtitle_text, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)
-
-#             out.write(cropped_frame)
-
-#         out.release()
-
-#         if torch.cuda.is_available():
-#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path,
-#                        "-c:v", "h264_nvenc", "-cq", "23", "-preset", "p4",
-#                        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
-#                        "-r", str(fps), "-threads", "4", output_video_path]
-#         else:
-#             command = ["ffmpeg", "-y", "-i", temp_video_path, "-i", audio_path,
-#                        "-c:v", "libx264", "-tune", "stillimage",
-#                        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
-#                        "-r", str(fps), "-threads", "4", output_video_path]
-
-#         if not run_command_ffmpeg(command, hide):
-#             return False
-
-#         remove_file(temp_video_path)
-#         remove_file(audio_path)
-#         return True
-
-#     except Exception as e:
-#         print(f"Lỗi: {e}")
-#         return False
     
 def get_image_size_by_cv2(path):
     try:
@@ -7647,8 +7350,8 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
                 text = text.replace(word1, replacement1)
             for word, replacement in special_word.items():
                 text = text.replace(word, replacement)
-            if is_conver_number:
-                text = number_to_english_with_units(text)
+            # if is_conver_number:
+            #     text = number_to_english_with_units(text)
         return text.strip()
     except:
         getlog()
