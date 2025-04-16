@@ -796,7 +796,7 @@ class MainApp:
                         elif is_gif(img_path) or is_video(img_path):
                             input_flags = ["-stream_loop", "-1", "-i", img_path]  # lặp vô hạn
                         else:
-                            print("Định dạng không hỗ trợ.")
+                            print(f"{thatbai} Định dạng không hỗ trợ.")
                             return
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
@@ -2676,15 +2676,15 @@ class MainApp:
 
     def stop_download(self):
         self.is_stop_download = True
-        print("Đang dừng quá trình tải video, vui lòng chờ trong giây lát ...")
+        print(f"{canhbao} Đang dừng quá trình tải video, vui lòng chờ trong giây lát ...")
 
     def stop_export_next_video(self):
         self.is_stop_export_next_video = True
-        print("Bạn đã thiết lập dừng xuất video tiếp theo. Nếu muốn dừng ngay thì vui lòng tắt ứng dụng.")
+        print(f"{canhbao} Bạn đã thiết lập dừng xuất video tiếp theo. Nếu muốn dừng ngay thì vui lòng tắt ứng dụng.")
 
     def stop_edit_videos(self):
         self.is_stop_edit = True
-        print("Đang dừng quá trình chỉnh sửa video, vui lòng chờ trong giây lát ...")
+        print(f"{canhbao} Đang dừng quá trình chỉnh sửa video, vui lòng chờ trong giây lát ...")
 
     def stop_all_process(self):
         self.stop_download()
