@@ -3766,6 +3766,7 @@ skip_words = [
     ]
 
 viet_tat = {
+    " MC ": " em xi ",
     " ID ": " ai đi ",
     " IP ": " ai pi ",
     " ADN ": " ây đi en ",
@@ -7168,7 +7169,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                         # Kiểm tra nếu không phải số
                         if not line_content.isdigit():
                             if i_au >= len(audios):  # Kiểm tra số lượng audio
-                                print(f"Warning: Không đủ file audio cho file {txt_f}")
+                                print(f"{canhbao} Không đủ file audio cho file {txt_f}")
                                 break
                             
                             if line_content not in unique_lines and len(line_content) < max_lenth_text:
