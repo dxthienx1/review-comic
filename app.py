@@ -1985,7 +1985,7 @@ class MainApp:
                     getlog()
                     return None
             
-            def cut_audio_and_image(audio_path, segments):
+            def cut_audio_and_image(audio_path, segments, min_lenth_text=10):
                 try:
                     with open(file_path, 'a', encoding='utf-8') as file:                                                                                                                                                                                                              
                         current_text = ""
@@ -1999,7 +1999,7 @@ class MainApp:
                                 current_start_time = start_time
                             if text not in current_text:
                                 current_text += (" " if current_text else "") + text
-                            if len(current_text) < 30:
+                            if len(current_text) < min_lenth_text:
                                 continue
                             elif current_text.endswith(".") or current_text.endswith("?") or current_text.endswith("!"):
                                 if len(current_text) >= max_lenth_text:
