@@ -2500,8 +2500,16 @@ def number_to_vietnamese_with_units(text):
 
     unit_mapping = {
         "km": "ki lô mét", "m": "mét", "cm": "xen ti mét", "mm": "mi li mét",
-        "h": "giờ", "s": "giây", "ms": "mi li giây", "%": "phần trăm",
-        "kg": "ki lô gam", "g": "gam"
+        "nm": "nano mét", "dm": "đề xi mét", "inch": "in", "in": "in",
+        "ft": "feet", "yd": "yard", "mi": "dặm",
+        "kg": "ki lô gam", "g": "gam", "mg": "mi li gam", "t": "tấn",
+        "lb": "pao", "oz": "ao xơ",
+        "h": "giờ", "s": "giây", "ms": "mi li giây", "ns": "nano giây",
+        "l": "lít", "ml": "mi li lít", "cl": "xen ti lít", "dl": "đề xi lít", "m3": "mét khối",
+        "đ": "đồng", "vnđ": "việt nam đồng", "$": "đô la", "€": "ơ rô",
+        "£": "bảng anh", "¥": "yên nhật",
+        "%": "phần trăm", "°c": "độ xê", "°f": "độ ép", "kwh": "ki lô watt giờ",
+        "bps": "bít trên giây", "hz": "héc"
     }
 
     def read_number(n):
@@ -2513,6 +2521,8 @@ def number_to_vietnamese_with_units(text):
             donvi = n % 10
             if donvi == 0:
                 return number_words[chuc]
+            if donvi == 1:
+                return number_words[chuc] + " mốt"
             if donvi == 5:
                 return number_words[chuc] + " lăm"
             return number_words[chuc] + " " + number_words[donvi]
@@ -2522,6 +2532,8 @@ def number_to_vietnamese_with_units(text):
             res = number_words[tram] + " trăm"
             if chuc_dv == 0:
                 return res
+            elif chuc_dv < 10:
+                return res + " linh " + number_words[chuc_dv]
             return res + " " + read_number(chuc_dv)
         else:
             parts = []
@@ -2544,22 +2556,21 @@ def number_to_vietnamese_with_units(text):
         unit = match.group(2)
         unit_text = unit_mapping.get(unit, unit)
 
-        if re.match(r"^\d{1,3}([.,]\d{3})+$", raw_num):  # 1.000.000 hoặc 1,000,000 style
+        if re.match(r"^\d{1,3}([.,]\d{3})+$", raw_num):
             raw_num = raw_num.replace(".", "").replace(",", "")
-        elif re.match(r"^\d+[.,]\d+$", raw_num):  # 97.05 hoặc 1,4
+        elif re.match(r"^\d+[.,]\d+$", raw_num):
             sep = "." if "." in raw_num else ","
             int_part, dec_part = raw_num.split(sep)
             int_text = read_number(int_part)
             dec_text = " ".join([number_words[int(d)] for d in dec_part])
             return f"{int_text} phẩy {dec_text} {unit_text}"
-        
+
         num = int(raw_num.replace(".", "").replace(",", ""))
         return read_number(num) + " " + unit_text
-    
+
     def convert_complex_number(match):
         num_str = match.group(0)
 
-        # Đoán dấu phân cách phần thập phân
         if num_str.count('.') > 1 and ',' in num_str:
             sep_thousand = '.'
             sep_decimal = ','
@@ -2567,11 +2578,10 @@ def number_to_vietnamese_with_units(text):
             sep_thousand = ','
             sep_decimal = '.'
         else:
-            # Không chắc chắn được, bỏ qua
-            return num_str  # hoặc return f"*{num_str}*"
+            return num_str
 
         if sep_decimal not in num_str:
-            return num_str  # Không có phần thập phân hợp lệ
+            return num_str
 
         try:
             int_part, dec_part = num_str.rsplit(sep_decimal, 1)
@@ -2585,7 +2595,7 @@ def number_to_vietnamese_with_units(text):
     def convert_large_grouped_number(match):
         num_str = match.group(1)
         if len(num_str) < 7:
-            return num_str  # Không đổi nếu dưới 7 ký tự
+            return num_str
         cleaned = num_str.replace(".", "").replace(",", "")
         return read_number(int(cleaned))
 
@@ -2596,24 +2606,28 @@ def number_to_vietnamese_with_units(text):
 
     def convert_integer(match):
         return read_number(match.group(0))
-    
+
     def convert_time_format(match):
         hour = int(match.group(1))
         minute = int(match.group(2))
         return f"{read_number(hour)} giờ {read_number(minute)} phút"
-
+    
+    units_pattern = "|".join(re.escape(k) for k in unit_mapping.keys())
+    text = re.sub(
+        rf"(\d+[.,]\d+)\s*({units_pattern})\b",
+        lambda m: (
+            read_number(int(m.group(1).split('.')[0].split(',')[0])) + 
+            " phẩy " + 
+            " ".join([number_words[int(d)] for d in re.sub(r'\D', '', m.group(1).split('.')[-1])]) +
+            " " + unit_mapping.get(m.group(2), m.group(2))
+        ),
+        text
+    )
+    text = re.sub( rf"(\d{{1,3}}(?:[.,]\d{{3}})+|\d+)\s*({units_pattern})\b", convert_units, text )
     text = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+[.,]\d+\b", convert_complex_number, text)
-    # Số có dấu phân cách mỗi 3 chữ số: 1.000.000 hoặc 2,345,678
     text = re.sub(r"\b(\d{1,3}(?:[.,]\d{3})+)\b", convert_large_grouped_number, text)
     text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})\b", convert_time_format, text)
-    # Xử lý số có đơn vị
-    text = re.sub(r"(\d{1,3}(?:[.,]\d{3})+|\d+[.,]?\d*)(km|m|cm|mm|h|s|ms|%|kg|g)\b", convert_units, text)
-
-    # Số dạng thập phân: 123.45 hoặc 1,2
     text = re.sub(r"\b(\d+)[.,](\d+)\b", convert_decimal, text)
-
-
-    # Số nguyên bình thường
     text = re.sub(r"\b\d+\b", convert_integer, text)
 
     return text
