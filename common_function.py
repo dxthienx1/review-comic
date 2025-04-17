@@ -2505,32 +2505,40 @@ def number_to_vietnamese_with_units(text):
         "m/s2": "mét trên giây bình phương",
         "m/s": "mét trên giây",
         "cm/s": "xen ti mét trên giây",
+
         # Đơn vị độ
         "°c": "độ xê",
         "°f": "độ ép",
         "°": "độ",
+
         # Độ dài - theo độ phức
         "km3": "ki lô mét khối",
         "km2": "ki lô mét vuông",
         "km": "ki lô mét",
+
         "m3": "mét khối",
         "m2": "mét vuông",
         "m": "mét",
+
         "dm3": "đề xi mét khối",
         "dm2": "đề xi mét vuông",
         "dm": "đề xi mét",
+
         "cm3": "xen ti mét khối",
         "cm2": "xen ti mét vuông",
         "cm": "xen ti mét",
+
         "mm3": "mi li mét khối",
         "mm2": "mi li mét vuông",
         "mm": "mi li mét",
+
         "nm": "nano mét",
         "inch": "in",
         "in": "in",
         "ft": "feet",
         "yd": "yard",
         "mi": "dặm",
+
         # Khối lượng
         "kg/m3": "ki lô gam trên mét khối",
         "g/cm3": "gam trên xen ti mét khối",
@@ -2540,41 +2548,52 @@ def number_to_vietnamese_with_units(text):
         "mg": "mi li gam",
         "lb": "pao",
         "oz": "ao xơ",
+
         # Dung tích
         "dl": "đề xi lít",
         "cl": "xen ti lít",
         "ml": "mi li lít",
         "l": "lít",
+
         # Thời gian
         "h": "giờ",
         "s": "giây",
         "ms": "mi li giây",
         "ns": "nano giây",
+
         # Dữ liệu
         "tb": "tê ra bai",
         "gb": "ghi ga bai",
         "mb": "mê ga bai",
         "kb": "ki lô bai",
+
         # Điện - vật lý - kỹ thuật
         "kwh": "ki lô watt giờ",
         "kw": "ki lô watt",
         "w": "watt",
+
         "v": "vôn",
         "ma": "mi li ampe",
         "a": "ampe",
+
         "kΩ": "ki lô ôm",
         "ω": "ôm",
+
         "hz": "héc",
         "bps": "bít trên giây",
+
         "dpi": "đi pi ai",
         "gpa": "gi pi ê",
         "pa": "pát can",
         "nm": "niutơn mét",
         "n": "niutơn",
+
         "cal": "ca lo",
         "j": "jun",
+
         # Tỷ lệ
         "%": "phần trăm",
+
         # Tiền tệ
         "vnđ": "việt nam đồng",
         "đ": "đồng",
@@ -2614,15 +2633,14 @@ def number_to_vietnamese_with_units(text):
             elif chuc_dv < 10:
                 return res + " linh " + number_words[chuc_dv]
             return res + " " + read_number(chuc_dv)
+
         # Số lớn hơn 1000 xử lý theo nhóm nghìn, triệu, tỷ
         else:
-
             str_n = str(n)
             while len(str_n) % 3 != 0:
                 str_n = '0' + str_n  # Thêm số 0 vào đầu nếu cần để chia thành các nhóm 3 chữ số
             groups = [str_n[i:i+3] for i in range(0, len(str_n), 3)]  # Chia thành các nhóm 3 chữ số
             parts = []
-            
             # Đọc từng nhóm
             for i, group in enumerate(groups):
                 val = int(group)
@@ -2631,33 +2649,18 @@ def number_to_vietnamese_with_units(text):
                 hang_tram = False if i == 0 else True
                 words = read_number(val, hang_tram=hang_tram)  # Đọc nhóm số
                 unit = unit_names[len(groups) - 1 - i]  # Đơn vị nghìn, triệu, tỷ
-
                 if val == 0:
                     parts.append(words + " " + unit)  # Nếu là 0, không thêm "không"
                 else:
                     parts.append(words + " " + unit)
-
             # Trả về kết quả ghép các nhóm
             return " ".join(parts).strip()
 
     def convert_units(match):
         raw_num = match.group(1)
         unit = match.group(2)
-        if "°" in unit:
-            pass
         unit_text = unit_mapping.get(unit, unit)
-
-        if re.match(r"^\d{1,3}([.,]\d{3})+$", raw_num):
-            raw_num = raw_num.replace(".", "").replace(",", "")
-        elif re.match(r"^\d+[.,]\d+$", raw_num):
-            sep = "." if "." in raw_num else ","
-            int_part, dec_part = raw_num.split(sep)
-            int_text = read_number(int_part)
-            dec_text = " ".join([number_words[int(d)] for d in dec_part])
-            return f"{int_text} phẩy {dec_text} {unit_text}"
-
-        num = int(raw_num.replace(".", "").replace(",", ""))
-        return read_number(num) + " " + unit_text
+        return raw_num + " " + unit_text
 
     def convert_complex_number(match):
         num_str = match.group(0)
@@ -2733,16 +2736,7 @@ def number_to_vietnamese_with_units(text):
         return f"{read_number(hour)} giờ {read_number(minute)} phút"
     
     units_pattern = "|".join(re.escape(k) for k in unit_mapping.keys())
-    text = re.sub(
-        rf"(\d+[.,]\d+)\s*({units_pattern})\b",
-        lambda m: (
-            read_number(int(m.group(1).split('.')[0].split(',')[0])) + 
-            " phẩy " + 
-            " ".join([number_words[int(d)] for d in re.sub(r'\D', '', m.group(1).split('.')[-1])]) +
-            " " + unit_mapping.get(m.group(2), m.group(2))
-        ),
-        text
-    )
+
     text = re.sub( rf"(\d{{1,3}}(?:[.,]\d{{3}})+|\d+)\s*({units_pattern})(?!\w)", convert_units, text )
     text = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+[.,]\d+\b", convert_complex_number, text)
     text = re.sub(r"\b(\d{1,3}(?:[.,]\d{3})+)\b", convert_large_grouped_number, text)
