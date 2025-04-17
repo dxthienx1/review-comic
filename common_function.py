@@ -2499,24 +2499,101 @@ def number_to_vietnamese_with_units(text):
     }
 
     unit_mapping = {
-        "km": "ki lô mét", "m": "mét", "cm": "xen ti mét", "mm": "mi li mét",
-        "nm": "nano mét", "dm": "đề xi mét", "inch": "in", "in": "in",
-        "ft": "feet", "yd": "yard", "mi": "dặm",
-        "kg": "ki lô gam", "g": "gam", "mg": "mi li gam", "t": "tấn",
-        "lb": "pao", "oz": "ao xơ",
-        "h": "giờ", "s": "giây", "ms": "mi li giây", "ns": "nano giây",
-        "l": "lít", "ml": "mi li lít", "cl": "xen ti lít", "dl": "đề xi lít", "m3": "mét khối", "m2": "mét vuông",
-        "đ": "đồng", "vnđ": "việt nam đồng", "$": "đô la", "€": "ơ rô",
-        "£": "bảng anh", "¥": "yên nhật",
-        "%": "phần trăm", "°c": "độ xê", "°f": "độ ép", "kwh": "ki lô watt giờ",
-        "bps": "bít trên giây", "hz": "héc"
+        # Đơn vị vận tốc, gia tốc
+        "km/h2": "ki lô mét trên giờ bình phương",
+        "km/h": "ki lô mét trên giờ",
+        "m/s2": "mét trên giây bình phương",
+        "m/s": "mét trên giây",
+        "cm/s": "xen ti mét trên giây",
+        # Đơn vị độ
+        "°c": "độ xê",
+        "°f": "độ ép",
+        "°": "độ",
+        # Độ dài - theo độ phức
+        "km3": "ki lô mét khối",
+        "km2": "ki lô mét vuông",
+        "km": "ki lô mét",
+        "m3": "mét khối",
+        "m2": "mét vuông",
+        "m": "mét",
+        "dm3": "đề xi mét khối",
+        "dm2": "đề xi mét vuông",
+        "dm": "đề xi mét",
+        "cm3": "xen ti mét khối",
+        "cm2": "xen ti mét vuông",
+        "cm": "xen ti mét",
+        "mm3": "mi li mét khối",
+        "mm2": "mi li mét vuông",
+        "mm": "mi li mét",
+        "nm": "nano mét",
+        "inch": "in",
+        "in": "in",
+        "ft": "feet",
+        "yd": "yard",
+        "mi": "dặm",
+        # Khối lượng
+        "kg/m3": "ki lô gam trên mét khối",
+        "g/cm3": "gam trên xen ti mét khối",
+        "t": "tấn",
+        "kg": "ki lô gam",
+        "g": "gam",
+        "mg": "mi li gam",
+        "lb": "pao",
+        "oz": "ao xơ",
+        # Dung tích
+        "dl": "đề xi lít",
+        "cl": "xen ti lít",
+        "ml": "mi li lít",
+        "l": "lít",
+        # Thời gian
+        "h": "giờ",
+        "s": "giây",
+        "ms": "mi li giây",
+        "ns": "nano giây",
+        # Dữ liệu
+        "tb": "tê ra bai",
+        "gb": "ghi ga bai",
+        "mb": "mê ga bai",
+        "kb": "ki lô bai",
+        # Điện - vật lý - kỹ thuật
+        "kwh": "ki lô watt giờ",
+        "kw": "ki lô watt",
+        "w": "watt",
+        "v": "vôn",
+        "ma": "mi li ampe",
+        "a": "ampe",
+        "kΩ": "ki lô ôm",
+        "ω": "ôm",
+        "hz": "héc",
+        "bps": "bít trên giây",
+        "dpi": "đi pi ai",
+        "gpa": "gi pi ê",
+        "pa": "pát can",
+        "nm": "niutơn mét",
+        "n": "niutơn",
+        "cal": "ca lo",
+        "j": "jun",
+        # Tỷ lệ
+        "%": "phần trăm",
+        # Tiền tệ
+        "vnđ": "việt nam đồng",
+        "đ": "đồng",
+        "$": "đô la",
+        "€": "ơ rô",
+        "£": "bảng anh",
+        "¥": "yên nhật"
     }
-
-    def read_number(n):
+    def read_number(n, hang_tram=False):
         n = int(n)
-        if n < 20:
+
+        unit_names = ["", "nghìn", "triệu", "tỷ"]
+
+        # Số nhỏ hơn 20 đọc trực tiếp
+        if n < 20 and not hang_tram:
             return number_words[n]
-        elif n < 100:
+
+        # Số nhỏ hơn 100 xử lý theo dạng chục và đơn vị
+        elif n < 100 and not hang_tram:
             chuc = (n // 10) * 10
             donvi = n % 10
             if donvi == 0:
@@ -2526,6 +2603,8 @@ def number_to_vietnamese_with_units(text):
             if donvi == 5:
                 return number_words[chuc] + " lăm"
             return number_words[chuc] + " " + number_words[donvi]
+
+        # Số nhỏ hơn 1000 xử lý theo dạng trăm
         elif n < 1000:
             tram = n // 100
             chuc_dv = n % 100
@@ -2535,25 +2614,37 @@ def number_to_vietnamese_with_units(text):
             elif chuc_dv < 10:
                 return res + " linh " + number_words[chuc_dv]
             return res + " " + read_number(chuc_dv)
+        # Số lớn hơn 1000 xử lý theo nhóm nghìn, triệu, tỷ
         else:
-            parts = []
-            unit_names = ["", "nghìn", "triệu", "tỷ"]
+
             str_n = str(n)
             while len(str_n) % 3 != 0:
-                str_n = '0' + str_n
-            groups = [str_n[i:i+3] for i in range(0, len(str_n), 3)]
+                str_n = '0' + str_n  # Thêm số 0 vào đầu nếu cần để chia thành các nhóm 3 chữ số
+            groups = [str_n[i:i+3] for i in range(0, len(str_n), 3)]  # Chia thành các nhóm 3 chữ số
+            parts = []
+            
+            # Đọc từng nhóm
             for i, group in enumerate(groups):
                 val = int(group)
                 if val == 0:
-                    continue
-                words = read_number(val)
-                unit = unit_names[len(groups) - 1 - i]
-                parts.append(words + (" " + unit if unit else ""))
-            return " ".join(parts)
+                    continue  # Bỏ qua nhóm 0 đầu tiên
+                hang_tram = False if i == 0 else True
+                words = read_number(val, hang_tram=hang_tram)  # Đọc nhóm số
+                unit = unit_names[len(groups) - 1 - i]  # Đơn vị nghìn, triệu, tỷ
+
+                if val == 0:
+                    parts.append(words + " " + unit)  # Nếu là 0, không thêm "không"
+                else:
+                    parts.append(words + " " + unit)
+
+            # Trả về kết quả ghép các nhóm
+            return " ".join(parts).strip()
 
     def convert_units(match):
         raw_num = match.group(1)
         unit = match.group(2)
+        if "°" in unit:
+            pass
         unit_text = unit_mapping.get(unit, unit)
 
         if re.match(r"^\d{1,3}([.,]\d{3})+$", raw_num):
@@ -2571,16 +2662,20 @@ def number_to_vietnamese_with_units(text):
     def convert_complex_number(match):
         num_str = match.group(0)
 
-        if num_str.count('.') > 1 and ',' in num_str:
-            sep_thousand = '.'
-            sep_decimal = ','
-        elif num_str.count(',') > 1 and '.' in num_str:
-            sep_thousand = ','
-            sep_decimal = '.'
-        else:
-            return num_str
+        # Xác định vị trí xuất hiện cuối cùng của , và .
+        last_dot = num_str.rfind('.')
+        last_comma = num_str.rfind(',')
 
-        if sep_decimal not in num_str:
+        # Nếu cả 2 cùng xuất hiện
+        if '.' in num_str and ',' in num_str:
+            if last_dot > last_comma:
+                sep_decimal = '.'
+                sep_thousand = ','
+            else:
+                sep_decimal = ','
+                sep_thousand = '.'
+        else:
+            # Không đủ thông tin để xác định, trả lại nguyên
             return num_str
 
         try:
@@ -2594,10 +2689,35 @@ def number_to_vietnamese_with_units(text):
 
     def convert_large_grouped_number(match):
         num_str = match.group(1)
-        if len(num_str) < 7:
-            return num_str
-        cleaned = num_str.replace(".", "").replace(",", "")
-        return read_number(int(cleaned))
+
+        # Tìm dấu tách và phần sau dấu
+        if '.' in num_str:
+            parts = num_str.split('.')
+            sep = '.'
+        elif ',' in num_str:
+            parts = num_str.split(',')
+            sep = ','
+        else:
+            parts = [num_str]
+            sep = ''
+
+        # Nếu có phần thập phân
+        if len(parts) == 2:
+            int_part, decimal_part = parts
+            if len(decimal_part) == 3:
+                # là dấu ngăn cách hàng nghìn, bỏ dấu
+                cleaned = num_str.replace(sep, "")
+                return read_number(int(cleaned))
+            else:
+                # là số thập phân, đổi dấu thành " phẩy "
+                return num_str.replace(sep, " phẩy ")
+        else:
+            # không có dấu, hoặc có nhiều dấu mà không rõ cấu trúc, xử lý như bình thường
+            if len(num_str) < 6:
+                num_str = num_str.replace(".", "").replace(",", " phẩy ")
+                return num_str
+            cleaned = num_str.replace(".", "").replace(",", "")
+            return read_number(int(cleaned))
 
     def convert_decimal(match):
         int_part = match.group(1)
@@ -2623,7 +2743,7 @@ def number_to_vietnamese_with_units(text):
         ),
         text
     )
-    text = re.sub( rf"(\d{{1,3}}(?:[.,]\d{{3}})+|\d+)\s*({units_pattern})\b", convert_units, text )
+    text = re.sub( rf"(\d{{1,3}}(?:[.,]\d{{3}})+|\d+)\s*({units_pattern})(?!\w)", convert_units, text )
     text = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+[.,]\d+\b", convert_complex_number, text)
     text = re.sub(r"\b(\d{1,3}(?:[.,]\d{3})+)\b", convert_large_grouped_number, text)
     text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})\b", convert_time_format, text)
