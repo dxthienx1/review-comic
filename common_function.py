@@ -2505,7 +2505,7 @@ def number_to_vietnamese_with_units(text):
         "kg": "ki lô gam", "g": "gam", "mg": "mi li gam", "t": "tấn",
         "lb": "pao", "oz": "ao xơ",
         "h": "giờ", "s": "giây", "ms": "mi li giây", "ns": "nano giây",
-        "l": "lít", "ml": "mi li lít", "cl": "xen ti lít", "dl": "đề xi lít", "m3": "mét khối",
+        "l": "lít", "ml": "mi li lít", "cl": "xen ti lít", "dl": "đề xi lít", "m3": "mét khối", "m2": "mét vuông",
         "đ": "đồng", "vnđ": "việt nam đồng", "$": "đô la", "€": "ơ rô",
         "£": "bảng anh", "¥": "yên nhật",
         "%": "phần trăm", "°c": "độ xê", "°f": "độ ép", "kwh": "ki lô watt giờ",
@@ -2980,7 +2980,7 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
         contents = []
         start_chapter = None
         before_chapter = 0
-        skip_char = ['chữ', 'chương này', 'tiếp tục', 'các bạn', 'đọc', 'truyện', 'thưởng', 'phiếu', 'xếp hạng', 'vé tháng', 'sách', 'vị trí']
+        skip_char = ['chữ', 'chương này', 'tiếp tục', 'các bạn', 'đọc', 'truyện', 'thưởng', 'phiếu', 'xếp hạng', 'vé tháng', 'sách', 'vị trí', 'gõ phím', 'canh ba']
         for idx, line in enumerate(lines):
             line = line.strip()
             if not line:
@@ -3375,9 +3375,9 @@ loai_bo_tieng_viet = {
     "t r u y e n f u l l.": "",
     "t r u y e n f u l l": "",
     "/": " ",
-    "$": " đô",
-    "vnđ": "đồng",
-    "%": " phần trăm",
+    " $ ": " đô la ",
+    " vnđ ": " việt nam đồng ",
+    " % ": " phần trăm ",
     "&": " và ",
     " = ": " bằng ",
     " > ": " lớn hơn ",
