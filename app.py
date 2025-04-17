@@ -2007,7 +2007,8 @@ class MainApp:
                                 short_audio_dir = os.path.join(cur_folder, f'{video_name}_short_audios')
                                 os.makedirs(short_audio_dir, exist_ok=True)
                                 with open(text_output_path, "a", encoding="utf-8") as f:
-                                    f.write(min_cnt + "\n" + current_text + "\n")
+                                    f.write(str(min_cnt) + "\n" + current_text + "\n")
+                                end_time = segment["end"]
                                 audio_output_path = os.path.join(short_audio_dir, f"{min_cnt}.wav")
                                 audio_cut_cmd = [ "ffmpeg", "-y", "-i", audio_path, "-ss", str(current_start_time), "-to", str(end_time), audio_output_path ]
                                 if run_command_ffmpeg(audio_cut_cmd):
