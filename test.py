@@ -1,96 +1,93 @@
 # from common_function import *
 import re
 
-def number_to_english_with_units(text):
-    words = {
-        0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
-        6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
-        11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen",
-        15: "fifteen", 16: "sixteen", 17: "seventeen", 18: "eighteen",
-        19: "nineteen", 20: "twenty", 30: "thirty", 40: "forty",
-        50: "fifty", 60: "sixty", 70: "seventy", 80: "eighty", 90: "ninety"
+def number_to_vietnamese_with_units(text):
+    number_words = {
+        0: "không", 1: "một", 2: "hai", 3: "ba", 4: "bốn", 5: "năm",
+        6: "sáu", 7: "bảy", 8: "tám", 9: "chín", 10: "mười",
+        11: "mười một", 12: "mười hai", 13: "mười ba", 14: "mười bốn",
+        15: "mười lăm", 16: "mười sáu", 17: "mười bảy", 18: "mười tám", 19: "mười chín",
+        20: "hai mươi", 30: "ba mươi", 40: "bốn mươi", 50: "năm mươi",
+        60: "sáu mươi", 70: "bảy mươi", 80: "tám mươi", 90: "chín mươi"
     }
-    units = ["", "thousand", "million", "billion", "trillion"]
+
     unit_mapping = {
-        "km": "kilometers", "m": "meters", "cm": "centimeters", "mm": "millimeters",
-        "h": "hours", "s": "seconds", "ms": "milliseconds", "%": "percent",
-        "kg": "kilograms", "g": "grams"
+        "km": "ki lô mét", "m": "mét", "cm": "xen ti mét", "mm": "mi li mét",
+        "h": "giờ", "s": "giây", "ms": "mi li giây", "%": "phần trăm",
+        "kg": "ki lô gam", "g": "gam"
     }
 
-    def number_to_english(number):
-        number = int(number)
-        if number == 0:
-            return "zero"
-
-        def read_three_digits(num):
-            hundreds = num // 100
-            tens_units = num % 100
-            result = []
-
-            if hundreds > 0:
-                result.append(f"{words[hundreds]} hundred")
-            if tens_units > 0:
-                if tens_units < 20:
-                    result.append(words[tens_units])
-                else:
-                    tens = tens_units // 10 * 10
-                    ones = tens_units % 10
-                    result.append(words[tens])
-                    if ones > 0:
-                        result.append(words[ones])
-            return " ".join(result)
-
-        parts = []
-        idx = 0
-        while number > 0:
-            num_part = number % 1000
-            if num_part > 0:
-                part = read_three_digits(num_part)
-                if units[idx]:
-                    part += f" {units[idx]}"
-                parts.append(part)
-            number //= 1000
-            idx += 1
-        return " ".join(reversed(parts))
+    def read_number(n):
+        n = int(n)
+        if n < 20:
+            return number_words[n]
+        elif n < 100:
+            chuc = (n // 10) * 10
+            donvi = n % 10
+            if donvi == 0:
+                return number_words[chuc]
+            if donvi == 5:
+                return number_words[chuc] + " lăm"
+            return number_words[chuc] + " " + number_words[donvi]
+        elif n < 1000:
+            tram = n // 100
+            chuc_dv = n % 100
+            res = number_words[tram] + " trăm"
+            if chuc_dv == 0:
+                return res
+            return res + " " + read_number(chuc_dv)
+        else:
+            parts = []
+            unit_names = ["", "nghìn", "triệu", "tỷ"]
+            str_n = str(n)
+            while len(str_n) % 3 != 0:
+                str_n = '0' + str_n
+            groups = [str_n[i:i+3] for i in range(0, len(str_n), 3)]
+            for i, group in enumerate(groups):
+                val = int(group)
+                if val == 0:
+                    continue
+                words = read_number(val)
+                unit = unit_names[len(groups) - 1 - i]
+                parts.append(words + (" " + unit if unit else ""))
+            return " ".join(parts)
 
     def convert_units(match):
-        raw_number = match.group(1)
+        raw_num = match.group(1)
         unit = match.group(2)
         unit_text = unit_mapping.get(unit, unit)
 
-        if "," in raw_number:
-            raw_number = raw_number.replace(",", "")
-        if "." in raw_number:
-            integer_part, decimal_part = raw_number.split(".")
-            integer_text = number_to_english(integer_part)
-            decimal_text = " ".join([words[int(d)] for d in decimal_part])
-            return f"{integer_text} point {decimal_text} {unit_text}"
-        else:
-            return f"{number_to_english(raw_number)} {unit_text}"
+        if re.match(r"^\d{1,3}(\.\d{3})+$", raw_num):  # 1.000.000 style
+            raw_num = raw_num.replace(".", "")
+        elif re.match(r"^\d+[.,]\d+$", raw_num):  # 97.05 or 1,4
+            sep = "." if "." in raw_num else ","
+            int_part, dec_part = raw_num.split(sep)
+            int_text = read_number(int_part)
+            dec_text = " ".join([number_words[int(d)] for d in dec_part])
+            return f"{int_text} phẩy {dec_text} {unit_text}"
+        
+        num = int(raw_num.replace(".", ""))
+        return read_number(num) + " " + unit_text
 
     def convert_decimal(match):
-        integer_part = match.group(1).replace(",", "")
-        decimal_part = match.group(2)
-        return f"{number_to_english(integer_part)} point {' '.join([words[int(d)] for d in decimal_part])}"
+        int_part = match.group(1)
+        dec_part = match.group(2)
+        return read_number(int_part) + " phẩy " + " ".join([number_words[int(d)] for d in dec_part])
 
     def convert_integer(match):
-        number = match.group(0).replace(",", "")
-        return number_to_english(number)
+        return read_number(match.group(0))
 
-    # Xử lý số có đơn vị và tránh trùng lặp đơn vị
-    text = re.sub(r"(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+\.\d+)(?=\s*(km|m|cm|mm|h|s|ms|%|kg|g))", convert_units, text)
+    # Xử lý số có đơn vị trước
+    text = re.sub(r"(\d+(?:[.,]\d+)?)(km|m|cm|mm|h|s|ms|%|kg|g)\b", convert_units, text)
 
-    # Decimal độc lập (không có đơn vị)
-    text = re.sub(r"\b(\d{1,3}(?:,\d{3})*)\.(\d+)\b", convert_decimal, text)
+    # Số thập phân
+    text = re.sub(r"(\d+)[.,](\d+)", convert_decimal, text)
 
-    # Số nguyên có dấu phẩy
-    text = re.sub(r"\b\d{1,3}(?:,\d{3})+\b", convert_integer, text)
+    # Số nguyên (hàng nghìn có thể có dấu chấm)
+    text = re.sub(r"\b(\d{1,3}(?:\.\d{3})+)\b", lambda m: read_number(m.group(1).replace(".", "")), text)
 
-    # Tránh đổi sai các dạng giờ, ký hiệu, etc.
-    text = re.sub(r"\b\d+\b", lambda m: convert_integer(m) if not re.match(r"\d+:\d+", text[m.start():]) else m.group(0), text)
-
-    # Xử lý các đơn vị đã gán vào cuối (để tránh lặp đơn vị)
-    text = re.sub(r"(kg|g|km|m|cm|mm|h|s|ms|%)(?=\b)", lambda m: m.group(1) if m.group(1) not in ["kg", "g", "km", "m", "cm", "mm", "h", "s", "ms", "%"] else "", text)
+    # Số nguyên thông thường
+    text = re.sub(r"\b\d+\b", convert_integer, text)
 
     return text
 
@@ -98,7 +95,7 @@ def number_to_english_with_units(text):
 
 
 tttt = "1.4 - 12.5 - 250kg - 57g - 97.05km - 2345 - - 15mm - 300cm - 340.56 - 1000500000 - 2000000"
-gg = number_to_english_with_units(tttt)
+gg = number_to_vietnamese_with_units(tttt)
 print(gg)
 
 # def split_image_by_white_space(image_path, output_folder=None, min_space_height=40, threshold_value=230):
