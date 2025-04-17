@@ -800,7 +800,7 @@ class MainApp:
                             return
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+                            command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
                         else:
                             input_str = ' '.join(input_flags)
                             command = f'ffmpeg -y {input_str} -i "{output_audio_path}" -c:v libx264 -pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
@@ -1915,10 +1915,13 @@ class MainApp:
                 else:
                     print("Chọn file hoặc thư mục chứa video/audio")
 
-        def extract_sub_image_audio_from_video(video_path, language='vi'):
+        def extract_sub_image_audio_from_video(video_path, language='vi', min_lenth_text=35):
+            if language == 'en':
+                min_lenth_text = 0
             cur_folder = os.path.dirname(video_path)
             video_name = os.path.basename(video_path).split('.')[0]
             file_path = os.path.join(cur_folder, f'{video_name}.txt')
+            text_output_path = os.path.join(cur_folder, "short_texts.txt")
             output_dir = os.path.join(cur_folder, video_name)
             os.makedirs(output_dir, exist_ok=True)
 
@@ -1985,11 +1988,12 @@ class MainApp:
                     getlog()
                     return None
             
-            def cut_audio_and_image(audio_path, segments, min_lenth_text=10):
+            def cut_audio_and_image(audio_path, segments):
                 try:
                     with open(file_path, 'a', encoding='utf-8') as file:                                                                                                                                                                                                              
                         current_text = ""
                         current_start_time = None
+                        min_cnt= 1
                         for i, segment in enumerate(segments):
                             if i == 0 or i == len(segments) - 1:
                                 continue
@@ -2000,7 +2004,19 @@ class MainApp:
                             if text not in current_text:
                                 current_text += (" " if current_text else "") + text
                             if len(current_text) < min_lenth_text:
-                                continue
+                                short_audio_dir = os.path.join(cur_folder, 'short_audios')
+                                os.makedirs(short_audio_dir, exist_ok=True)
+                                with open(text_output_path, "a", encoding="utf-8") as f:
+                                    f.write(min_cnt + "\n" + current_text + "\n")
+                                audio_output_path = os.path.join(short_audio_dir, f"{min_cnt}.wav")
+                                audio_cut_cmd = [ "ffmpeg", "-y", "-i", audio_path, "-ss", str(current_start_time), "-to", str(end_time), audio_output_path ]
+                                if run_command_ffmpeg(audio_cut_cmd):
+                                    current_text = cleaner_text(current_text, language=language, is_loi_chinh_ta=True)
+                                    file.write(f"{self.index}\n{current_text}\n")
+                                    #reset
+                                    current_text = ""
+                                    current_start_time = None
+                                    min_cnt += 1
                             elif current_text.endswith(".") or current_text.endswith("?") or current_text.endswith("!"):
                                 if len(current_text) >= max_lenth_text:
                                     current_text = ""
