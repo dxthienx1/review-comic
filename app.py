@@ -708,7 +708,7 @@ class MainApp:
             if len(images) == 0:
                 images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
                 if len(images) == 0:
-                    print("Phải có ít nhất 1 ảnh (.png) để ghép vào video")
+                    print("Phải có ít nhất 1 video nền(.mp4) hoặc 1 ảnh (.png) để ghép vào video")
                     return False
                 is_mp4 = False
             temp_output_folder = os.path.join(folder_story, 'temp_output')
@@ -2004,7 +2004,9 @@ class MainApp:
                             if text not in current_text:
                                 current_text += (" " if current_text else "") + text
                             if len(current_text) < min_lenth_text:
-                                short_audio_dir = os.path.join(cur_folder, f'{video_name}_short_audios')
+                                short_dir = os.path.join(cur_folder, 'short')
+                                os.makedirs(short_dir, exist_ok=True)
+                                short_audio_dir = os.path.join(short_dir, f'{video_name}_short')
                                 os.makedirs(short_audio_dir, exist_ok=True)
                                 with open(text_output_path, "a", encoding="utf-8") as f:
                                     f.write(str(min_cnt) + "\n" + current_text + "\n")
