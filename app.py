@@ -2007,7 +2007,7 @@ class MainApp:
                                 os.makedirs(short_dir, exist_ok=True)
                                 short_audio_dir = os.path.join(short_dir, f'{video_name}_short')
                                 os.makedirs(short_audio_dir, exist_ok=True)
-                                text_output_path = os.path.join(cur_folder, f"{video_name}_short.txt")
+                                text_output_path = os.path.join(short_audio_dir, f"{video_name}_short.txt")
                                 with open(text_output_path, "a", encoding="utf-8") as f:
                                     f.write(str(min_cnt) + "\n" + current_text + "\n")
                                 end_time = segment["end"]
