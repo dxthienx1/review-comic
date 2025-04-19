@@ -1921,7 +1921,6 @@ class MainApp:
             cur_folder = os.path.dirname(video_path)
             video_name = os.path.basename(video_path).split('.')[0]
             file_path = os.path.join(cur_folder, f'{video_name}.txt')
-            text_output_path = os.path.join(cur_folder, f"{video_name}_short.txt")
             output_dir = os.path.join(cur_folder, video_name)
             os.makedirs(output_dir, exist_ok=True)
 
@@ -2008,6 +2007,7 @@ class MainApp:
                                 os.makedirs(short_dir, exist_ok=True)
                                 short_audio_dir = os.path.join(short_dir, f'{video_name}_short')
                                 os.makedirs(short_audio_dir, exist_ok=True)
+                                text_output_path = os.path.join(cur_folder, f"{video_name}_short.txt")
                                 with open(text_output_path, "a", encoding="utf-8") as f:
                                     f.write(str(min_cnt) + "\n" + current_text + "\n")
                                 end_time = segment["end"]
