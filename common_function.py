@@ -7407,7 +7407,11 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                     with open(txt_path, mode='r', encoding='utf-8') as fff:
                         lines = fff.readlines()
                     i_au = 0
+                    first_index = 0
+                    is_next = False
                     for line in lines:
+                        if is_next:
+                            continue
                         line_content = line.strip()
                         # Kiểm tra nếu không phải số
                         if not line_content.isdigit():
@@ -7424,6 +7428,10 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                                 new_au_path = os.path.join(audio_total_folder, f'{index}.wav')
                                 shutil.copy(audio_path, new_au_path)
                             i_au += 1
+                        else:
+                            if int(line_content) == first_index:
+                                is_next = True
+                            first_index = int(line_content)
                 except Exception as e:
                     print(f"Lỗi khi xử lý file {txt_f}: {e}")
     except Exception as e:
