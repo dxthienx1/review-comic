@@ -3284,7 +3284,6 @@ special_word = {
     "----": "",
     "---": "",
     "--": "",
-    "-": " ",
     "_": " ",
     ":": ".",
     "......": "",
@@ -3352,10 +3351,10 @@ special_word = {
     "※": "",
     "✿": "", "❀": "",
     "✔": "", "✘": "",
-    "→": "->", "←": "<-",
-    "↔": "<->",
-    "⬅": "<-", "➡": "->",
-    "➤": "->",
+    "→": "", "←": "",
+    "↔": "",
+    "⬅": "", "➡": "",
+    "➤": "",
     "♠": "", "♣": "", "♦": "",
     "♪": "", "♫": "",
     "✧": "", "✦": "",
@@ -3566,7 +3565,7 @@ loai_bo_tieng_viet = {
     "fff": "",
     "fff": "",
     "fff": "",
-    "fff": "",
+    "-": "",
     "???": ".",
     "??": ".",
     " ?": ".",
@@ -4104,7 +4103,7 @@ loi_chinh_ta = {
     "fff":"",
     "fff":"",
     "fff":"",
-    "fff":"",
+    "xương hô":"xưng hô",
     "tiêu đề (ẩn)":"",
     " audio ":" au đi ô ",
     " id ": " ai đi ",
@@ -7365,7 +7364,7 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
 
 # # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
 # cnt = 1
-# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Nhi Le\\4.txt"
+# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Hoàn Thành\\1.txt"
 
 # fol = os.path.dirname(old_txt)
 # file_name = os.path.basename(old_txt).split('.')[0]

@@ -2043,7 +2043,7 @@ class MainApp:
             if video_path.endswith('.mp4') or video_path.endswith('.mp3') or video_path.endswith('.wav'):
                 convert_video_to_audio(video_path)
             else:
-                print(f'<Cảnh Báo> File {video_path} không hợp lệ !!!')
+                print(f'{canhbao} File {video_path} không hợp lệ !!!')
                 return False
             if not os.path.isdir(video_path):
                 remove_file(video_path)
