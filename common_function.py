@@ -7411,6 +7411,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                     is_next = False
                     for line in lines:
                         if is_next:
+                            is_next = False
                             continue
                         line_content = line.strip()
                         # Kiểm tra nếu không phải số
