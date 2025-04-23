@@ -396,64 +396,110 @@ def get_driver(show=True, proxy=None, mode="web", target_email=None):
         return None
 
 
-def get_driver_with_profile(target_gmail='default', show=True):
+def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_proxy=False):
     try:
-        os.system("taskkill /F /IM chrome.exe /T >nul 2>&1")
-    except:
-        pass
-    sleep(1)
-    def get_profile_name_by_gmail():
-        def check_gmail_in_profile(profile_path):
-            preferences_file = os.path.join(profile_path, "Preferences")
-            
-            if os.path.exists(preferences_file):
-                with open(preferences_file, 'r', encoding='utf-8') as f:
-                    try:
-                        preferences = json.load(f)
-                        if 'profile' in preferences:
-                            for account in preferences['account_info']:
-                                if 'email' in account and account['email'] == target_gmail:
-                                    return True
-                    except json.JSONDecodeError:
-                        print(f"Không thể đọc file Preferences trong profile {profile_path}.")
-            return False
-        
-        profiles = [name for name in os.listdir(profile_folder) if os.path.isdir(os.path.join(profile_folder, name)) and name.startswith("Profile")]
-        if "Default" in os.listdir(profile_folder):
-            profiles.append("Default")
-
-        for profile_name in profiles:
-            profile_path = os.path.join(profile_folder, profile_name)
-            if os.path.exists(profile_path):
-                if check_gmail_in_profile(profile_path):
-                    return profile_name
-        return None
-    
-    if target_gmail == 'default':
-        profile_name = "Default"
-    else:
-        profile_name = get_profile_name_by_gmail()
-    if profile_name:
-        options = webdriver.ChromeOptions()
-        options.add_argument(f"user-data-dir={profile_folder}")
-        options.add_argument(f"profile-directory={profile_name}")
-        if not show:
-            options.add_argument("--headless")
-        options.add_argument('--disable-gpu')
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument("--log-level=3")
-        options.add_argument("--disable-logging")
-        options.add_experimental_option('excludeSwitches', ['enable-automation'])
-        options.add_experimental_option('useAutomationExtension', False)
-        driver = webdriver.Chrome(options=options)
-        # driver.set_window_size(screen_width - 100, screen_height - 50)
+        # Tắt Chrome đang chạy (không ảnh hưởng tới session khác)
+        if not target_email:
+            target_email = "Default"
         try:
-            driver.maximize_window()
-        except:
+            subprocess.run(["taskkill", "/F", "/IM", "chrome.exe", "/T"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
             pass
-        return driver
-    else:
-        print(f'Không tìm thấy profile cho tài khoản google {target_gmail}')
+        sleep(1)
+        def get_profile_name_by_gmail(target_email=None):
+
+            def check_gmail_in_profile(profile_path):
+                preferences_file = os.path.join(profile_path, "Preferences")
+                if os.path.exists(preferences_file):
+                    try:
+                        with open(preferences_file, 'r', encoding='utf-8') as f:
+                            preferences = json.load(f)
+                            if 'account_info' in preferences:
+                                for account in preferences['account_info']:
+                                    if 'email' in account and account['email'] == target_email:
+                                        return preferences_file
+                    except:
+                        getlog()
+                        print(f"{canhbao} Không thể đọc Preferences trong {profile_path}: {e}")
+                return None
+
+            profiles = [name for name in os.listdir(profile_folder) if os.path.isdir(os.path.join(profile_folder, name)) and name.startswith("Profile")]
+            if "Default" in os.listdir(profile_folder):
+                profiles.append("Default")
+
+            for profile_name in profiles:
+                profile_path = os.path.join(profile_folder, profile_name)
+                preferences_file = check_gmail_in_profile(profile_path)
+                if preferences_file:
+                    return profile_name, preferences_file
+            print(f"{thatbai} Không tìm thấy profile cho email {target_email}")
+            return None, None
+
+        profile_name, preferences_file = get_profile_name_by_gmail(target_email)
+        if profile_name and preferences_file:
+            options = webdriver.ChromeOptions()
+            options.add_argument(f"user-data-dir={profile_folder}")
+            options.add_argument(f"profile-directory={profile_name}")
+
+            # Cấu hình Proxy
+            # proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country = get_proxy_info(proxy)
+            # if proxy_ip and proxy_port:
+            #     if is_remove_proxy:
+            #         options.add_argument('--no-proxy-server')
+            #         options.add_argument('--proxy-server="direct://"')
+            #         options.add_argument('--proxy-bypass-list=*')
+            #         with open(preferences_file, "r", encoding="utf-8") as f:
+            #             preferences = json.load(f)
+            #         if "proxy" in preferences:
+            #             del preferences["proxy"]
+            #         with open(preferences_file, "w", encoding="utf-8") as f:
+            #             json.dump(preferences, f, indent=4)
+            #         print("✅ Đã xóa cấu hình proxy trong Preferences.")
+            #         chrome_proxy_profile_folder = os.path.join(os.getcwd(), "chrome_proxy_profile")
+            #         if os.path.exists(chrome_proxy_profile_folder):
+            #             unpacked_folder = os.path.join(chrome_proxy_profile_folder, f"{proxy_ip}_{proxy_port}_unpacked")
+            #             shutil.rmtree(unpacked_folder, ignore_errors=True)
+            #             print("✅ Đã xóa extension proxy.")
+            #     else:
+            #         if proxy_user and proxy_pass:
+            #             proxy_extension_path = create_proxy_extension_with_chrome_profile(proxy_ip, proxy_port, proxy_user, proxy_pass)
+            #             options.add_argument(f"--disable-extensions-except={proxy_extension_path}")
+            #             options.add_argument(f"--load-extension={proxy_extension_path}")
+            #         else:
+            #             options.add_argument(f'--proxy-server=http://{proxy_ip}:{proxy_port}')
+
+            # Tối ưu Chrome để tránh bị phát hiện là bot
+            if not show:
+                options.add_argument("--headless")
+            options.add_argument('--disable-gpu')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_argument("--log-level=3")
+            options.add_argument("--disable-logging")
+            options.add_experimental_option('excludeSwitches', ['enable-automation'])
+            options.add_experimental_option('useAutomationExtension', False)
+
+            # Mở trình duyệt Chrome
+            driver = webdriver.Chrome(options=options)
+            driver.set_window_size(screen_width - 100, screen_height - 50)
+
+            # Kiểm tra IP sau khi mở trình duyệt
+            sleep_random(3,6)
+            # browser_ip = get_browser_ip(driver)
+            # if not browser_ip or (proxy_ip and proxy_ip != browser_ip):
+            #     if target_email:
+            #         print(f"❌ {target_email} Đổi IP không thành công!")
+            #     driver.quit()
+            #     return None
+            # else:
+            #     print(f"{tot} {target_email} IP đang dùng: {browser_ip}")
+
+            print(f"✅ Đã mở Chrome với profile: {profile_name}")
+            return driver
+        else:
+            print(f"❌ Không tìm thấy Chrome profile cho tài khoản: {target_email}")
+            return None
+    except Exception as e:
+        print(f"❌ Lỗi khi khởi tạo trình duyệt: {e}")
         return None
 
 def scroll_into_view(driver, element):
@@ -2516,7 +2562,9 @@ def number_to_vietnamese_with_units(text):
         "km2": "ki lô mét vuông",
         "km": "ki lô mét",
 
+        "m³": "mét khối",
         "m3": "mét khối",
+        "m²": "mét vuông",
         "m2": "mét vuông",
         "m": "mét",
 
@@ -2524,11 +2572,15 @@ def number_to_vietnamese_with_units(text):
         "dm2": "đề xi mét vuông",
         "dm": "đề xi mét",
 
+        "cm³": "xen ti mét khối",
         "cm3": "xen ti mét khối",
+        "cm²": "xen ti mét vuông",
         "cm2": "xen ti mét vuông",
         "cm": "xen ti mét",
 
+        "mm³": "mi li mét khối",
         "mm3": "mi li mét khối",
+        "mm²": "mi li mét vuông",
         "mm2": "mi li mét vuông",
         "mm": "mi li mét",
 
@@ -7385,6 +7437,24 @@ loi_chinh_ta = {
     "nhảy vòt": "nhảy vọt",
     "rứt điểm": "dứt điểm",
     "giết không thà": "giết không tha",
+    "họa luyện viên": "huấn luyện viên",
+    "tức núi": "tiếc nuối",
+    "quấy dậy": "quấy rầy",
+    "xữ ngửi": "sững người",
+    "nông nặc": "nồng nặc",
+    "đen ngỏm": "đen ngòm",
+    "chút hết": "trút hết",
+    "trống gậy": "chống gậy",
+    "bung tha": "buông tha",
+    "nuốt chừng": "nuốt chửng",
+    "trào cờ": "chào cờ",
+    "ngựa ngùng": "ngượng ngùng",
+    "dam giữ": "giam giữ",
+    "ngẩn đầu": "ngẩng đầu",
+    "dượt đuổi": "rượt đuổi",
+    "loài ngươi": "loài người",
+    "xà trủng": "xà chủng",
+    "dưa chân": "giơ chân",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
@@ -7398,11 +7468,9 @@ loi_chinh_ta = {
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
+    "chịu không thành": "triệu không thành",
+    "lâm thất giả": "lâm thất dạ",
+    "liêu viễn": "lưu viễn",
     "hắc phòng trại": "hắc phong trại",
     "giệp thanh": "diệp thanh",
     "vương ngại hổ": "vương ngải hổ",
@@ -7456,7 +7524,7 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
 
 # # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
 # cnt = 1
-# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Ánh Ánh\\3.txt"
+# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Phan Thị Minh Thư\\3.txt"
 
 # fol = os.path.dirname(old_txt)
 # file_name = os.path.basename(old_txt).split('.')[0]
@@ -7469,8 +7537,11 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
 #             line = cleaner_text(line.strip(), is_loi_chinh_ta=True, is_conver_number=True)
 #             if not line:
 #                 continue
-#             if line.endswith(','):
+
+#             if line.endswith(',') or line.endswith('?' or line.endswith('!')):
 #                 line = f"{line[:-1]}."
+#             if not line.endswith('.'):
+#                 line = line + '.'
 #             ggg.write(f'{cnt}\n{line}\n')
 #             cnt += 1
 
@@ -7624,10 +7695,73 @@ def adjust_audio_speed(input_folder, output_folder, speed=0.98, volume_factor=1.
                 
     except Exception as e:
         print(f"Có lỗi xảy ra: {e}")
-
 # input_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_1"
 # output_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_2"
 # input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam"
 # output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam_1"
 # os.makedirs(output_folder, exist_ok=True)
 # adjust_audio_speed(input_folder, output_folder, speed=0.99, volume_factor=0.8)
+
+
+
+
+# #chuyển mp3 sang wav chuẩn training
+# def convert_mp3_to_wav_in_directory(input_folder, speed):
+#     mp3_files = get_file_in_folder_by_type(input_folder, '.mp3') or []
+#     for filename in mp3_files:
+#         # Kiểm tra xem file có phải là MP3 hay không
+#         if filename.endswith(".mp3"):
+#             mp3_path = os.path.join(input_folder, filename)
+#             wav_path = os.path.join(input_folder, filename[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
+
+#             # Cấu hình lệnh ffmpeg
+#             ffmpeg_cmd = [
+#                 "ffmpeg", 
+#                 "-y",  # ghi đè file nếu đã tồn tại
+#                 "-i", mp3_path,  # đường dẫn đến file MP3
+#                 "-ac", "1",  # 1 kênh âm thanh (mono)
+#                 "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
+#                 "-filter:a", f"atempo={speed}",  # tốc độ phát lại
+#                 "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
+#                 wav_path  # đường dẫn file WAV đầu ra
+#             ]
+            
+#             # Chạy lệnh ffmpeg để chuyển đổi
+#             run_command_ffmpeg(ffmpeg_cmd)
+#             print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
+# # Ví dụ sử dụng hàm
+# input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\New folder\\10_chua"
+# speed = 1.0 
+# convert_mp3_to_wav_in_directory(input_folder, speed)
+
+
+
+
+
+# #chuyển wav thường sang wav chuẩn training
+# def convert_wav_to_training_format(input_folder, speed):
+#     wav_files = get_file_in_folder_by_type(input_folder, '.wav') or []
+#     output_folder = os.path.join(input_folder, 'out')
+#     os.makedirs(output_folder, exist_ok=True)
+#     for filename in wav_files:
+#         wav_input = os.path.join(input_folder, filename)
+#         wav_output = os.path.join(output_folder, filename)
+
+#         ffmpeg_cmd = [
+#             "ffmpeg",
+#             "-y",
+#             "-i", wav_input,
+#             "-ac", "1",              # mono
+#             "-ar", "24000",          # sample rate 24kHz
+#             "-filter:a", f"atempo={speed}",  # playback speed
+#             "-sample_fmt", "s16",    # 16-bit sample format
+#             wav_output
+#         ]
+
+#         run_command_ffmpeg(ffmpeg_cmd)
+#         print(f"Đã chuẩn hóa {filename} thành {wav_output}")
+
+# # Ví dụ sử dụng hàm
+# input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\New folder\\10_chua"
+# speed = 1.0
+# convert_wav_to_training_format(input_folder, speed)
