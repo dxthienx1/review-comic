@@ -398,16 +398,16 @@ def get_driver(show=True, proxy=None, mode="web", target_email=None):
 
 def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_proxy=False):
     try:
-        # Tắt Chrome đang chạy (không ảnh hưởng tới session khác)
         if not target_email:
-            target_email = "Default"
+            target_email = "Default"  # Nếu không truyền email, mặc định dùng profile Default
+
         try:
             subprocess.run(["taskkill", "/F", "/IM", "chrome.exe", "/T"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception as e:
+        except Exception:
             pass
         sleep(1)
-        def get_profile_name_by_gmail(target_email=None):
 
+        def get_profile_name_by_gmail(target_email=None):
             def check_gmail_in_profile(profile_path):
                 preferences_file = os.path.join(profile_path, "Preferences")
                 if os.path.exists(preferences_file):
@@ -418,30 +418,39 @@ def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_
                                 for account in preferences['account_info']:
                                     if 'email' in account and account['email'] == target_email:
                                         return preferences_file
-                    except:
+                    except Exception as e:
                         getlog()
                         print(f"{canhbao} Không thể đọc Preferences trong {profile_path}: {e}")
                 return None
 
+            # Danh sách profile có trong thư mục
             profiles = [name for name in os.listdir(profile_folder) if os.path.isdir(os.path.join(profile_folder, name)) and name.startswith("Profile")]
             if "Default" in os.listdir(profile_folder):
-                profiles.append("Default")
+                profiles.insert(0, "Default")  # Ưu tiên kiểm tra profile "Default" trước
 
+            # Nếu target_email là "Default", trả về luôn
+            if target_email == "Default":
+                return "Default", os.path.join(profile_folder, "Default", "Preferences") if os.path.exists(os.path.join(profile_folder, "Default", "Preferences")) else (None, None)
+
+            # Dò tìm email trong các profile còn lại
             for profile_name in profiles:
                 profile_path = os.path.join(profile_folder, profile_name)
                 preferences_file = check_gmail_in_profile(profile_path)
                 if preferences_file:
                     return profile_name, preferences_file
+
             print(f"{thatbai} Không tìm thấy profile cho email {target_email}")
             return None, None
 
+        # === Gọi hàm tìm profile ===
         profile_name, preferences_file = get_profile_name_by_gmail(target_email)
+
         if profile_name and preferences_file:
             options = webdriver.ChromeOptions()
             options.add_argument(f"user-data-dir={profile_folder}")
             options.add_argument(f"profile-directory={profile_name}")
 
-            # Cấu hình Proxy
+            # Cấu hình proxy (giữ nguyên logic cũ)
             # proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country = get_proxy_info(proxy)
             # if proxy_ip and proxy_port:
             #     if is_remove_proxy:
@@ -468,7 +477,7 @@ def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_
             #         else:
             #             options.add_argument(f'--proxy-server=http://{proxy_ip}:{proxy_port}')
 
-            # Tối ưu Chrome để tránh bị phát hiện là bot
+            # Tối ưu chống bot
             if not show:
                 options.add_argument("--headless")
             options.add_argument('--disable-gpu')
@@ -478,12 +487,12 @@ def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_
             options.add_experimental_option('excludeSwitches', ['enable-automation'])
             options.add_experimental_option('useAutomationExtension', False)
 
-            # Mở trình duyệt Chrome
+            # Mở trình duyệt
             driver = webdriver.Chrome(options=options)
             driver.set_window_size(screen_width - 100, screen_height - 50)
 
-            # Kiểm tra IP sau khi mở trình duyệt
-            sleep_random(3,6)
+            # Kiểm tra IP
+            sleep_random(3, 6)
             # browser_ip = get_browser_ip(driver)
             # if not browser_ip or (proxy_ip and proxy_ip != browser_ip):
             #     if target_email:
@@ -7455,7 +7464,7 @@ loi_chinh_ta = {
     "loài ngươi": "loài người",
     "xà trủng": "xà chủng",
     "dưa chân": "giơ chân",
-    "ffff": "ffff",
+    "ngẩn đầu": "ngẩng đầu",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
@@ -7524,7 +7533,7 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
 
 # # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
 # cnt = 1
-# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Phan Thị Minh Thư\\3.txt"
+# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Nguyễn Thị Hường 2\\1.txt"
 
 # fol = os.path.dirname(old_txt)
 # file_name = os.path.basename(old_txt).split('.')[0]

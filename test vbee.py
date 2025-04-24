@@ -118,7 +118,8 @@ def text_to_speeed_by_vbee(input_txt_path, email=None, start_idx=0, url="https:/
                                                 remain_char = int(remain_char)
                                             except:
                                                 return None, None
-                                            if remain_char < 50:
+                                            if remain_char < len(text):
+                                                print(f"{thatbai} Tài khoản {email} không đủ {len(text)} ký tự (còn {remain_char}).")
                                                 driver.quit()
                                                 sleep(2)
                                                 return idx, True
@@ -132,6 +133,8 @@ def text_to_speeed_by_vbee(input_txt_path, email=None, start_idx=0, url="https:/
                                         print(f"{thatbai} Tài khoản {email} có lỗi khi xuất audio --> tiến trình xử lý bị đứng.")
                                         driver.quit()
                                         return idx, True
+        print(f"{thanhcong} Hoàn thành chuyển file {input_txt_path} sang audio")
+        return None, None
     except:
         getlog()
         return None, None
@@ -143,24 +146,27 @@ def text_to_speeed_by_vbee_with_multi_email(input_txt_path, emails, start_idx):
             return
 
 # emails = [
+#     'themysteries.001@gmail.com',
+#     'tranhangbk.001@gmail.com',
 #     'dxthien1@gmail.com',
 #     'dxthien2@gmail.com',
 #     'dxthienx11@gmail.com',
-#     'themysteries.001@gmail.com',
-#     'tranhangbk.001@gmail.com',
-#     'dxthienx4@gmail.com',
 # ]
 emails = [
-    'dxthienx1@gmail.com',
-    # 'dxthienx2@gmail.com',
     'dxthienx5@gmail.com',
     'dxthienx10@gmail.com',
     'tranghangbk.002@gmail.com',
     'tranhangbk@gmail.com',
+    'badboymmo1901@gmail.com',
+    'dxthien4@gmail.com',
+    'dxthien5@gmail.com',
+    # 'dxthienx1@gmail.com',
+    # 'dxthienx2@gmail.com',
+    # 'dxthienx4@gmail.com',
 ]
 
 input_txt_path = "E:\\Du lieu huan luyen\\1.txt"
 input_txt_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\1.txt"
-start_idx = 77
+start_idx = 0
 
 text_to_speeed_by_vbee_with_multi_email(input_txt_path=input_txt_path, emails=emails, start_idx=start_idx)
