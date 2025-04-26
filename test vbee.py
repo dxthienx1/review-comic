@@ -123,6 +123,19 @@ def text_to_speeed_by_vbee(input_txt_path, email=None, start_idx=0, url="https:/
                                                 driver.quit()
                                                 sleep(2)
                                                 return idx, True
+                                            else:
+                                                sleep(30)
+                                                download_ele = get_element_by_text(driver, 'Tải xuống')
+                                                if download_ele:
+                                                    download_ele.click()
+                                                    sleep(3)
+                                                    finish_texts.append(text)
+                                                    with open(out_txt_path, "a", encoding="utf-8") as fff:
+                                                        fff.write(f"{str(idx)}\n{text}\n")
+                                                    print(f"{thanhcong} {idx} --> {text}")
+                                                    cnt = 0
+                                                    sleep_random(1,5)
+                                                    break
                                         print(f"{thatbai} Tài khoản {email} có lỗi khi xuất audio.")
                                     driver.quit()
                                     return None, None
@@ -146,27 +159,32 @@ def text_to_speeed_by_vbee_with_multi_email(input_txt_path, emails, start_idx):
             return
 
 # emails = [
+    # 'dxthien1@gmail.com',
 #     'themysteries.001@gmail.com',
 #     'tranhangbk.001@gmail.com',
-#     'dxthien1@gmail.com',
 #     'dxthien2@gmail.com',
 #     'dxthienx11@gmail.com',
 # ]
 emails = [
-    'dxthienx5@gmail.com',
-    'dxthienx10@gmail.com',
-    'tranghangbk.002@gmail.com',
-    'tranhangbk@gmail.com',
-    'badboymmo1901@gmail.com',
-    'dxthien4@gmail.com',
-    'dxthien5@gmail.com',
+    # 'dxthienx5@gmail.com',
+    # 'dxthienx10@gmail.com',
+    # 'tranghangbk.002@gmail.com',
+    # 'tranhangbk@gmail.com',
+    # 'badboymmo1901@gmail.com',
+    # 'dxthien4@gmail.com',
+    # 'dxthien5@gmail.com',
+    'themysteries.001@gmail.com',
+    'tranhangbk.001@gmail.com',
+    'dxthien2@gmail.com',
+    'dxthienx11@gmail.com',
+    # 'dxthien1@gmail.com',
     # 'dxthienx1@gmail.com',
     # 'dxthienx2@gmail.com',
     # 'dxthienx4@gmail.com',
 ]
 
-input_txt_path = "E:\\Du lieu huan luyen\\1.txt"
-input_txt_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\1.txt"
+# input_txt_path = "E:\\Du lieu huan luyen\\1.txt"
+input_txt_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\vbee\\1.txt"
 start_idx = 0
 
 text_to_speeed_by_vbee_with_multi_email(input_txt_path=input_txt_path, emails=emails, start_idx=start_idx)

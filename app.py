@@ -150,7 +150,7 @@ class MainApp:
             driver.get(base_url)
             sleep(8)
             list_linkes = []
-            skip_text = ['discord', 'http', 'Translator:', 'TL:', 'For extra chapters']
+            skip_text = ['discord', 'http', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads']
             start_down = True
             cnt_err = 0
             first_content = ""

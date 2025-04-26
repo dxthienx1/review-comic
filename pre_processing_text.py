@@ -31,8 +31,8 @@ def add_txt_to_metadata(txt_file, csv_file, start_idx=1, type_audio='wav', speak
         print(f"Đã xảy ra lỗi: {e}")
 
 audio_folder = 'wavs'
-txt_file_path = "E:\\Python\\developping\\review comic\\test\\extract_audios\\1_1.txt"
-start_idx = 201
+txt_file_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\last data\\1.txt"
+start_idx = 11173
 is_eval = False
 
 if is_eval:

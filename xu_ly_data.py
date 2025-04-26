@@ -12,19 +12,18 @@ def adjust_txt_file(old_txt, cnt=1):
         for line in lines:
             if line and not line.strip().isdigit():
                 line = cleaner_text(line.strip(), is_loi_chinh_ta=True, is_conver_number=True)
-                if not line:
+                if not line or len(line) < 3:
                     continue
-
                 if line.endswith(',') or line.endswith('?' or line.endswith('!')):
                     line = f"{line[:-1]}."
-                if not line.endswith('.'):
-                    line = line + '.'
-                ggg.write(f'{cnt}\n{line}\n')
+                # if line and not line.strip().endswith('.'):
+                #     line = line + '.'
+                ggg.write(f'{cnt}\n{line.strip()}\n')
                 cnt += 1
 
-# cnt = 1
-# old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Nguyễn Thị Hường 2\\1.txt"
-# adjust_txt_file(old_txt=old_txt, cnt=cnt)
+cnt = 1
+old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Phung Ngoc Anh\\1.txt"
+adjust_txt_file(old_txt=old_txt, cnt=cnt)
 
 
 
@@ -64,6 +63,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                             
                             if line_content not in unique_lines and len(line_content) < max_lenth_text:
                                 index += 1
+                                processed_text = line_content.strip().lower()
                                 processed_text = cleaner_text(line_content, is_loi_chinh_ta=True, is_conver_number=True)
                                 total.write(f'{index}\n{processed_text}\n')
                                 unique_lines.add(line_content)  # Thêm vào set để tránh trùng lặp
@@ -79,9 +79,9 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                     print(f"Lỗi khi xử lý file {txt_f}: {e}")
     except Exception as e:
         print(f"Lỗi khi ghi file tổng {txt_total}: {e}")
-# folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Nhi Le"
-# total_txt = os.path.join(folder, 'total.txt')
-# audio_total_folder = os.path.join(folder, 'total_audios')
+folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Hoàn Thành"
+total_txt = os.path.join(folder, 'total.txt')
+audio_total_folder = os.path.join(folder, 'total_audios')
 # get_text_and_audio_in_folder(folder, total_txt, audio_total_folder)
 
 
@@ -143,13 +143,13 @@ def add_voice_to_csv(input_file, voice_tag="vi_female"):
 
 
 #------------Thay đổi tốc độ audio hàng loạt---------
-def adjust_audio_speed(input_folder, output_folder, speed=0.98, volume_factor=1.0):
+def adjust_audio_speed(input_folder, output_folder, speed=1.0, volume_factor=1.0):
     try:
         # Tạo thư mục đầu ra nếu chưa tồn tại
         os.makedirs(output_folder, exist_ok=True)
-        
+        audios = get_file_in_folder_by_type(input_folder, '.wav') or []
         # Duyệt qua tất cả các file trong thư mục
-        for file_name in sorted(os.listdir(input_folder)):
+        for file_name in audios:
             if file_name.endswith(".wav"):
                 input_path = os.path.join(input_folder, file_name)
                 output_path = os.path.join(output_folder, file_name)
@@ -167,12 +167,11 @@ def adjust_audio_speed(input_folder, output_folder, speed=0.98, volume_factor=1.
                 
     except Exception as e:
         print(f"Có lỗi xảy ra: {e}")
-# input_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_1"
-# output_folder = "E:\\Python\\developping\\review comic\\dataset\\vietnam\\wavs\\New folder_2"
-# input_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam"
-# output_folder = "E:\\Python\\developping\\review comic\\test\\extract_audios\\da lam_1"
-# os.makedirs(output_folder, exist_ok=True)
-# adjust_audio_speed(input_folder, output_folder, speed=0.99, volume_factor=0.8)
+
+
+input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\last data\\vb"
+output_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\last data\\vb_1"
+# adjust_audio_speed(input_folder, output_folder, speed=1.1, volume_factor=1.05)
 
 
 
@@ -202,8 +201,8 @@ def convert_mp3_to_wav_in_directory(input_folder, speed):
             run_command_ffmpeg(ffmpeg_cmd)
             print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
 
-# input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\New folder\\10_chua"
-# speed = 1.0 
+input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\New folder\\10_chua"
+speed = 1.0 
 # convert_mp3_to_wav_in_directory(input_folder, speed)
 
 
@@ -233,6 +232,6 @@ def convert_wav_to_training_format(input_folder, speed):
         run_command_ffmpeg(ffmpeg_cmd)
         print(f"Đã chuẩn hóa {filename} thành {wav_output}")
 
-# input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\New folder\\10_chua"
-# speed = 1.0
+input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train"
+speed = 1.04
 # convert_wav_to_training_format(input_folder, speed)
