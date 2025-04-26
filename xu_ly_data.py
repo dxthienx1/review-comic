@@ -11,7 +11,8 @@ def adjust_txt_file(old_txt, cnt=1):
     with open(new_txt, 'w', encoding='utf-8') as ggg:
         for line in lines:
             if line and not line.strip().isdigit():
-                line = cleaner_text(line.strip(), is_loi_chinh_ta=True, is_conver_number=True)
+                if 'vbee' not in old_txt:
+                    line = cleaner_text(line.strip(), is_loi_chinh_ta=True, is_conver_number=True)
                 if not line or len(line) < 3:
                     continue
                 if line.endswith(',') or line.endswith('?' or line.endswith('!')):
@@ -22,7 +23,7 @@ def adjust_txt_file(old_txt, cnt=1):
                 cnt += 1
 
 cnt = 1
-old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Phung Ngoc Anh\\1.txt"
+old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Glinnn\\3.txt"
 adjust_txt_file(old_txt=old_txt, cnt=cnt)
 
 

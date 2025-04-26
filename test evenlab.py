@@ -59,27 +59,31 @@ def text_to_speeed_by_evenlab(input_txt_path, email=None, start_idx=0, url="http
                 convert_button.click()
                 sleep(6)
                 err = 0
+                is_break = False
                 while True:
+                    if is_break:
+                        break
                     tai_xpath = get_xpath_by_multi_attribute('button', ['aria-label="Download"'])
                     tai_ele = get_element_by_xpath(driver, tai_xpath)
                     if tai_ele:
                         tai_ele.click()
-                        finish_texts.append(text)
-                        with open(out_txt_path, "a", encoding="utf-8") as fff:
-                            fff.write(f"{str(idx)}\n{text}\n")
-                        sleep(4)
+                        sleep(3)
                         in_fol = "C:\\Users\\dxthi\\Downloads"
                         out_fol = os.path.join(folder, 'out_files')
                         os.makedirs(out_fol, exist_ok=True)
                         while True:
                             if move_file(in_fol, out_fol, idx):
+                                finish_texts.append(text)
+                                with open(out_txt_path, "a", encoding="utf-8") as fff:
+                                    fff.write(f"{str(idx)}\n{text}\n")
                                 print(f"{thanhcong} {idx} --> {text}")
+                                is_break = True
                                 break
                             sleep(2)
                             err += 1
                             if err > 10:
-                                print(f"{thatbai} tại idx {idx} --> {text}")
-                                return None, None
+                                print(f"{thatbai} Lỗi tại idx {idx} --> {text}")
+                                return idx, True
                     else:
                         sleep(2)
                         err += 1
@@ -120,7 +124,6 @@ def move_file(input_folder, output_folder, idx):
             return False
         
 emails = [
-    'dxthienx1@gmail.com',
     'dxthienx5@gmail.com',
     'dxthienx10@gmail.com',
     'tranghangbk.002@gmail.com',
@@ -130,15 +133,15 @@ emails = [
     'dxthien5@gmail.com',
     'themysteries.001@gmail.com',
     'tranhangbk.001@gmail.com',
+    'dxthien1@gmail.com',
     'dxthien2@gmail.com',
     'dxthienx11@gmail.com',
     'dxthienx2@gmail.com',
     'dxthienx4@gmail.com',
-    # 'dxthien1@gmail.com',
 ]
 
 # input_txt_path = "E:\\Du lieu huan luyen\\1.txt"
 input_txt_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\vbee\\1.txt"
-start_idx = 74
+start_idx = 405
 
 text_to_speeed_by_evenlab_with_multi_email(input_txt_path=input_txt_path, emails=emails, start_idx=start_idx)

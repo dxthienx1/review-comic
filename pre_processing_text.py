@@ -16,7 +16,7 @@ def add_txt_to_metadata(txt_file, csv_file, start_idx=1, type_audio='wav', speak
                     transcription = line.strip()
                     if not transcription or transcription.isdigit():
                         continue
-                    text = cleaner_text(transcription)
+                    text = cleaner_text(transcription, is_conver_number=False)
                     if is_eval:
                         writer.writerow([f"eval/eval_{start_idx}.{type_audio}", text, speaker_name])
                     else:

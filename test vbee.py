@@ -89,19 +89,31 @@ def text_to_speeed_by_vbee(input_txt_path, email=None, start_idx=0, url="https:/
                     if convert_button:
                         convert_button.click()
                         sleep(5)
-                        
+                        is_break = False
                         while True:
+                            if is_break:
+                                break
                             download_ele = get_element_by_text(driver, 'Tải xuống')
                             if download_ele:
                                 download_ele.click()
                                 sleep(3)
-                                finish_texts.append(text)
-                                with open(out_txt_path, "a", encoding="utf-8") as fff:
-                                    fff.write(f"{str(idx)}\n{text}\n")
-                                print(f"{thanhcong} {idx} --> {text}")
-                                cnt = 0
-                                sleep_random(1,5)
-                                break
+                                in_fol = "C:\\Users\\dxthi\\Downloads"
+                                out_fol = os.path.join(folder, 'vbee_out_files')
+                                os.makedirs(out_fol, exist_ok=True)
+                                while True:
+                                    if move_file(in_fol, out_fol, idx):
+                                        finish_texts.append(text)
+                                        with open(out_txt_path, "a", encoding="utf-8") as fff:
+                                            fff.write(f"{str(idx)}\n{text}\n")
+                                        print(f"{thanhcong} {idx} --> {text}")
+                                        is_break = True
+                                        cnt = 0
+                                        break
+                                    sleep(2)
+                                    err += 1
+                                    if err > 10:
+                                        print(f"{thatbai} Lỗi tại idx {idx} --> {text}")
+                                        return idx, True
                             else:
                                 in_process = get_element_by_text(driver, 'Đang xử lý')
                                 if not in_process:
@@ -141,8 +153,8 @@ def text_to_speeed_by_vbee(input_txt_path, email=None, start_idx=0, url="https:/
                                     return None, None
                                 else:
                                     cnt += 1
-                                    sleep(1)
-                                    if cnt > 4:
+                                    sleep(2)
+                                    if cnt > 10:
                                         print(f"{thatbai} Tài khoản {email} có lỗi khi xuất audio --> tiến trình xử lý bị đứng.")
                                         driver.quit()
                                         return idx, True
@@ -158,13 +170,20 @@ def text_to_speeed_by_vbee_with_multi_email(input_txt_path, emails, start_idx):
         if not start_idx or not is_change_email:
             return
 
-# emails = [
-    # 'dxthien1@gmail.com',
-#     'themysteries.001@gmail.com',
-#     'tranhangbk.001@gmail.com',
-#     'dxthien2@gmail.com',
-#     'dxthienx11@gmail.com',
-# ]
+def move_file(input_folder, output_folder, idx):
+    wav_files = get_file_in_folder_by_type(input_folder, file_type='.wav')
+    if not wav_files:
+        return False
+    for wav_file in wav_files:
+        wav_file_path = os.path.join(input_folder, wav_file)
+        wav_file_outpath = os.path.join(output_folder, f"{idx}.wav")
+        try:
+            shutil.move(wav_file_path, wav_file_outpath)
+            return True
+        except:
+            getlog()
+            return False
+
 emails = [
     # 'dxthienx5@gmail.com',
     # 'dxthienx10@gmail.com',
@@ -173,18 +192,18 @@ emails = [
     # 'badboymmo1901@gmail.com',
     # 'dxthien4@gmail.com',
     # 'dxthien5@gmail.com',
-    'themysteries.001@gmail.com',
-    'tranhangbk.001@gmail.com',
+    # 'themysteries.001@gmail.com',
+    # 'tranhangbk.001@gmail.com',
     'dxthien2@gmail.com',
     'dxthienx11@gmail.com',
-    # 'dxthien1@gmail.com',
+    'dxthien1@gmail.com',
     # 'dxthienx1@gmail.com',
     # 'dxthienx2@gmail.com',
     # 'dxthienx4@gmail.com',
 ]
 
 # input_txt_path = "E:\\Du lieu huan luyen\\1.txt"
-input_txt_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\vbee\\1.txt"
-start_idx = 0
+input_txt_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\vbee\\2.txt"
+start_idx = 108
 
 text_to_speeed_by_vbee_with_multi_email(input_txt_path=input_txt_path, emails=emails, start_idx=start_idx)

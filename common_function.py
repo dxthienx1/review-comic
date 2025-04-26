@@ -2693,8 +2693,10 @@ def number_to_vietnamese_with_units(text):
                 return number_words[chuc] + " mốt"
             if donvi == 5:
                 return number_words[chuc] + " lăm"
+            if donvi == 4 and chuc > 1:
+                return number_words[chuc] + " tư"
             return number_words[chuc] + " " + number_words[donvi]
-
+                
         # Số nhỏ hơn 1000 xử lý theo dạng trăm
         elif n < 1000:
             tram = n // 100
@@ -2703,6 +2705,8 @@ def number_to_vietnamese_with_units(text):
             if chuc_dv == 0:
                 return res
             elif chuc_dv < 10:
+                if chuc_dv == 4:
+                    return res + " linh tư"
                 return res + " linh " + number_words[chuc_dv]
             return res + " " + read_number(chuc_dv)
 
@@ -2779,7 +2783,7 @@ def number_to_vietnamese_with_units(text):
         # Nếu có phần thập phân
         if len(parts) == 2:
             int_part, decimal_part = parts
-            if len(decimal_part) == 3:
+            if len(decimal_part) == 3 and sep == '.':
                 # là dấu ngăn cách hàng nghìn, bỏ dấu
                 cleaned = num_str.replace(sep, "")
                 return read_number(int(cleaned))
@@ -2795,9 +2799,15 @@ def number_to_vietnamese_with_units(text):
             return read_number(int(cleaned))
 
     def convert_decimal(match):
+        full_match = match.group(0)
         int_part = match.group(1)
         dec_part = match.group(2)
-        return read_number(int_part) + " phẩy " + " ".join([number_words[int(d)] for d in dec_part])
+        if '.' in full_match:
+            separator_word = "chấm"
+        else:
+            separator_word = "phẩy"
+        return read_number(int_part) + f" {separator_word} " + read_number(dec_part)
+        # return read_number(int_part) + f" {separator_word} " + " ".join([number_words[int(d)] for d in dec_part])
 
     def convert_integer(match):
         return read_number(match.group(0))
@@ -2806,13 +2816,33 @@ def number_to_vietnamese_with_units(text):
         hour = int(match.group(1))
         minute = int(match.group(2))
         return f"{read_number(hour)} giờ {read_number(minute)} phút"
+
+    def convert_fraction(match):
+        tu_so = int(match.group(1))
+        mau_so = int(match.group(2))
+        return f"{read_number(tu_so)} trên {read_number(mau_so)}"
+    
+    def convert_number_with_unit_inside(match):
+        num1 = int(match.group(1))
+        unit = match.group(2)
+        num2 = int(match.group(3))
+        unit_text = unit_mapping.get(unit.lower(), unit)
+        return f"{read_number(num1)} {unit_text} {read_number(num2)}"
+    
+    def convert_date_format(match):
+        day = int(match.group(1))
+        month = int(match.group(2))
+        year = int(match.group(3))
+        return f"{read_number(day)} tháng {read_number(month)} năm {read_number(year)}"
     
     units_pattern = "|".join(re.escape(k) for k in unit_mapping.keys())
-
+    text = re.sub(r"\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b", convert_date_format, text)
+    text = re.sub(r"\b(\d+)\/(\d+)\b", convert_fraction, text)  # phân số
+    text = re.sub(r"\b(\d+)(m|cm|km|kg|g)(\d+)\b", convert_number_with_unit_inside, text)  # 1m65
+    text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})\b", convert_time_format, text)
     text = re.sub( rf"(\d{{1,3}}(?:[.,]\d{{3}})+|\d+)\s*({units_pattern})(?!\w)", convert_units, text )
     text = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+[.,]\d+\b", convert_complex_number, text)
     text = re.sub(r"\b(\d{1,3}(?:[.,]\d{3})+)\b", convert_large_grouped_number, text)
-    text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})\b", convert_time_format, text)
     text = re.sub(r"\b(\d+)[.,](\d+)\b", convert_decimal, text)
     text = re.sub(r"\b\d+\b", convert_integer, text)
 
@@ -3690,8 +3720,8 @@ loai_bo_tieng_anh = {
     "fff":"",
     "fff":"",
     "fff":"",
-    "/":" over ",
-    "%":" percent"
+    # "/":" over ",
+    # "%":" percent"
 }
 
 loai_bo_tieng_viet = {
@@ -7551,6 +7581,18 @@ loi_chinh_ta = {
     "kỳ thời": "kịp thời",
     "chịu hồi": "triệu hồi",
     "so tải": "so tài",
+    "gông cùng": "gông cùm",
+    "dơ tay": "giơ tay",
+    "dơ chân": "giơ chân",
+    "cú suốt": "cú sút",
+    "sáng giựt": "sáng rực",
+    "dọng nói": "giọng nói",
+    "để rụ ": "để dụ ",
+    "hết lên ": "hét lên ",
+    "nghiến giang": "nghiến răng",
+    "bám giết": "bám riết",
+    "thời khác": "thời khắc",
+    "chống không": "trống không",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
@@ -7567,8 +7609,13 @@ loi_chinh_ta = {
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
+    "ji y yang": "ji yang",
+    "đô hìn ": "đô hin ",
+    "nam du": "nam đu",
+    "thất dã": "thất dạ",
+    "thất giã": "thất dạ",
+    "thầm thanh chúc": "thẩm thanh trúc",
+    "thất giãng": "thất dạ",
     "hản huệ thảo": "hàn huệ thảo",
     "diệt sư huynh": "diệp sư huynh",
     "thầy hắn": "thấy hắn",
