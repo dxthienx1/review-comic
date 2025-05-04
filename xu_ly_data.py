@@ -2,7 +2,7 @@
 from common_function import *
 # -------Sửa chính tả trong file txt và xuất ra file txt khác-------
 
-def adjust_txt_file(old_txt, cnt=1):
+def adjust_txt_file(old_txt, cnt=1, language='vi'):
     fol = os.path.dirname(old_txt)
     file_name = os.path.basename(old_txt).split('.')[0]
     new_txt = os.path.join(fol, f'{file_name}_1.txt')
@@ -11,8 +11,8 @@ def adjust_txt_file(old_txt, cnt=1):
     with open(new_txt, 'w', encoding='utf-8') as ggg:
         for line in lines:
             if line and not line.strip().isdigit():
-                if 'vbee' not in old_txt:
-                    line = cleaner_text(line.strip(), is_loi_chinh_ta=True, is_conver_number=True)
+                # if 'vbee' not in old_txt:
+                #     line = cleaner_text(line.strip(), is_loi_chinh_ta=True, language=language, is_conver_number=True)
                 if not line or len(line) < 3:
                     continue
                 if line.endswith(',') or line.endswith('?' or line.endswith('!')):
@@ -23,8 +23,9 @@ def adjust_txt_file(old_txt, cnt=1):
                 cnt += 1
 
 cnt = 1
-old_txt = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Glinnn\\3.txt"
-adjust_txt_file(old_txt=old_txt, cnt=cnt)
+language = 'en'
+old_txt = r"E:\Python\developping\review comic\test\du lieu train\evenlab\train\3.txt"
+# adjust_txt_file(old_txt=old_txt, cnt=cnt, language=language)
 
 
 
@@ -65,7 +66,8 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                             if line_content not in unique_lines and len(line_content) < max_lenth_text:
                                 index += 1
                                 processed_text = line_content.strip().lower()
-                                processed_text = cleaner_text(line_content, is_loi_chinh_ta=True, is_conver_number=True)
+                                if 'vbee' not in txt_path:
+                                    processed_text = cleaner_text(line_content, is_loi_chinh_ta=True, is_conver_number=True)
                                 total.write(f'{index}\n{processed_text}\n')
                                 unique_lines.add(line_content)  # Thêm vào set để tránh trùng lặp
                                 audio_path = os.path.join(audio_folder, audios[i_au])
@@ -80,7 +82,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                     print(f"Lỗi khi xử lý file {txt_f}: {e}")
     except Exception as e:
         print(f"Lỗi khi ghi file tổng {txt_total}: {e}")
-folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\Hoàn Thành"
+folder = r"E:\Python\developping\review comic\test\du lieu train\Hoàn Thành\vbee"
 total_txt = os.path.join(folder, 'total.txt')
 audio_total_folder = os.path.join(folder, 'total_audios')
 # get_text_and_audio_in_folder(folder, total_txt, audio_total_folder)
@@ -144,9 +146,10 @@ def add_voice_to_csv(input_file, voice_tag="vi_female"):
 
 
 #------------Thay đổi tốc độ audio hàng loạt---------
-def adjust_audio_speed(input_folder, output_folder, speed=1.0, volume_factor=1.0):
+def adjust_audio_speed(input_folder, speed=1.0, volume_factor=1.0):
     try:
         # Tạo thư mục đầu ra nếu chưa tồn tại
+        output_folder = os.path.join(input_folder, 'audios_speed')
         os.makedirs(output_folder, exist_ok=True)
         audios = get_file_in_folder_by_type(input_folder, '.wav') or []
         # Duyệt qua tất cả các file trong thư mục
@@ -170,9 +173,9 @@ def adjust_audio_speed(input_folder, output_folder, speed=1.0, volume_factor=1.0
         print(f"Có lỗi xảy ra: {e}")
 
 
-input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\last data\\vb"
-output_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\last data\\vb_1"
-# adjust_audio_speed(input_folder, output_folder, speed=1.1, volume_factor=1.05)
+input_folder = r"E:\Python\developping\review comic\dataset\en\New folder"
+speed = 1.05
+adjust_audio_speed(input_folder, speed=speed, volume_factor=1)
 
 
 
@@ -202,8 +205,8 @@ def convert_mp3_to_wav_in_directory(input_folder, speed):
             run_command_ffmpeg(ffmpeg_cmd)
             print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
 
-input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train\\huan luyen khoang lang\\New folder\\10_chua"
-speed = 1.0 
+input_folder = r"E:\Python\developping\review comic\test"
+speed = 1.04
 # convert_mp3_to_wav_in_directory(input_folder, speed)
 
 
@@ -211,28 +214,97 @@ speed = 1.0
 
 
 #chuyển wav thường sang wav chuẩn training
-def convert_wav_to_training_format(input_folder, speed):
+def convert_wav_to_training_format(input_folder, speed=1.0, trim_end=0):
     wav_files = get_file_in_folder_by_type(input_folder, '.wav') or []
     output_folder = os.path.join(input_folder, 'out')
     os.makedirs(output_folder, exist_ok=True)
-    for filename in wav_files:
+    
+    for idx, filename in enumerate(wav_files):
         wav_input = os.path.join(input_folder, filename)
         wav_output = os.path.join(output_folder, filename)
 
-        ffmpeg_cmd = [
-            "ffmpeg",
-            "-y",
-            "-i", wav_input,
-            "-ac", "1",              # mono
-            "-ar", "24000",          # sample rate 24kHz
-            "-filter:a", f"atempo={speed}",  # playback speed
-            "-sample_fmt", "s16",    # 16-bit sample format
-            wav_output
-        ]
+        # Nếu cần cắt 0.3s cuối thì cần lấy thời lượng file đầu vào
+        if trim_end != 0:
+            # Lấy duration của file input
+            probe_cmd = [
+                "ffprobe", "-v", "error",
+                "-select_streams", "a:0",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                wav_input
+            ]
+            duration_str = subprocess.check_output(probe_cmd).decode().strip()
+            duration = float(duration_str)
+            trim_duration = max(0, duration - trim_end)  # Đảm bảo không âm
+
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-y",
+                "-i", wav_input,
+                "-ac", "1",                  # mono
+                "-ar", "24000",              # sample rate 24kHz
+                "-filter:a", f"atempo={speed}",
+                "-t", f"{trim_duration}",    # cắt đi 0.3s cuối
+                "-sample_fmt", "s16",        # 16-bit
+                wav_output
+            ]
+        else:
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-y",
+                "-i", wav_input,
+                "-ac", "1",
+                "-ar", "24000",
+                "-filter:a", f"atempo={speed}",
+                "-sample_fmt", "s16",
+                wav_output
+            ]
 
         run_command_ffmpeg(ffmpeg_cmd)
         print(f"Đã chuẩn hóa {filename} thành {wav_output}")
 
-input_folder = "E:\\Python\\developping\\review comic\\test\\du lieu train"
-speed = 1.04
-# convert_wav_to_training_format(input_folder, speed)
+input_folder = r"E:\Python\developping\review comic\test\du lieu train\evenlab\train\2"
+speed = 1.05
+trim_end = 0.35
+# convert_wav_to_training_format(input_folder, speed, trim_end=trim_end)
+
+
+
+def speed_up_video_ffmpeg(input_path, speed=1.05):
+    output_path = input_path.replace(".mp4", "_speedup.mp4")
+    # Giới hạn tốc độ hợp lệ cho atempo (ffmpeg chỉ hỗ trợ 0.5 - 2.0, nên cần lặp nếu speed > 2)
+    def atempo_filters(s):
+        filters = []
+        while s > 2.0:
+            filters.append("atempo=2.0")
+            s /= 2.0
+        while s < 0.5:
+            filters.append("atempo=0.5")
+            s *= 2.0
+        filters.append(f"atempo={s:.2f}")
+        return ",".join(filters)
+
+    # Video filter: setpts
+    v_filter = f"setpts={1/speed}*PTS"
+    a_filter = atempo_filters(speed)
+
+    command = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-filter:v", v_filter,
+        "-filter:a", a_filter,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        output_path
+    ]
+
+    try:
+        subprocess.run(command, check=True)
+        print(f"✅ Video đã được tăng tốc và lưu tại: {output_path}")
+        return True
+    except subprocess.CalledProcessError:
+        print("❌ Lỗi khi tăng tốc video.")
+        return False
+input_path = ""
+speed = 1.07
+# speed_up_video_ffmpeg(input_path, speed=speed)

@@ -266,7 +266,13 @@ def number_to_vietnamese_with_units(text):
     def convert_time_format(match):
         hour = int(match.group(1))
         minute = int(match.group(2))
-        return f"{read_number(hour)} giờ {read_number(minute)} phút"
+        second = match.group(3)
+
+        if second:  # Nếu có giây
+            second = int(second)
+            return f"{read_number(hour)} giờ {read_number(minute)} phút {read_number(second)} giây"
+        else:  # Chỉ có giờ và phút
+            return f"{read_number(hour)} giờ {read_number(minute)} phút"
 
     def convert_fraction(match):
         tu_so = int(match.group(1))
@@ -290,7 +296,7 @@ def number_to_vietnamese_with_units(text):
     text = re.sub(r"\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b", convert_date_format, text)
     text = re.sub(r"\b(\d+)\/(\d+)\b", convert_fraction, text)  # phân số
     text = re.sub(r"\b(\d+)(m|cm|km|kg|g)(\d+)\b", convert_number_with_unit_inside, text)  # 1m65
-    text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})\b", convert_time_format, text)
+    text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})(?::(\d{1,2}))?\b", convert_time_format, text)
     text = re.sub( rf"(\d{{1,3}}(?:[.,]\d{{3}})+|\d+)\s*({units_pattern})(?!\w)", convert_units, text )
     text = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+[.,]\d+\b", convert_complex_number, text)
     text = re.sub(r"\b(\d{1,3}(?:[.,]\d{3})+)\b", convert_large_grouped_number, text)
@@ -302,6 +308,6 @@ def number_to_vietnamese_with_units(text):
 
 
 
-tttt = "1.234 - 1,234 - 2.75 - 35,55 - 24/56 - 1m75 - 24 - 14 - 114 - 154 - 1204 - 1234 - ngày 15-4-2025 - 250kg - 57g - 97.05km - 2345 - - 15mm - 300cm - 340.56 - 1000500000 - 2000000"
+tttt = "15/4/2025 - 3h50 - 3:10:15 - 3:15 - 2.75 - 35,55 - 24/56 - 1m75 - 24 - 14 - 114 - 154 - 1204 - 1234 - ngày 15-4-2025 - 250kg - 57g - 97.05km - 2345 - - 15mm - 300cm - 340.56 - 1000500000 - 2000000"
 gg = number_to_vietnamese_with_units(tttt)
 print(gg)

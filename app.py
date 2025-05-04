@@ -1679,24 +1679,25 @@ class MainApp:
             output_folder = self.output_folder_var.get().strip()
             target_height = self.max_height_var.get().strip()
             split_or_merge_image = self.split_or_merge_image_var.get().strip()
-
+            min_space_height = self.min_space_height_var.get().strip()
             if not check_folder(image_folder):
                 return
             if split_or_merge_image=='gộp ảnh':
                 merge_images(image_folder, output_folder, target_height=target_height)
             elif split_or_merge_image == 'cắt ảnh - theo ds chương':
-                split_images(chapter_folder=image_folder, output_folder=output_folder)
+                split_images(chapter_folder=image_folder, output_folder=output_folder, min_space_height=int(min_space_height))
             else:
-                split_images(image_folder=image_folder, output_folder=output_folder)        
+                split_images(image_folder=image_folder, output_folder=output_folder, min_space_height=int(min_space_height))
 
         self.reset()
         self.is_merge_image = True
         self.setting_window_size()
         self.show_window()
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Chứa Ảnh", command= self.choose_videos_edit_folder, left=0.4, right=0.6, width=self.width)
-        self.output_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Lưu Ảnh", command= self.choose_videos_output_folder, left=0.4, right=0.6, width=self.width)
+        self.output_folder_var = create_frame_button_and_input(self.root,text="Chọn Thư Mục Lưu Ảnh(no need)", command= self.choose_videos_output_folder, left=0.4, right=0.6, width=self.width)
         self.split_or_merge_image_var = self.create_settings_input(text="Chọn hành động", values=['cắt ảnh - theo ds chương', 'cắt ảnh - theo ds ảnh', 'gộp ảnh'], left=0.4, right=0.6)
         self.split_or_merge_image_var.set('cắt ảnh - theo ds chương')
+        self.min_space_height_var = self.create_settings_input(text="chiều cao phát hiện khoảng trắng (cắt ảnh)", values=['40', '60', '80'], left=0.4, right=0.6)
         self.max_height_var = self.create_settings_input(text="Chiều cao ảnh mong muốn", values=['1500', '2000'], left=0.4, right=0.6)
         self.max_height_var.set('2000')
         create_button(frame=self.root, text="Bắt Đầu", command=start_merge_image)
@@ -2274,10 +2275,7 @@ class MainApp:
                 continue
             print(f'Bắt đầu xử lý video: {video_file}')
             video_path = f'{videos_folder}\\{video_file}'
-            if self.is_fast_edit:
-                is_edit_ok = self.fast_edit_video(video_path)
-            else:
-                is_edit_ok = self.edit_video_by_moviepy(video_path)
+            is_edit_ok = self.fast_edit_video(video_path)
             if is_edit_ok:
                 list_edit_finished.append(video_file)
                 print(f"  --> Xử lý thành công video: {video_file}")
@@ -2819,7 +2817,7 @@ class MainApp:
             elif self.is_merge_image:
                 self.root.title("Merge Images")
                 self.width = 500
-                self.height_window = 360
+                self.height_window = 406
                 self.is_merge_image = False
             elif self.is_take_screenshot:
                 self.root.title("Merge Images")

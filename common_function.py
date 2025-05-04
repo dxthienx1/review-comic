@@ -50,6 +50,9 @@ import pyautogui
 import numpy as np
 from itertools import groupby
 from operator import itemgetter
+import pytesseract
+from selenium.webdriver.firefox.service import Service as ff_Service
+from selenium.webdriver.firefox.options import Options
 
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
@@ -95,6 +98,7 @@ current_dir = get_current_dir()
 sys.path.append(current_dir)
 
 chromedriver_path = os.path.join(current_dir, 'import\\chromedriver.exe')
+geckodriver_path = os.path.join(current_dir, 'import\\geckodriver.exe')
 config_path = os.path.join(current_dir, 'config.json')
 config_xtts_path = os.path.join(current_dir, 'models', 'main', 'config.json')
 last_config_xtts_path = os.path.join(current_dir, 'models', 'default_version', 'config.json')
@@ -450,33 +454,6 @@ def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_
             options.add_argument(f"user-data-dir={profile_folder}")
             options.add_argument(f"profile-directory={profile_name}")
 
-            # Cấu hình proxy (giữ nguyên logic cũ)
-            # proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country = get_proxy_info(proxy)
-            # if proxy_ip and proxy_port:
-            #     if is_remove_proxy:
-            #         options.add_argument('--no-proxy-server')
-            #         options.add_argument('--proxy-server="direct://"')
-            #         options.add_argument('--proxy-bypass-list=*')
-            #         with open(preferences_file, "r", encoding="utf-8") as f:
-            #             preferences = json.load(f)
-            #         if "proxy" in preferences:
-            #             del preferences["proxy"]
-            #         with open(preferences_file, "w", encoding="utf-8") as f:
-            #             json.dump(preferences, f, indent=4)
-            #         print("✅ Đã xóa cấu hình proxy trong Preferences.")
-            #         chrome_proxy_profile_folder = os.path.join(os.getcwd(), "chrome_proxy_profile")
-            #         if os.path.exists(chrome_proxy_profile_folder):
-            #             unpacked_folder = os.path.join(chrome_proxy_profile_folder, f"{proxy_ip}_{proxy_port}_unpacked")
-            #             shutil.rmtree(unpacked_folder, ignore_errors=True)
-            #             print("✅ Đã xóa extension proxy.")
-            #     else:
-            #         if proxy_user and proxy_pass:
-            #             proxy_extension_path = create_proxy_extension_with_chrome_profile(proxy_ip, proxy_port, proxy_user, proxy_pass)
-            #             options.add_argument(f"--disable-extensions-except={proxy_extension_path}")
-            #             options.add_argument(f"--load-extension={proxy_extension_path}")
-            #         else:
-            #             options.add_argument(f'--proxy-server=http://{proxy_ip}:{proxy_port}')
-
             # Tối ưu chống bot
             if not show:
                 options.add_argument("--headless")
@@ -490,18 +467,7 @@ def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_
             # Mở trình duyệt
             driver = webdriver.Chrome(options=options)
             driver.set_window_size(screen_width - 100, screen_height - 50)
-
-            # Kiểm tra IP
             sleep_random(3, 6)
-            # browser_ip = get_browser_ip(driver)
-            # if not browser_ip or (proxy_ip and proxy_ip != browser_ip):
-            #     if target_email:
-            #         print(f"❌ {target_email} Đổi IP không thành công!")
-            #     driver.quit()
-            #     return None
-            # else:
-            #     print(f"{tot} {target_email} IP đang dùng: {browser_ip}")
-
             print(f"✅ Đã mở Chrome với profile: {profile_name}")
             return driver
         else:
@@ -511,6 +477,188 @@ def get_driver_with_profile(target_email=None, show=True, proxy=None, is_remove_
         print(f"❌ Lỗi khi khởi tạo trình duyệt: {e}")
         return None
 
+
+def get_firefox_driver_with_profile(target_email=None, show=True, proxy=None, email=None, password=None):
+    foxyproxy_path = os.path.join(current_dir, 'foxyproxy.xpi')
+    """Mở Firefox với profile cụ thể"""
+    
+    def get_firefox_profile_folder():
+        """Xác định thư mục profile của Firefox theo hệ điều hành"""
+        if platform.system() == "Windows":
+            return os.path.join(os.environ['APPDATA'], "Mozilla", "Firefox", "Profiles")
+        else:
+            raise Exception("Hệ điều hành không được hỗ trợ.")
+
+    def get_profile_name_by_gmail():
+        try:
+            if not target_email:
+                return None, False
+            profiles = [name for name in os.listdir(firefox_profile_folder) if os.path.isdir(os.path.join(firefox_profile_folder, name))]
+            for profile in profiles:
+                if f".{target_email}" in profile:
+                    print(profile)
+                    return profile, False
+            print(f'{canhbao}  Không tìm thấy profile cho email {target_email}. Đang tạo mới...')
+            profile_name_temp = f"{target_email}.default"
+            subprocess.run(["firefox", "-CreateProfile", profile_name_temp], check=True)
+            sleep(5)
+            proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country = get_proxy_info(proxy)
+            if proxy_ip and proxy_port:
+            #     print(f'Hãy thiết lập proxy và login tài khoản trước khi dùng ứng dụng. Các bước thực hiện:')
+            #     print(f"-Mở đường dẫn: about:preferences")
+            #     print(f"-Tìm proxy và mở lên.")
+            #     print(f"-Chọn Manual proxy configuration")
+            #     print(f"-Nhập proxy IP: {proxy_ip}")
+            #     print(f"-Nhập proxy port: {proxy_port}")
+            #     print("Lưu lại và truy cập trang web.")
+            #     if proxy_user and proxy_pass:
+            #         print(f"Nhập user: {proxy_user}")
+            #         print(f"Nhập pass: {proxy_pass}")
+            #         print("Lưu lại (Nếu không hiện cửa sổ lưu thì vào setting --> vào <Privacy & Security> --> bật <Ask to save passwords>)")
+            #     print("Lưu lại và truy cập trang web --> Nhập user và pass proxy nếu có --> lưu user và pass")
+                profiles = [name for name in os.listdir(firefox_profile_folder) if os.path.isdir(os.path.join(firefox_profile_folder, name))]
+                for profile_name in profiles:
+                    if f".{profile_name_temp}" in profile_name:
+                        print(profile_name)
+                        profile_path = os.path.join(firefox_profile_folder, profile_name)
+                        if not os.path.exists(profile_path):
+                            print(f"❌ Không tìm thấy profile tại: {profile_path}")
+                            return None, False
+                    
+                        options = Options()
+                        options.add_argument(f"--profile")
+                        options.add_argument(profile_path)
+                        options.add_argument("--no-remote")
+                        options.add_argument("--disable-dev-shm-usage")
+                
+                        if not show:
+                            options.add_argument("--headless")  
+                        # ⚡ Chống phát hiện bot trên Firefox
+                        options.set_preference("dom.webdriver.enabled", False)  # Ẩn WebDriver
+                        options.set_preference("useAutomationExtension", False)
+                        options.set_preference("media.peerconnection.enabled", False)  # Chặn WebRTC (ngăn dò IP)
+                        options.set_preference("network.http.referer.spoofSource", True)  # Chống theo dõi referrer
+
+                        options.set_preference("general.useragent.override", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101 Firefox/136.0")
+                        options.set_preference("intl.accept_languages", "en-US, en")
+                        options.set_preference("permissions.default.image", 2)
+                        service = ff_Service(geckodriver_path)
+                        driver = webdriver.Firefox(service=service, options=options)
+                        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                        driver.install_addon(foxyproxy_path, temporary=False)
+                        sleep_random(4,6)
+                        driver.get("about:addons")
+                        sleep_random(2,4)
+                        Extensions_ele = get_element_by_text(driver, 'Extensions', 'span')
+                        if Extensions_ele:
+                            Extensions_ele.click()
+                            sleep(1)
+                        foxyproxy_element = driver.find_element(By.CSS_SELECTOR, '[aria-labelledby*="foxyproxy"]')
+                        if foxyproxy_element:
+                            btn_more_xpath = get_xpath_by_multi_attribute('button', ['action="more-options"'])
+                            foxyproxy_opt = foxyproxy_element.find_element(By.XPATH, btn_more_xpath)
+                            if foxyproxy_opt:
+                                foxyproxy_opt.click()
+                                sleep(1)
+                                press_ARROW_DOWN_key(driver, 2)
+                                press_ENTER_key(driver, 1)
+                                driver.switch_to.window(driver.window_handles[-1])
+                                sleep(2)
+                                proxies_ele = get_element_by_text(driver, 'Proxies', 'label')
+                                if proxies_ele:
+                                    proxies_ele.click()
+                                    sleep(1)
+                                    add_xpath = get_xpath_by_multi_attribute('button', ['data-i18n="add"'])
+                                    add_ele = get_element_by_xpath(driver, add_xpath)
+                                    if add_ele:
+                                        try:
+                                            add_ele.click()
+                                        except:
+                                            press_TAB_key(driver, 1)
+                                            press_ENTER_key(driver, 1)
+                                        sleep(1)
+                                        host_xpath = get_xpath_by_multi_attribute('input', ['data-id="hostname"'])
+                                        port_xpath = get_xpath_by_multi_attribute('input', ['data-id="port"'])
+                                        host_ele = get_element_by_xpath(driver, host_xpath)
+                                        if host_ele:
+                                            host_ele.send_keys(proxy_ip)
+                                            sleep(1)
+                                        port_ele = get_element_by_xpath(driver, port_xpath)
+                                        if port_ele:
+                                            port_ele.send_keys(proxy_port)
+                                            sleep(1)
+                                        if proxy_user and proxy_pass:
+                                            username_xpath = get_xpath_by_multi_attribute('input', ['data-id="username"'])
+                                            password_xpath = get_xpath_by_multi_attribute('input', ['data-id="password"'])
+                                            username_ele = get_element_by_xpath(driver, username_xpath)
+                                            if username_ele:
+                                                username_ele.send_keys(proxy_user)
+                                                sleep(1)
+                                            password_ele = get_element_by_xpath(driver, password_xpath)
+                                            if password_ele:
+                                                password_ele.send_keys(proxy_pass)
+                                                sleep(1)
+                                        press_TAB_key(driver, 10)
+                                        press_ENTER_key(driver, 1)
+                                        sleep_random(3,5)
+                driver.quit()
+                sleep(2)
+                subprocess.run(["firefox", "-P", profile_name_temp], check=True)
+                print(f'--> Login tài khoản tiktok/yuoutube/facebook vào profile.')
+                if email and password:
+                    print(f'email: {email}')
+                    print(f'password: {password}')
+            return None, False
+        except:
+            getlog()
+
+    try:
+        target_email = target_email.replace(' ', '')
+        firefox_profile_folder = get_firefox_profile_folder()
+        profile_name, is_create = get_profile_name_by_gmail()
+        if not profile_name:
+            return None
+        profile_path = os.path.join(firefox_profile_folder, profile_name)
+        if not os.path.exists(profile_path):
+            print(f"❌ Không tìm thấy profile tại: {profile_path}")
+            return None
+        
+        options = Options()
+        options.add_argument(f"--profile")
+        options.add_argument(profile_path)
+        options.add_argument("--no-remote")
+   
+        if not show:
+            options.add_argument("--headless")  
+        # ⚡ Chống phát hiện bot trên Firefox
+        options.set_preference("dom.webdriver.enabled", False)  # Ẩn WebDriver
+        options.set_preference("useAutomationExtension", False)
+        options.set_preference("media.peerconnection.enabled", False)  # Chặn WebRTC (ngăn dò IP)
+        options.set_preference("network.http.referer.spoofSource", True)  # Chống theo dõi referrer
+
+        service = ff_Service(geckodriver_path)
+        driver = webdriver.Firefox(service=service, options=options)
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        driver.set_window_size(screen_width - 100, screen_height - 50)
+        sleep_random(2,4)
+
+        if proxy:
+            proxy_ip, proxy_port, proxy_user, proxy_pass, proxy_country = get_proxy_info(proxy)
+            browser_ip = get_browser_ip(driver)
+            if not browser_ip or (proxy_ip and proxy_ip != browser_ip):
+                if target_email:
+                    print(f"❌ {target_email} Đổi IP không thành công!")
+                driver.quit()
+                return None
+            else:
+                print(f"{tot} {target_email} IP đang dùng: {browser_ip}")
+
+        print(f"✅ {target_email} Đã mở Firefox với profile: {profile_path}")
+        return driver
+    except Exception as e:
+        getlog()
+        return None
+    
 def scroll_into_view(driver, element):
     driver.execute_script("arguments[0].scrollIntoView(true);", element)
     sleep(0.2)
@@ -1177,6 +1325,15 @@ def press_ENTER_key(driver, cnt=1):
             sleep(0.3)
     except:
         print("Không thể bấm nút ENTER")
+
+def press_ARROW_DOWN_key(driver, cnt=1):
+    try:
+        for i in range(cnt):
+            actions = ActionChains(driver)
+            actions.send_keys(Keys.ARROW_DOWN).perform()
+            sleep(0.3)
+    except:
+        print("Không thể bấm nút Xuống")
 
 def press_key_on_window(key, cnt=1):
     """Bấm một phím trên Windows nhiều lần với khoảng nghỉ giữa các lần bấm."""
@@ -2034,9 +2191,9 @@ def change_audio_speed(input_audio, output_audio, speed=1.0, hide=True):
             print(f"Không thể tăng tốc audio {input_audio} với tốc độ {speed}")
     return False
 
-def split_images(image_folder=None, chapter_folder=None, output_folder=None, min_space_height=70, threshold_value=230):
+def split_images(image_folder=None, chapter_folder=None, output_folder=None, min_space_height=40, threshold_value=230):
     try:
-        if not output_folder or not os.path.isdir(output_folder):
+        if not output_folder:
             output_folder = os.path.join(image_folder, 'split_images')
         os.makedirs(output_folder, exist_ok=True)
 
@@ -2125,85 +2282,30 @@ def split_images(image_folder=None, chapter_folder=None, output_folder=None, min
                 print(f"✅ Đã lưu: {out_path}")
 
         print(f"{tot} Hoàn tất cắt ảnh.")
+        move_images_without_text_or_small_height(output_folder)
     except Exception as e:
         getlog()
-# def split_images(image_folder=None, chapter_folder=None, output_folder=None, min_space_height=80, threshold_value=230):
-#     try:
-#         if not output_folder or not os.path.isdir(output_folder):
-#             output_folder = os.path.join(image_folder, 'split_images')
-#         os.makedirs(output_folder, exist_ok=True)
-#         image_paths = []
-#         if image_folder:
-#             images = get_file_in_folder_by_type(image_folder, '.jpg', noti=False) or []
-#             if not images:
-#                 images = get_file_in_folder_by_type(image_folder, '.png', noti=False) or []
-#             if not images:
-#                 print(f'{thatbai} Không tìm thấy ảnh trong thư mục {image_folder}')
-#                 return
-#             for img in images:
-#                 image_path = os.path.join(image_folder, img)
-#                 image_paths.append(image_path)
-#         elif chapter_folder:
-#             image_folders = get_file_in_folder_by_type(chapter_folder, file_type='', start_with='chuong') or None
-#             if not image_folders:
-#                 print(f'{thatbai} Không tìm thấy thư mục nào bắt đầu bằng "chuong" trong thư mục {chapter_folder}')
-#                 return
-#             for image_folder in image_folders:
-#                 image_folder = os.path.join(chapter_folder, image_folder)
-#                 images = get_file_in_folder_by_type(image_folder, '.jpg', noti=False) or []
-#                 if not images:
-#                     images = get_file_in_folder_by_type(image_folder, '.png', noti=False) or []
-#                 if not images:
-#                     print(f'{thatbai} Không tìm thấy ảnh trong thư mục {image_folder}')
-#                     return
-#                 for img in images:
-#                     image_path = os.path.join(image_folder, img)
-#                     image_paths.append(image_path)
-#         else:
-#             print(f'{thatbai} Phải chọn thư mục chứa chương truyện hoặc chứa ảnh')
-#             return
 
-#         for image_path in image_paths:
-#             # Đọc ảnh và chuyển sang ảnh xám
-#             img = cv2.imread(image_path)
-#             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#             # Nhị phân hóa ảnh trắng đen
-#             _, binary = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
-#             # Tính trung bình độ sáng theo từng dòng
-#             row_avg = np.mean(binary, axis=1)
-#             # Tìm các dòng có độ trắng gần như tuyệt đối
-#             white_lines = np.where(row_avg > 245)[0]
-#             # Gom các dòng trắng liên tiếp thành các cụm
-#             white_blocks = []
-#             for k, g in groupby(enumerate(white_lines), lambda ix: ix[0] - ix[1]):
-#                 block = list(map(itemgetter(1), g))
-#                 if len(block) >= min_space_height:
-#                     white_blocks.append((block[0], block[-1]))
-#             # Cắt hình tại vị trí trung tâm của mỗi vùng trắng
-#             img_height = img.shape[0]
-#             prev_cut = 0
-#             count = 1
-#             for top, bottom in white_blocks:
-#                 middle = (top + bottom) // 2
-#                 # Kiểm tra nếu vùng cắt đủ lớn để không bị cắt trúng chữ
-#                 if middle - prev_cut > 200:
-#                     crop = img[prev_cut:middle, :]
-#                     # out_path = os.path.join(output_folder, f"{os.path.basename(image_path).split('.')[0]}_part_{count}.png")
-#                     out_path = get_next_filename('1', output_folder, 'jpg')
-#                     cv2.imwrite(out_path, crop)
-#                     print(f"✅ Đã lưu: {out_path}")
-#                     count += 1
-#                     prev_cut = middle
-#             # Cắt phần còn lại nếu vẫn còn dư dưới
-#             if img_height - prev_cut > 200:
-#                 crop = img[prev_cut:, :]
-#                 out_path = get_next_filename('1', output_folder, 'jpg')
-#                 cv2.imwrite(out_path, crop)
-#                 print(f"✅ Đã lưu: {out_path}")
-
-#         print(f"{tot} Hoàn tất cắt ảnh.")
-#     except:
-#         getlog()
+def move_images_without_text_or_small_height(input_folder, output_folder=None, min_height=600):
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    if not output_folder:
+        output_folder = os.path.join(input_folder, 'moved_imgs')
+    os.makedirs(output_folder, exist_ok=True)
+    imgs = get_file_in_folder_by_type(input_folder, '.jpg') or []
+    for filename in imgs:
+        image_path = os.path.join(input_folder, filename)
+        try:
+            img = Image.open(image_path)
+            width, height = img.size
+            if height > min_height:
+                continue
+            # Nhận diện text trong ảnh
+            text = pytesseract.image_to_string(img, lang='eng+vie')  # Thêm 'vie' nếu ảnh tiếng Việt
+            if text.strip() == "":
+                shutil.move(image_path, os.path.join(output_folder, filename))
+                print(f"{thanhcong} Đã di chuyển ảnh không chứa chữ: {image_path}")
+        except:
+            getlog()
 
 def merge_images(image_folder, output_folder=None, target_height="2000"):
     try:
@@ -2815,7 +2917,12 @@ def number_to_vietnamese_with_units(text):
     def convert_time_format(match):
         hour = int(match.group(1))
         minute = int(match.group(2))
-        return f"{read_number(hour)} giờ {read_number(minute)} phút"
+        second = match.group(3)
+        if second:  # Nếu có giây
+            second = int(second)
+            return f"{read_number(hour)} giờ {read_number(minute)} phút {read_number(second)} giây"
+        else:  # Chỉ có giờ và phút
+            return f"{read_number(hour)} giờ {read_number(minute)} phút"
 
     def convert_fraction(match):
         tu_so = int(match.group(1))
@@ -2839,7 +2946,7 @@ def number_to_vietnamese_with_units(text):
     text = re.sub(r"\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b", convert_date_format, text)
     text = re.sub(r"\b(\d+)\/(\d+)\b", convert_fraction, text)  # phân số
     text = re.sub(r"\b(\d+)(m|cm|km|kg|g)(\d+)\b", convert_number_with_unit_inside, text)  # 1m65
-    text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})\b", convert_time_format, text)
+    text = re.sub(r"\b(\d{1,2})(?:h|:)(\d{1,2})(?::(\d{1,2}))?\b", convert_time_format, text)
     text = re.sub( rf"(\d{{1,3}}(?:[.,]\d{{3}})+|\d+)\s*({units_pattern})(?!\w)", convert_units, text )
     text = re.sub(r"\b\d{1,3}(?:[.,]\d{3})+[.,]\d+\b", convert_complex_number, text)
     text = re.sub(r"\b(\d{1,3}(?:[.,]\d{3})+)\b", convert_large_grouped_number, text)
@@ -3344,7 +3451,7 @@ special_word = {
     "****":"",
     "***":"",
     "**":"",
-    "*":"",
+    "*":" ",
     "✓✓✓":"",
     "✓✓":"",
     "✓":"",
@@ -3382,6 +3489,18 @@ special_word = {
     "---": "",
     "--": "",
     "_": " ",
+    " - ": ", ",
+    "???": ".",
+    "??": ".",
+    " ?": ".",
+    "?": ".",
+    "?.": ".",
+    "!!!!": ".",
+    "!!!": ".",
+    "!!": ".",
+    "!.": ".",
+    " !": ".",
+    "!": ".",
     ":": ".",
     "......": "",
     "...": ".",
@@ -3409,8 +3528,6 @@ special_word = {
     ". ,": ".",
     ".,": ".",
     ",.": ".",
-    "...": ".",
-    "..": ".",
     "…": "",
     "“": "",
     "”": "",
@@ -3429,11 +3546,19 @@ special_word = {
     "`":"",
     "(ΩДΩ)":"",
     "ΩДΩ":"",
+    "Ω":"",
+    "Д":"",
+    "・":"",
+    "キ`゚":"",
+    "キ":"",
+    "Д゚":"",
+    "`゚":"",
     "======":"",
     "=====":"",
     "====":"",
     "===":"",
     "==":"",
+    "=>":" ",
     "":"",
     "✔":"",
     "en thunderscans.com":"",
@@ -3442,14 +3567,20 @@ special_word = {
     "ng.com":"",
     "!?":".",
     "?!":".",
+    "...": ".",
+    "..": ".",
     "——————":" ",
     "—————":" ",
     "————":" ",
     "———":" ",
     "——":" ",
-    " — ": " ",
+    " — ": ", ",
     "— ":" ",
     "—":"-",
+    "╯":"",
+    "╰":"",
+    "┓":"",
+    "┏":"",
     "=.=":"",
     "^.^":"",
     "^^":"",
@@ -3664,15 +3795,6 @@ special_word = {
 }
 
 loai_bo_tieng_anh = {
-    "???": "?",
-    "??": "?",
-    " ?": "?",
-    "?.": "?",
-    "!.": ".",
-    "!!!!": "!",
-    "!!!": "!",
-    "!!": "!",
-    " !": "!",
     "Enhance your reading experience by removing ads for as low as $1!": "",
     "20 chapters ahead on my patreon: /David_Lord": "",
     "20 chapters ahead on patreon: /David_Lord": "",
@@ -3711,17 +3833,29 @@ loai_bo_tieng_anh = {
     "You've succeeded in completing the quest.":"",
     "Apologies for the shorter chapter, I've decided to cut some content to make the story flow better.":"",
     "www":"",
+    "Editor: Henyee Translations":"",
+    "Translator: Henyee Translations":"",
     "Translator:":"",
     "549690339":"",
     "LV. ":"level ",
     "To be continued":"",
     "FOR THE FASTEST RELEASES":"",
+    "O(╯□╰)o":"",
+    "[○・`Д ́・○]":"",
+    "(キ`゚Д゚ ́)!!":"",
+    "(キ`゚Д゚ ́)":"",
+    "=":" ",
     "fff":"",
     "fff":"",
     "fff":"",
     "fff":"",
-    # "/":" over ",
-    # "%":" percent"
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":"",
+    "fff":""
 }
 
 loai_bo_tieng_viet = {
@@ -3739,19 +3873,9 @@ loai_bo_tieng_viet = {
     "fff": "",
     "fff": "",
     "fff": "",
-    "fff": "",
-    "-": "",
-    "???": ".",
-    "??": ".",
-    " ?": ".",
-    "?": ".",
-    "?.": ".",
-    "!!!!": ".",
-    "!!!": ".",
-    "!!": ".",
-    "!.": ".",
-    " !": ".",
-    "!": ".",
+    "’": "",
+    " - ": ", ",
+    "-": " ",
     "NPC": "nờ pê xê",
     " nitơ ": " ni tơ ",
     "fff": "",
@@ -3778,6 +3902,7 @@ loai_bo_tieng_viet = {
     " % ": " phần trăm ",
     "&": " và ",
     " = ": " bằng ",
+    "=": "",
     " > ": " lớn hơn ",
     " < ": " bé hơn ",
     "chấm c.o.m":"",
@@ -3831,8 +3956,6 @@ loai_bo_tieng_viet = {
     "qq để ủng hộ nhớm dịch": "",
     "tin tức về vương quốc webtoon": "",
     "k. h. á. c. h": "khách",
-    "fff": "",
-    "fff": "",
     "fff": "",
     "fff": "",
     "fff": "",
@@ -7593,6 +7716,18 @@ loi_chinh_ta = {
     "bám giết": "bám riết",
     "thời khác": "thời khắc",
     "chống không": "trống không",
+    "tình cơ": "tình cờ",
+    "sáp gục": "sắp gục",
+    "ghi bản ": "ghi bàn ",
+    "hoạt luyện viên": "huấn luyện viên",
+    "cú xút": "cú sút",
+    "phà nàn": "phàn nàn",
+    " qùe ": " què ",
+    "song pha": "xông pha",
+    "chóp nhoáng": "chớp nhoáng",
+    "ngẩn cao đầu": "ngẩng cao đầu",
+    "giống hết": "giống hệt",
+    "dần dân": "dần dần",
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
@@ -7606,9 +7741,12 @@ loi_chinh_ta = {
     "ffff": "ffff",
     "ffff": "ffff",
     "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
-    "ffff": "ffff",
+    "sì hô": "siho",
+    "xì hô": "siho",
+    "si hồ": "siho",
+    "xì chun": "si chun",
+    "si ho": "siho",
+    "quan trình": "quan trinh",
     "ji y yang": "ji yang",
     "đô hìn ": "đô hin ",
     "nam du": "nam đu",
@@ -7633,8 +7771,10 @@ loi_chinh_ta = {
     "vương ngại hồ": "vương ngải hổ",
     "vương ngại hổ": "vương ngải hổ",
     "ji yiang": "ji yang",
+    "te sích": "taesik",
     "taixing": "taesik",
     "taixich": "taesik",
+    "te xích": "taesik",
     "nam du": "namdu",
     "hồ ji yang": "hojiyang",
     "hồ jin": "ho jin",
@@ -7653,9 +7793,9 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
         if not text:
             return None
         if language == 'vi':
+            text = text.lower().strip()
             for word, replacement in viet_tat.items():
-                text = text.replace(word, replacement)
-            text = text.lower()
+                text = text.replace(word.lower(), replacement.lower())
             if is_conver_number:
                 text = number_to_vietnamese_with_units(text)
             for word1, replacement1 in loai_bo_tieng_viet.items():
@@ -7667,7 +7807,7 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
                 for wrong, correct in loi_chinh_ta.items():
                     text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
         elif language == 'en':
-            text = text.lower()
+            text = text.lower().strip()
             # if is_conver_number:
             #     text = number_to_english_with_units(text)
             for word1, replacement1 in loai_bo_tieng_anh.items():

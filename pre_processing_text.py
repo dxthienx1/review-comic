@@ -28,19 +28,26 @@ def add_txt_to_metadata(txt_file, csv_file, start_idx=1, type_audio='wav', speak
         
         print(f"Hoàn thành! Dữ liệu đã được ghi vào {csv_file}")
     except Exception as e:
-        print(f"Đã xảy ra lỗi: {e}")
+        getlog()
 
-audio_folder = 'wavs'
-txt_file_path = "E:\\Python\\developping\\review comic\\test\\du lieu train\\last data\\1.txt"
-start_idx = 11173
+txt_file_path = r"E:\Python\developping\review comic\test\du lieu train\evenlab\train\3_1.txt"
+language = 'en'
+speaker_name='brian'
+start_idx = 21613
 is_eval = False
 
-if is_eval:
-    metadata_path = os.path.join(current_dir, 'dataset', 'vietnam', 'eval.csv')
-else:
-    metadata_path = os.path.join(current_dir, 'dataset', 'vietnam', 'train.csv')
+if language == 'vi':
+    if is_eval:
+        metadata_path = os.path.join(current_dir, 'dataset', 'vietnam', 'eval.csv')
+    else:
+        metadata_path = os.path.join(current_dir, 'dataset', 'vietnam', 'train.csv')
+elif language == 'en':
+    if is_eval:
+        metadata_path = os.path.join(current_dir, 'dataset', 'en', 'eval.csv')
+    else:
+        metadata_path = os.path.join(current_dir, 'dataset', 'en', 'train.csv')
 
-add_txt_to_metadata(txt_file_path, metadata_path, start_idx, type_audio='wav', speaker_name='vi_female', is_eval=is_eval)
+add_txt_to_metadata(txt_file_path, metadata_path, start_idx, speaker_name=speaker_name, is_eval=is_eval)
 
 
 
@@ -105,4 +112,39 @@ def change_index_csv_train(input_file, output_file, voice_tag="vi_female"):
 # Sử dụng hàm
 # input_csv = "E:\\Python\developping\\review comic\\test\\vietnam\\train.csv"
 # output_csv = "E:\\Python\developping\\review comic\\test\\vietnam\\train1111.csv"
+# change_index_csv_train(input_csv, output_csv)
+
+
+
+
+#edit nội dung file csv tiếng anh
+def change_index_csv_train(input_file, output_file, voice_tag="en_female"):
+    try:
+        # Đọc nội dung file CSV
+        with open(input_file, 'r', encoding='utf-8') as csvfile:
+            reader = csv.reader(csvfile, delimiter='|')
+            rows = [row for row in reader]
+        
+        # Thêm voice tag vào cuối mỗi dòng
+        updated_rows = []
+        for i, row in enumerate(rows):
+            if i == 0:  # Header đã sửa ở bước trên
+                row = ["audio_file", "text", "speaker_name"]
+                updated_rows.append(row)
+            else:
+                row[1] = cleaner_text(row[1], language='en')
+                if row[1].endswith(','):
+                    row[1] = row[1][:-1] + '.'
+                updated_rows.append([row[0], row[1], voice_tag])
+        
+        # Ghi nội dung mới vào file đầu ra
+        with open(output_file, 'w', encoding='utf-8', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter='|')
+            writer.writerows(updated_rows)
+    except Exception as e:
+        print(f"Đã xảy ra lỗi: {e}")
+
+# Sử dụng hàm
+input_csv = r"E:\Python\developping\review comic\dataset\en\eval.csv"
+output_csv = r"E:\Python\developping\review comic\dataset\en\eval_edited.csv"
 # change_index_csv_train(input_csv, output_csv)
