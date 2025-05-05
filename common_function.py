@@ -7793,9 +7793,9 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
         if not text:
             return None
         if language == 'vi':
-            text = text.lower().strip()
             for word, replacement in viet_tat.items():
-                text = text.replace(word.lower(), replacement.lower())
+                text = text.replace(word, replacement)
+            text = text.lower().strip()
             if is_conver_number:
                 text = number_to_vietnamese_with_units(text)
             for word1, replacement1 in loai_bo_tieng_viet.items():

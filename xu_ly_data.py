@@ -270,6 +270,8 @@ trim_end = 0.35
 
 
 
+
+#tăng tốc video
 def speed_up_video_ffmpeg(input_path, speed=1.05):
     output_path = input_path.replace(".mp4", "_speedup.mp4")
     # Giới hạn tốc độ hợp lệ cho atempo (ffmpeg chỉ hỗ trợ 0.5 - 2.0, nên cần lặp nếu speed > 2)
