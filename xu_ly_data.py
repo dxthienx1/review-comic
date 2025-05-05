@@ -11,20 +11,20 @@ def adjust_txt_file(old_txt, cnt=1, language='vi'):
     with open(new_txt, 'w', encoding='utf-8') as ggg:
         for line in lines:
             if line and not line.strip().isdigit():
-                # if 'vbee' not in old_txt:
-                #     line = cleaner_text(line.strip(), is_loi_chinh_ta=True, language=language, is_conver_number=True)
+                if 'vbee' not in old_txt:
+                    line = cleaner_text(line.strip(), is_loi_chinh_ta=True, language=language, is_conver_number=False)
                 if not line or len(line) < 3:
                     continue
                 if line.endswith(',') or line.endswith('?' or line.endswith('!')):
                     line = f"{line[:-1]}."
-                # if line and not line.strip().endswith('.'):
-                #     line = line + '.'
+                if line and not line.strip().endswith('.'):
+                    line = line.strip() + '.'
                 ggg.write(f'{cnt}\n{line.strip()}\n')
                 cnt += 1
 
 cnt = 1
-language = 'en'
-old_txt = r"E:\Python\developping\review comic\test\du lieu train\evenlab\train\3.txt"
+language = 'vi'
+old_txt = r"E:\Python\developping\review comic\test\du lieu train\Phương Thảo\2.txt"
 # adjust_txt_file(old_txt=old_txt, cnt=cnt, language=language)
 
 
@@ -33,7 +33,7 @@ old_txt = r"E:\Python\developping\review comic\test\du lieu train\evenlab\train\
 
 
 #--------------tổng hợp các file sub và audio-----------------------------
-def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_folder='total'):
+def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_folder='total', language='vi'):
     os.makedirs(audio_total_folder, exist_ok=True)
     txt_files = get_file_in_folder_by_type(folder, '.txt')
     unique_lines = set()  # Dùng set để lưu các dòng đã ghi (tìm kiếm nhanh hơn)
@@ -67,7 +67,7 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
                                 index += 1
                                 processed_text = line_content.strip().lower()
                                 if 'vbee' not in txt_path:
-                                    processed_text = cleaner_text(line_content, is_loi_chinh_ta=True, is_conver_number=True)
+                                    processed_text = cleaner_text(line_content, language=language, is_conver_number=False)
                                 total.write(f'{index}\n{processed_text}\n')
                                 unique_lines.add(line_content)  # Thêm vào set để tránh trùng lặp
                                 audio_path = os.path.join(audio_folder, audios[i_au])
@@ -85,7 +85,8 @@ def get_text_and_audio_in_folder(folder, txt_total='total.txt', audio_total_fold
 folder = r"E:\Python\developping\review comic\test\du lieu train\Hoàn Thành\vbee"
 total_txt = os.path.join(folder, 'total.txt')
 audio_total_folder = os.path.join(folder, 'total_audios')
-# get_text_and_audio_in_folder(folder, total_txt, audio_total_folder)
+language = 'vi'
+# get_text_and_audio_in_folder(folder, total_txt, audio_total_folder, language=language)
 
 
 
@@ -173,9 +174,9 @@ def adjust_audio_speed(input_folder, speed=1.0, volume_factor=1.0):
         print(f"Có lỗi xảy ra: {e}")
 
 
-input_folder = r"E:\Python\developping\review comic\dataset\en\New folder"
-speed = 1.05
-adjust_audio_speed(input_folder, speed=speed, volume_factor=1)
+input_folder = r"E:\Python\developping\review comic\test\du lieu train\Hoàn Thành\2"
+speed = 1.08
+# adjust_audio_speed(input_folder, speed=speed, volume_factor=1)
 
 
 
