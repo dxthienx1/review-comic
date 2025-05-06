@@ -570,86 +570,98 @@ class MainApp:
                     else:
                         total_texts.append(end_text.lower())
                 print(f'  --->  Tổng số câu cần xử lý: {len(total_texts)}')
-                # Hàng đợi lưu các đoạn văn bản cần xử lý
-                task_queue = queue.Queue()
-                current_text_chunk = ""
-                for idx, text_chunk in enumerate(total_texts):
-                    temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
-                    if idx < start_idx:
-                        if os.path.exists(temp_audio_path):
-                            temp_audio_files.append(temp_audio_path)
-                        continue
-                    current_text_chunk += text_chunk
-                    if text_chunk:
-                        if len(current_text_chunk) >= min_lenth_text:
-                            task_queue.put((current_text_chunk, temp_audio_path))
-                            temp_audio_files.append(temp_audio_path)
-                            current_text_chunk = ""
-              
-                def process_tts(tts, speaker_wav, language):
-                    while not task_queue.empty():
-                        try:
-                            text_chunk, temp_audio_path = task_queue.get_nowait()
-                            text_chunk = cleaner_text(text=text_chunk, is_loi_chinh_ta=False, language=language)
-                            if text_chunk.startswith(',. '):
-                                text_chunk = text_chunk[3:]
-                            elif text_chunk.startswith('. ') or text_chunk.startswith(',.'):
-                                text_chunk = text_chunk[2:]
-                            elif text_chunk.startswith('.'):
-                                text_chunk = text_chunk[1:]
-                            elif text_chunk.startswith("' "):
-                                text_chunk = text_chunk[2:]
-                            elif text_chunk.startswith("'"):
-                                text_chunk = text_chunk[1:]
-                            if text_chunk.endswith("'.") and len(text_chunk) > 2:
-                                text_chunk = f'{text_chunk[:-2]}.'
-                            try:
-                                torch.cuda.empty_cache()
-                                tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
-                            except:
-                                try:
-                                    getlog()
-                                    self.stop_audio_file = temp_audio_path
-                                    sleep(10)
-                                    break
-                                except:
-                                    print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
-                                    print(f'{thatbai} text: {text_chunk}')
-                                    self.stop_audio_file = temp_audio_path
-                                    break
-                            print(f'Đã xuất file tạm {temp_audio_path}')
-                        except:
-                            getlog()
-                            self.stop_audio_file = temp_audio_path
-                            break
-
-                # Tạo các luồng để xử lý song song
-                list_threads = []
-                for tts in tts_list:
-                    list_threads.append(threading.Thread(target=process_tts, args=(tts, speaker_wav, language)))
-                for thread in list_threads:
-                    thread.start()
-                for thread in list_threads:
-                    thread.join()
-
-                if self.stop_audio_file:
-                    return False
-                if len(temp_audio_files) == 0:
-                    return True
                 list_file_path = "audio_list.txt"
-                with open(list_file_path, "w", encoding="utf-8") as f:
-                    for audio_file in temp_audio_files:
-                        if os.path.exists(audio_file):
-                            f.write(f"file '{audio_file}'\n")
+                
+                if start_idx >= len(total_texts):
+                    if os.path.exists(output_path):
+                        temp_files = get_file_in_folder_by_type(output_folder, '.wav', start_with='temp_audio_') or []
+                        for temp in temp_files:
+                            temp_path = os.path.join(output_folder, temp)
+                            temp_audio_files.append(temp_path)
+                    else:
+                        print(f"{thatbai} Chỉ số bắt đầu {start_idx} không hợp lệ.")
+                        return False
+                else:
+                    # Hàng đợi lưu các đoạn văn bản cần xử lý
+                    task_queue = queue.Queue()
+                    current_text_chunk = ""
+                    for idx, text_chunk in enumerate(total_texts):
+                        temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
+                        if idx < start_idx:
+                            if os.path.exists(temp_audio_path):
+                                temp_audio_files.append(temp_audio_path)
+                            continue
+                        current_text_chunk += text_chunk
+                        if text_chunk:
+                            if len(current_text_chunk) >= min_lenth_text:
+                                task_queue.put((current_text_chunk, temp_audio_path))
+                                temp_audio_files.append(temp_audio_path)
+                                current_text_chunk = ""
+                
+                    def process_tts(tts, speaker_wav, language):
+                        while not task_queue.empty():
+                            try:
+                                text_chunk, temp_audio_path = task_queue.get_nowait()
+                                text_chunk = cleaner_text(text=text_chunk, is_loi_chinh_ta=False, language=language)
+                                if text_chunk.startswith(',. '):
+                                    text_chunk = text_chunk[3:]
+                                elif text_chunk.startswith('. ') or text_chunk.startswith(',.'):
+                                    text_chunk = text_chunk[2:]
+                                elif text_chunk.startswith('.'):
+                                    text_chunk = text_chunk[1:]
+                                elif text_chunk.startswith("' "):
+                                    text_chunk = text_chunk[2:]
+                                elif text_chunk.startswith("'"):
+                                    text_chunk = text_chunk[1:]
+                                if text_chunk.endswith("'.") and len(text_chunk) > 2:
+                                    text_chunk = f'{text_chunk[:-2]}.'
+                                try:
+                                    torch.cuda.empty_cache()
+                                    tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                                except:
+                                    try:
+                                        getlog()
+                                        self.stop_audio_file = temp_audio_path
+                                        sleep(10)
+                                        break
+                                    except:
+                                        print(f'{thatbai} Xuất file tạm {temp_audio_path} thất bại !')
+                                        print(f'{thatbai} text: {text_chunk}')
+                                        self.stop_audio_file = temp_audio_path
+                                        break
+                                print(f'Đã xuất file tạm {temp_audio_path}')
+                            except:
+                                getlog()
+                                self.stop_audio_file = temp_audio_path
+                                break
 
-                ffmpeg_command = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_path]
-                run_command_ffmpeg(ffmpeg_command, hide=True)
+                    # Tạo các luồng để xử lý song song
+                    list_threads = []
+                    for tts in tts_list:
+                        list_threads.append(threading.Thread(target=process_tts, args=(tts, speaker_wav, language)))
+                    for thread in list_threads:
+                        thread.start()
+                    for thread in list_threads:
+                        thread.join()
+
+                    if self.stop_audio_file:
+                        return False
+                    if len(temp_audio_files) == 0:
+                        return True
+                    
+                    with open(list_file_path, "w", encoding="utf-8") as f:
+                        for audio_file in temp_audio_files:
+                            if os.path.exists(audio_file):
+                                f.write(f"file '{audio_file}'\n")
+
+                    ffmpeg_command = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", list_file_path, "-c", "copy", output_path]
+                    run_command_ffmpeg(ffmpeg_command, hide=True)
 
                 for temp_audio_file in temp_audio_files:
                     if os.path.exists(temp_audio_file):
-                        os.remove(temp_audio_file)
+                        remove_file(temp_audio_file)
                 if os.path.exists(list_file_path):
-                    os.remove(list_file_path)
+                    remove_file(list_file_path)
             else:
                 tts_list[0].tts_to_file( text=text, speaker_wav=speaker_wav, language=language, file_path=output_path, split_sentences=True )
             print(f'Xuất file tạm: {output_path}')

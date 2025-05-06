@@ -4398,7 +4398,6 @@ loi_chinh_ta = {
     "fff":"",
     "xương hô":"xưng hô",
     "tiêu đề (ẩn)":"",
-    " audio ":" au đi ô ",
     " id ": " ai đi ",
     " adn ": " ây đi en ",
     " and ": " ây đi en ",
