@@ -514,13 +514,13 @@ class MainApp:
                 text = get_json_data(txt_path, readline=False)
             else:
                 text = txt_path
-            text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
             
+            text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
             if readline:
                 lines = text.split('\n')
                 sentences = []
                 for line in lines:
-                    sub_sentences = line.split('.')
+                    sub_sentences = line.split('. ')
                     for sub in sub_sentences:
                         sub = sub.strip()
                         if sub and sub != '.' and sub != '…':
