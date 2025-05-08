@@ -515,7 +515,7 @@ class MainApp:
             else:
                 text = txt_path
             
-            text = cleaner_text(text, is_loi_chinh_ta=False, language=language)
+            text = cleaner_text(text, language=language)
             if readline:
                 lines = text.split('\n')
                 sentences = []
@@ -548,7 +548,7 @@ class MainApp:
                     sentence = re.sub(r'^\.+\s*', '', sentence)
                     if not sentence.endswith('.') and not sentence.endswith(','):
                         sentence = f'{sentence}.'
-                    sentence = cleaner_text(sentence, is_loi_chinh_ta=False, language=language)
+                    sentence = cleaner_text(sentence, language=language)
 
                     if len(sentence) > max_lenth_text:
                         total_texts.extend(split_text_into_chunks(sentence, max_lenth_text))
@@ -606,7 +606,7 @@ class MainApp:
                         while not task_queue.empty():
                             try:
                                 text_chunk, temp_audio_path = task_queue.get_nowait()
-                                text_chunk = cleaner_text(text=text_chunk, is_loi_chinh_ta=False, language=language)
+                                text_chunk = cleaner_text(text=text_chunk, language=language)
                                 if text_chunk.startswith(',. '):
                                     text_chunk = text_chunk[3:]
                                 elif text_chunk.startswith('. ') or text_chunk.startswith(',.'):

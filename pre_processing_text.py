@@ -46,7 +46,7 @@ elif language == 'en':
     else:
         metadata_path = os.path.join(current_dir, 'dataset', 'en', 'train.csv')
 
-add_txt_to_metadata(txt_file_path, metadata_path, start_idx, speaker_name=speaker_name, is_eval=is_eval, language=language)
+# add_txt_to_metadata(txt_file_path, metadata_path, start_idx, speaker_name=speaker_name, is_eval=is_eval, language=language)
 
 
 
@@ -146,9 +146,10 @@ def change_index_csv_train(input_file, output_file, voice_tag="en_female"):
         print(f"Đã xảy ra lỗi: {e}")
 
 # Sử dụng hàm
+voice_tag = 'en_female'
 input_csv = r"E:\Python\developping\review comic\dataset\en\train.csv"
 output_csv = r"E:\Python\developping\review comic\dataset\en\train_edited.csv"
-# change_index_csv_train(input_csv, output_csv)
+# change_index_csv_train(input_csv, output_csv, voice_tag=voice_tag)
 
 
 
