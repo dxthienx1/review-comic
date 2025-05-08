@@ -3158,11 +3158,13 @@ def process_image_to_video_with_movement(img_path, audio_path, output_video_path
 
         if height > 3000:
             movement_type = 'down'
-            movement_speed = 5
-        elif height > 2000:
+            movement_speed = 6
+        elif height > 2200:
             movement_type = 'down'
-            movement_speed = 3
-            print(f'{canhbao} Ảnh {img_path} có chiều cao lớn hơn 2000')
+            movement_speed = 4
+        elif height > 1800:
+            movement_type = 'down'
+            movement_speed = 2
 
         print(f'movement_type: {movement_type}')
         if movement_type == 'down':
@@ -4327,9 +4329,9 @@ skip_words = [
     '肖',
     '응',
     'の',
-    'ffffff',
-    'ffffff',
-    'ffffff',
+    '평',
+    '육',
+    'س',
     'ffffff',
     'ffffff',
     'ffffff',

@@ -520,7 +520,9 @@ class MainApp:
                 lines = text.split('\n')
                 sentences = []
                 for line in lines:
-                    sub_sentences = line.split('. ')
+                    if language != 'vi':
+                        line = re.sub(r'(?<=[^\s])\.(?=\w)', '. ', line)
+                    sub_sentences = line.split('.')
                     for sub in sub_sentences:
                         sub = sub.strip()
                         if sub and sub != '.' and sub != '…':
