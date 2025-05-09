@@ -570,7 +570,6 @@ class MainApp:
                                 return
 
                 if end_text:
-                    print(f'Lời chào: {end_text}')
                     if len(sentence) < min_lenth_text:
                         end_text = f'{sentence} {end_text}'
                     if len(end_text) > max_lenth_text:
@@ -702,11 +701,11 @@ class MainApp:
             language = self.language_var.get().strip()
             model_path = os.path.join(current_dir, "models", "last_version_en")
             first_text = f"Welcome to {channel_name}! Enjoy the story, and don't forget to like and subscribe to support the channel."
-            mid_text = f"You're listening to a story on {channel_name}. Hope you're enjoying it. If you are, don't forget to subscribe."
+            mid_text = f"You're listening to a story on {channel_name}. Don't forget to subscribe to follow the next episodes."
             end_text = f"Thank you for listening! If you enjoyed the story, don't forget to like and subscribe. See you next time!"
             if language == 'vi':
-                first_text = f"Chào mừng bạn đến với {channel_name}, chúc bạn nghe truyện vui vẻ, đừng quên like và đăng ký để ủng hộ mình nhé."
-                mid_text = f"Bạn đang nghe truyện tại {channel_name}, chúc bạn có những trải nghiệm tuyệt vời ở đây."
+                first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các bộ truyện dịch, hãy like và đăng ký để giúp kênh ngày càng phát triển hơn nhé."
+                mid_text = f"Bạn đang nghe truyện tại {channel_name}, nhớ đăng ký kênh để theo dõi các tập tiếp theo nhé."
                 end_text = f"Cảm ơn bạn đã xem hết video. Nhớ like, đăng ký kênh và ủng hộ mình ở các tập tiếp theo nhé."
 
                 model_path = os.path.join(current_dir, "models", "last_version_vi")  
@@ -785,10 +784,11 @@ class MainApp:
                 else:
                     img_path = current_image
                 if is_short_story:
-                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, image_path=img_path, final_folder=output_folder):
-                        return False
-                    else:
+                    if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, image_path=img_path, final_folder=output_folder):
+                        print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
                         continue
+                    else:
+                        return False
                 else:
                     if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
                         return False
@@ -2722,7 +2722,7 @@ class MainApp:
 
     def stop_export_next_video(self):
         self.is_stop_export_next_video = True
-        print(f"{canhbao} Bạn đã thiết lập dừng xuất video tiếp theo. Nếu muốn dừng ngay thì vui lòng tắt ứng dụng.")
+        print(f"{stop} Bạn đã thiết lập dừng xuất video tiếp theo. Nếu muốn dừng ngay thì vui lòng tắt ứng dụng.")
 
     def stop_edit_videos(self):
         self.is_stop_edit = True

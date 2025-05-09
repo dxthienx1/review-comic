@@ -131,6 +131,7 @@ comment_icon = "💬"
 like_icon = "❤️"
 thatbai = "❌"
 canhbao = "⚠️"
+stop = "🛑"
 
 def load_ffmpeg():
     def get_ffmpeg_dir():
@@ -3084,12 +3085,14 @@ def merge_txt_files(input_dir, output_dir=None, group_file=50):
 
 def add_star_effect(frame, frame_idx, w, h, star_list, max_stars=80):
     if frame_idx % 5 == 0 and len(star_list) < max_stars:
+        # Tạo sao mới với kích thước ngẫu nhiên, có ngôi sao to hơn bình thường
+        radius = np.random.choice([2, 3, 4, 5, 6, 8], p=[0.1, 0.2, 0.3, 0.25, 0.1, 0.05])
         star = {
             'x': np.random.randint(0, w),
             'y': np.random.randint(0, h),
             'start': frame_idx,
-            'life': np.random.randint(30, 60),
-            'radius': np.random.randint(2, 5),
+            'life': np.random.randint(40, 70),
+            'radius': radius
         }
         star_list.append(star)
 
@@ -3098,12 +3101,23 @@ def add_star_effect(frame, frame_idx, w, h, star_list, max_stars=80):
         age = frame_idx - star['start']
         if 0 <= age <= star['life']:
             progress = age / star['life']
-            alpha = 0.5 * (1 + np.sin(progress * np.pi))
-            radius = int(star['radius'] * (0.5 + 0.5 * np.sin(progress * np.pi)))
+            alpha = 0.6 * (1 + np.sin(progress * np.pi))  # lung linh hơn
+            radius = int(star['radius'] * (0.6 + 0.4 * np.sin(progress * np.pi))) + 1
+
             overlay = frame.copy()
+
+            # Vẽ sao đầy
             cv2.circle(overlay, (star['x'], star['y']), radius, (255, 255, 255), -1)
+
+            # Vẽ thêm viền ngoài mờ để tạo cảm giác dày hơn
+            if radius > 2:
+                cv2.circle(overlay, (star['x'], star['y']), radius + 1, (255, 255, 255), 1)
+
+            # Trộn lớp sao lên frame chính
             frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+
             active_stars.append(star)
+
     return frame, active_stars
 
 # def export_video_from_audio_image_text(
@@ -3290,11 +3304,8 @@ def export_video_from_audio_image_text(
         else:
             frame = image.copy()
 
-        frame = draw_text_with_highlight(
-            frame, lines, chars_to_highlight,
-            font, base_color, highlight_color
-        )
-        frame, stars = add_star_effect(frame, frame_idx, w, h, stars)
+        frame = draw_text_with_highlight( frame, lines, chars_to_highlight, font, base_color, highlight_color )
+        # frame, stars = add_star_effect(frame, frame_idx, w, h, stars)
         writer.write(frame)
 
     if is_video:
