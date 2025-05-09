@@ -28,7 +28,7 @@ import platform
 from tkinter import messagebox, filedialog
 import customtkinter as ctk
 import ctypes
-from PIL import Image, ImageDraw, ImageGrab
+from PIL import Image, ImageDraw, ImageGrab, ImageFont
 import pystray
 from pystray import MenuItem as item
 import keyboard
@@ -3082,37 +3082,310 @@ def merge_txt_files(input_dir, output_dir=None, group_file=50):
     except:
         getlog()
 
+def add_star_effect(frame, frame_idx, w, h, star_list, max_stars=80):
+    if frame_idx % 5 == 0 and len(star_list) < max_stars:
+        star = {
+            'x': np.random.randint(0, w),
+            'y': np.random.randint(0, h),
+            'start': frame_idx,
+            'life': np.random.randint(30, 60),
+            'radius': np.random.randint(2, 5),
+        }
+        star_list.append(star)
 
-def errror_handdle_with_temp_audio(input_folder, file_start_with='temp_audio', speed=1.1, img_path="", file_name="1", output_audio_path=None, output_video_path=None):
+    active_stars = []
+    for star in star_list:
+        age = frame_idx - star['start']
+        if 0 <= age <= star['life']:
+            progress = age / star['life']
+            alpha = 0.5 * (1 + np.sin(progress * np.pi))
+            radius = int(star['radius'] * (0.5 + 0.5 * np.sin(progress * np.pi)))
+            overlay = frame.copy()
+            cv2.circle(overlay, (star['x'], star['y']), radius, (255, 255, 255), -1)
+            frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+            active_stars.append(star)
+    return frame, active_stars
+
+# def export_video_from_audio_image_text(
+#     audio_path, image_path, text=None,
+#     font_path=r"C:\Windows\Fonts\Calibri.ttf",
+#     font_size_ratio=0.06,
+#     base_color=(0, 255, 255),
+#     highlight_color=(0, 255, 0),
+#     fps=30,
+#     horizontal_padding=60
+# ):
+#     if not os.path.exists(audio_path) or not os.path.exists(image_path) or not text:
+#         print("❌ Thiếu dữ liệu đầu vào")
+#         return None
+
+#     output_video_path = audio_path.replace('.wav', '.mp4')
+#     temp_video_path = "temp.mp4"
+
+#     # Lấy thông tin audio
+#     audio_info = get_audio_info(audio_path)
+#     try:
+#         duration = float(audio_info.get('duration', 0))
+#     except Exception:
+#         duration = 0
+
+#     if duration <= 0:
+#         print("❌ Không lấy được thời lượng audio.")
+#         return None
+
+#     total_frames = int(duration * fps)
+#     highlight_end_frame = int(total_frames * 0.9)
+
+#     is_video = os.path.splitext(image_path)[-1].lower() in ['.mp4', '.mov', '.avi', '.mkv']
+
+#     if is_video:
+#         cap = cv2.VideoCapture(image_path)
+#         if not cap.isOpened():
+#             print(f"❌ Không thể mở video: {image_path}")
+#             return None
+#         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+#         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+#         total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+#     else:
+#         image = cv2.imread(image_path)
+#         if image is None:
+#             print(f"❌ Không thể đọc ảnh: {image_path}")
+#             return None
+#         h, w, _ = image.shape
+
+#     writer = cv2.VideoWriter(temp_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+
+#     # Load font
+#     try:
+#         font_size = int(h * font_size_ratio)
+#         font = ImageFont.truetype(font_path, font_size)
+#     except Exception as e:
+#         print(f"❌ Không thể load font: {e}")
+#         return None
+
+#     lines = split_text_into_lines_pil(text, w, font, horizontal_padding)
+#     total_chars = sum(len(line) for line in lines)
+
+#     video_frame_idx = 0  # Đếm số frame đang đọc trong video nền
+
+#     for frame_idx in range(total_frames):
+#         progress_ratio = min(1.0, frame_idx / highlight_end_frame)
+#         chars_to_highlight = int(total_chars * progress_ratio)
+
+#         if is_video:
+#             ret, frame = cap.read()
+#             if not ret:
+#                 # Lặp lại video nếu hết
+#                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+#                 ret, frame = cap.read()
+#             if not ret:
+#                 print("❌ Không thể đọc frame từ video nền.")
+#                 break
+#         else:
+#             frame = image.copy()
+
+#         frame = draw_text_with_highlight(
+#             frame, lines, chars_to_highlight,
+#             font, base_color, highlight_color
+#         )
+#         writer.write(frame)
+
+#     if is_video:
+#         cap.release()
+#     writer.release()
+
+#     # Ghép audio
+#     cmd = [
+#         "ffmpeg", "-y",
+#         "-i", temp_video_path,
+#         "-i", audio_path,
+#         "-c:v", "h264_nvenc",
+#         "-preset", "fast",
+#         "-c:a", "aac",
+#         "-b:a", "128k",
+#         "-shortest",
+#         output_video_path
+#     ]
+#     if run_command_ffmpeg(cmd):
+#         remove_file(temp_video_path)
+#         print(f"✅ Đã tạo video: {output_video_path}")
+#         return output_video_path
+#     else:
+#         print("❌ Ghép audio thất bại.")
+#         return None
+def export_video_from_audio_image_text(
+    audio_path, image_path, text=None,
+    font_path=r"C:\Windows\Fonts\Calibri.ttf",
+    font_size_ratio=0.06,
+    base_color=(0, 255, 255),
+    highlight_color=(0, 255, 0),
+    fps=30,
+    horizontal_padding=60
+):
+    if not os.path.exists(audio_path) or not os.path.exists(image_path) or not text:
+        print("❌ Thiếu dữ liệu đầu vào")
+        return None
+
+    output_video_path = audio_path.replace('.wav', '.mp4')
+    temp_video_path = "temp.mp4"
+
+    # Lấy thông tin audio
+    audio_info = get_audio_info(audio_path)
     try:
-        if not output_audio_path:
-            merge_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}.wav")
-            if not output_video_path:
-                output_video_path = os.path.join(input_folder, f"{file_name}.mp4")
-            merge_audio_use_ffmpeg(input_folder, file_name, file_start_with=file_start_with)
-            output_audio_path = os.path.join(input_folder, "merge_audios", f"{file_name}_speed.wav")
-            command_audio = [ 'ffmpeg', '-i', merge_audio_path, '-filter:a', f"atempo={speed},volume={1}", '-vn', output_audio_path, '-y' ]
-            run_command_ffmpeg(command_audio, False)
+        duration = float(audio_info.get('duration', 0))
+    except Exception:
+        duration = 0
 
-        if not output_video_path:
-            basename = os.path.basename(output_audio_path)
-            file_name = basename.split('.')[0]
-            output_video_path = os.path.join(input_folder, f'{file_name}.mp4')
-        if os.path.exists(output_audio_path):
-            print("✅ Âm thanh đã được xử lý xong!")
-            if torch.cuda.is_available():
-                print("---> Dùng GPU để xuất video...")
-                command = [ "ffmpeg", "-y", "-loop", "1", "-i", img_path, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path ]
-            else:
-                command = f'ffmpeg -y -loop 1 -i "{img_path}" -i "{output_audio_path}" -c:v libx264 -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
-            if run_command_ffmpeg(command, False):
-                print("✅ Video đã được tạo thành công!")
-            else:
-                print(f'{thatbai} Tạo video thất bại')
+    if duration <= 0:
+        print("❌ Không lấy được thời lượng audio.")
+        return None
+
+    total_frames = int(duration * fps)
+    highlight_end_frame = int(total_frames * 0.9)
+
+    is_video = os.path.splitext(image_path)[-1].lower() in ['.mp4', '.mov', '.avi', '.mkv']
+
+    if is_video:
+        cap = cv2.VideoCapture(image_path)
+        if not cap.isOpened():
+            print(f"❌ Không thể mở video: {image_path}")
+            return None
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    else:
+        image = cv2.imread(image_path)
+        if image is None:
+            print(f"❌ Không thể đọc ảnh: {image_path}")
+            return None
+        h, w, _ = image.shape
+
+    writer = cv2.VideoWriter(temp_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+
+    # Load font
+    try:
+        font_size = int(h * font_size_ratio)
+        font = ImageFont.truetype(font_path, font_size)
+    except Exception as e:
+        print(f"❌ Không thể load font: {e}")
+        return None
+
+    lines = split_text_into_lines_pil(text, w, font, horizontal_padding)
+    total_chars = sum(len(line) for line in lines)
+
+    stars = []
+    for frame_idx in range(total_frames):
+        progress_ratio = min(1.0, frame_idx / highlight_end_frame)
+        chars_to_highlight = int(total_chars * progress_ratio)
+
+        if is_video:
+            ret, frame = cap.read()
+            if not ret:
+                # Lặp lại video nếu hết
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = cap.read()
+            if not ret:
+                print("❌ Không thể đọc frame từ video nền.")
+                break
         else:
-            print("❌ Lỗi trong quá trình xử lý âm thanh!")
-    except:
-        getlog()
+            frame = image.copy()
+
+        frame = draw_text_with_highlight(
+            frame, lines, chars_to_highlight,
+            font, base_color, highlight_color
+        )
+        frame, stars = add_star_effect(frame, frame_idx, w, h, stars)
+        writer.write(frame)
+
+    if is_video:
+        cap.release()
+    writer.release()
+
+    # Ghép audio
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", temp_video_path,
+        "-i", audio_path,
+        "-c:v", "h264_nvenc",
+        "-preset", "fast",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-shortest",
+        output_video_path
+    ]
+    if run_command_ffmpeg(cmd):
+        remove_file(temp_video_path)
+        print(f"✅ Đã tạo video: {output_video_path}")
+        return output_video_path
+    else:
+        print("❌ Ghép audio thất bại.")
+        return None
+
+
+
+def split_text_into_lines_pil(text, max_width, font, horizontal_padding=0):
+    words = text.split()
+    lines = []
+    current_line = ""
+
+    dummy_img = Image.new("RGB", (1, 1))
+    draw = ImageDraw.Draw(dummy_img)
+
+    for word in words:
+        test_line = f"{current_line} {word}".strip()
+        bbox = draw.textbbox((0, 0), test_line, font=font)
+        line_width = bbox[2] - bbox[0]
+
+        if line_width <= max_width - 2 * horizontal_padding:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word
+
+    if current_line:
+        lines.append(current_line)
+
+    return lines
+
+def draw_text_with_highlight(img_cv2, lines, chars_to_highlight, font, base_color, highlight_color):
+    img_pil = Image.fromarray(cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(img_pil)
+
+    w, h = img_pil.size
+
+    # Tính chiều cao mỗi dòng (height = y2 - y0)
+    line_heights = [(draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1]) + 10 for line in lines]
+    total_text_height = sum(line_heights)
+    y_start = (h - total_text_height) // 2
+
+    current_y = y_start
+    highlighted = 0
+
+    for line in lines:
+        bbox_line = draw.textbbox((0, 0), line, font=font)
+        line_width = bbox_line[2] - bbox_line[0]
+        line_height = bbox_line[3] - bbox_line[1]
+        x = (w - line_width) // 2
+
+        for char in line:
+            color = highlight_color if highlighted < chars_to_highlight else base_color
+
+            draw.text((x, current_y), char, font=font, fill=color)
+
+            # Tính chiều rộng ký tự hiện tại
+            bbox_char = draw.textbbox((0, 0), char, font=font)
+            char_width = bbox_char[2] - bbox_char[0]
+            x += char_width
+
+            highlighted += 1
+
+        current_y += line_height + 10
+
+    return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
+
+
 
 def process_image_to_video_with_movement(img_path, audio_path, output_video_path, fps=25, zoom_factor=1.2, movement_speed=0.6, hide=False, subtitle_text=None):
     try:

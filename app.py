@@ -459,11 +459,14 @@ class MainApp:
         def start_export_video_from_subtitles_thread():
             if not self.edit_thread or not self.edit_thread.is_alive():
                 self.is_stop_edit = False
-                is_comic = self.story_type_var.get() == 'Yes'
-                if is_comic:
+                story_type = self.story_type_var.get().strip()
+
+                if story_type == 'comic':
                     export_thread = threading.Thread(target=self.export_comic_video_from_subtitles)
-                else:
+                elif story_type == 'novel':
                     export_thread = threading.Thread(target=self.export_text_story_to_video)
+                elif story_type == 'short_story':
+                    export_thread = threading.Thread(target=self.export_text_story_to_video, args=(True,))
                 export_thread.start()
         
         self.reset()
@@ -474,8 +477,8 @@ class MainApp:
         self.language_var = self.create_settings_input(text="Ngôn ngữ", config_key="language_tts", values=self.support_languages, left=0.3, right=0.7)
         # self.language_var.set(self.config['language_tts'])
         self.speed_talk_var = self.create_settings_input(text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
-        self.story_type_var = self.create_settings_input(text="Đây là truyện tranh", values=['Yes', 'No'], left=0.3, right=0.7)
-        self.story_type_var.set('No')
+        self.story_type_var = self.create_settings_input(text="Thể loại truyện", values=['comic', 'novel', 'short_story'], left=0.3, right=0.7)
+        self.story_type_var.set('novel')
         self.start_idx_var = self.create_settings_input(text="Chỉ số bắt đầu", values=['0', '1', '2'], left=0.3, right=0.7)
         folder_story = self.config['folder_story'] if self.config['folder_story'] else None
         start_idx = "0"
@@ -500,7 +503,7 @@ class MainApp:
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_subtitles_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
-    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text=""):
+    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text="", image_path=None, final_folder=None, mid_text=None):
         try:
             if language != 'vi':
                 max_lenth_text = 250
@@ -537,8 +540,9 @@ class MainApp:
                 temp_audio_files = []  # Danh sách chứa các file audio nhỏ
 
                 for id, sentence in enumerate(sentences):
-                    if id == int(len(sentences)/2):
-                        total_texts.append(end_text)
+                    if id == int(len(sentences)/2) and mid_text:
+                        total_texts.append(mid_text)
+
                     sentence = sentence.strip()
                     if not sentence:
                         continue
@@ -575,16 +579,12 @@ class MainApp:
                         total_texts.append(end_text.lower())
                 print(f'  --->  Tổng số câu cần xử lý: {len(total_texts)}')
                 list_file_path = "audio_list.txt"
-                
+                list_videos = []
                 if start_idx >= len(total_texts):
-                    if os.path.exists(output_path):
-                        temp_files = get_file_in_folder_by_type(output_folder, '.wav', start_with='temp_audio_') or []
-                        for temp in temp_files:
-                            temp_path = os.path.join(output_folder, temp)
-                            temp_audio_files.append(temp_path)
-                    else:
-                        print(f"{thatbai} Chỉ số bắt đầu {start_idx} không hợp lệ.")
-                        return False
+                    temp_files = get_file_in_folder_by_type(output_folder, '.wav', start_with='temp_audio_') or []
+                    for temp in temp_files:
+                        temp_path = os.path.join(output_folder, temp)
+                        temp_audio_files.append(temp_path)
                 else:
                     # Hàng đợi lưu các đoạn văn bản cần xử lý
                     task_queue = queue.Queue()
@@ -596,12 +596,12 @@ class MainApp:
                                 temp_audio_files.append(temp_audio_path)
                             continue
                         current_text_chunk += text_chunk
-                        if text_chunk:
+                        if text_chunk and text_chunk != '.' and text_chunk != '..' and text_chunk != '. .' and text_chunk != ',':
                             if len(current_text_chunk) >= min_lenth_text:
                                 task_queue.put((current_text_chunk, temp_audio_path))
                                 temp_audio_files.append(temp_audio_path)
                                 current_text_chunk = ""
-                
+                    
                     def process_tts(tts, speaker_wav, language):
                         while not task_queue.empty():
                             try:
@@ -609,7 +609,7 @@ class MainApp:
                                 text_chunk = cleaner_text(text=text_chunk, language=language)
                                 if text_chunk.startswith(',. '):
                                     text_chunk = text_chunk[3:]
-                                elif text_chunk.startswith('. ') or text_chunk.startswith(',.'):
+                                elif text_chunk.startswith('. ') or text_chunk.startswith(',.') or text_chunk.startswith('..'):
                                     text_chunk = text_chunk[2:]
                                 elif text_chunk.startswith('.'):
                                     text_chunk = text_chunk[1:]
@@ -617,11 +617,15 @@ class MainApp:
                                     text_chunk = text_chunk[2:]
                                 elif text_chunk.startswith("'"):
                                     text_chunk = text_chunk[1:]
-                                if text_chunk.endswith("'.") and len(text_chunk) > 2:
+                                if text_chunk.endswith("'.") or text_chunk.endswith(".."):
                                     text_chunk = f'{text_chunk[:-2]}.'
                                 try:
                                     torch.cuda.empty_cache()
                                     tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                                    if image_path:
+                                        output_video_path = export_video_from_audio_image_text(temp_audio_path, image_path, text_chunk)
+                                        if output_video_path:
+                                            list_videos.append(output_video_path)
                                 except:
                                     try:
                                         getlog()
@@ -648,11 +652,26 @@ class MainApp:
                     for thread in list_threads:
                         thread.join()
 
-                    if self.stop_audio_file:
-                        return False
-                    if len(temp_audio_files) == 0:
+                if len(list_videos) > 0:
+                    txt_name = os.path.basename(txt_path).replace('.txt', '')
+                    if merge_videos_use_ffmpeg(videos_folder=output_folder, file_name=txt_name, output_folder=final_folder):
+                        for video in list_videos:
+                            remove_file(video)
+                        for temp_audio_file in temp_audio_files:
+                            if os.path.exists(temp_audio_file):
+                                remove_file(temp_audio_file)
+                        if os.path.exists(list_file_path):
+                            remove_file(list_file_path)
+                        remove_or_move_file(txt_path)
                         return True
+                    else:
+                        return False
+                if self.stop_audio_file:
+                    return False
+                if len(temp_audio_files) == 0:
+                    return True
                     
+                if not os.path.exists(output_path):
                     with open(list_file_path, "w", encoding="utf-8") as f:
                         for audio_file in temp_audio_files:
                             if os.path.exists(audio_file):
@@ -674,7 +693,7 @@ class MainApp:
             getlog()
             return False
     
-    def export_text_story_to_video(self):
+    def export_text_story_to_video(self, is_short_story=False):
         try:
             start_time = time()
             is_merge_videos = False
@@ -682,11 +701,14 @@ class MainApp:
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
             model_path = os.path.join(current_dir, "models", "last_version_en")
-            end_text = f"You are watching stories on the {channel_name} channel. Don't forget to like and subscribe so you won't miss the next episodes!"
-            first_text = f"welcome to {channel_name}, please leave a like and subscribe to support me!"
+            first_text = f"Welcome to {channel_name}! Enjoy the story, and don't forget to like and subscribe to support the channel."
+            mid_text = f"You're listening to a story on {channel_name}. Hope you're enjoying it. If you are, don't forget to subscribe."
+            end_text = f"Thank you for listening! If you enjoyed the story, don't forget to like and subscribe. See you next time!"
             if language == 'vi':
-                end_text = f"Bạn đang nghe truyện tại {channel_name}, hãy like và đăng ký kênh để giúp mình có thêm động lực ra nhiều truyện hay nhé."
-                first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các truyện dịch bản thu phí trên các trang web đọc truyện online, hãy giúp mình để lại một like và một đăng ký nhé."
+                first_text = f"Chào mừng bạn đến với {channel_name}, chúc bạn nghe truyện vui vẻ, đừng quên like và đăng ký để ủng hộ mình nhé."
+                mid_text = f"Bạn đang nghe truyện tại {channel_name}, chúc bạn có những trải nghiệm tuyệt vời ở đây."
+                end_text = f"Cảm ơn bạn đã xem hết video. Nhớ like, đăng ký kênh và ủng hộ mình ở các tập tiếp theo nhé."
+
                 model_path = os.path.join(current_dir, "models", "last_version_vi")  
             xtts_config_path = os.path.join(model_path, "config.json")
 
@@ -762,26 +784,15 @@ class MainApp:
                     current_image = img_path
                 else:
                     img_path = current_image
-                cnt_err = 0
-                if start_idx is not None:
-                    if len(tts_list) == 0:
-                        tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
-                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text):
-                        if not self.stop_audio_file:
-                            return False
-                        self.config['stop_audio_file'] = self.stop_audio_file
-                        self.save_config()
-                        cnt_err += 1
-                        sleep(30)
-                        tts_list[0] = TTS(model_path=model_path, config_path=xtts_config_path).to(device)
-                        if cnt_err > 1:
-                            print(f'{thatbai} Lỗi TTS quá nhiều lần --> dừng chương trình')
-                            return False
-                        file_name_err = self.stop_audio_file.replace('.wav', '')
-                        start_idx = int(file_name_err.split('_')[-1])
-                        print(f'Bắt đầu lại với file audio thứ {start_idx}')
-                        self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx)
-                start_idx = 0
+                if is_short_story:
+                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, image_path=img_path, final_folder=output_folder):
+                        return False
+                    else:
+                        continue
+                else:
+                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
+                        return False
+
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
                 else:
