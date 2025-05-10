@@ -705,7 +705,7 @@ class MainApp:
             end_text = f"Thank you for listening! If you enjoyed the story, don't forget to like and subscribe. See you next time!"
             if language == 'vi':
                 first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các bộ truyện dịch, hãy like và đăng ký để giúp kênh ngày càng phát triển hơn nhé."
-                mid_text = f"Bạn đang nghe truyện tại {channel_name}, nhớ đăng ký kênh để theo dõi các tập tiếp theo nhé."
+                mid_text = f"Bạn đang nghe truyện tại {channel_name}, đừng quên đăng ký kênh để theo dõi các tập tiếp theo nhé."
                 end_text = f"Cảm ơn bạn đã xem hết video. Nhớ like, đăng ký kênh và ủng hộ mình ở các tập tiếp theo nhé."
 
                 model_path = os.path.join(current_dir, "models", "last_version_vi")  
