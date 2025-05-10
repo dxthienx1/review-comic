@@ -792,7 +792,7 @@ class MainApp:
                 else:
                     if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
                         return False
-
+                start_idx = 0
                 if speed_talk == 1.0:
                     output_audio_path = temp_audio_path
                 else:
