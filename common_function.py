@@ -1226,13 +1226,14 @@ def remove_char_in_file_name(folder_path, chars_want_to_remove, char_want_to_rep
     except:
         pass
 
-def remove_or_move_file(input_video_path, is_delete=False, is_move=True, finish_folder_name='finished folder'):
+def remove_or_move_file(input_video_path, is_delete=False, is_move=True, finish_folder='finished folder'):
     try:
         if is_delete:
             os.remove(input_video_path)
         elif is_move:
             videos_folder = os.path.dirname(input_video_path)
-            finish_folder = os.path.join(videos_folder, f'{finish_folder_name}')
+            if not finish_folder or not os.path.exists(finish_folder):
+                finish_folder = os.path.join(videos_folder, 'finished folder')
             os.makedirs(finish_folder, exist_ok=True)
             base_name = os.path.basename(input_video_path)
             move_file_path = os.path.join(finish_folder, base_name)

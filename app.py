@@ -2606,7 +2606,7 @@ class MainApp:
                     return False
             remove_file(combined_audio_path)
             remove_file(temp_audio_path)
-            remove_or_move_file(input_video_path, is_delete=self.config['is_delete_video'], is_move=self.config['is_move'], finish_folder_name='Original_videos')
+            remove_or_move_file(input_video_path, is_delete=self.config['is_delete_video'], is_move=self.config['is_move'])
             return True
         except:
             print(f"Có lỗi trong quá trình xử lý video {input_video_path}")
