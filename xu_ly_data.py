@@ -206,8 +206,8 @@ def convert_mp3_to_wav_in_directory(input_folder, speed):
             run_command_ffmpeg(ffmpeg_cmd)
             print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
 
-input_folder = r"E:\Python\developping\review comic\test"
-speed = 1.04
+input_folder = r"C:\Users\dxthi\Downloads\extract_audios"
+speed = 1
 # convert_mp3_to_wav_in_directory(input_folder, speed)
 
 
@@ -264,9 +264,9 @@ def convert_wav_to_training_format(input_folder, speed=1.0, trim_end=0):
         run_command_ffmpeg(ffmpeg_cmd)
         print(f"Đã chuẩn hóa {filename} thành {wav_output}")
 
-input_folder = r"E:\Python\developping\review comic\test\du lieu train\evenlab\train\2"
-speed = 1.05
-trim_end = 0.35
+input_folder = r"E:\Python\developping\review comic\dataset\dieu chinh vbee"
+speed = 1
+trim_end = 0.38
 # convert_wav_to_training_format(input_folder, speed, trim_end=trim_end)
 
 

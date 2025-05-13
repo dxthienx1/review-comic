@@ -189,7 +189,7 @@ def move_long_audio(input_file, output_file, max_len=250, is_eval=False):
 
             full_audio_path = os.path.join(current_folder, audio_path)
 
-            if len(text) > max_len:
+            if len(text) > max_len or len(text) < 10:
                 # Di chuyển file âm thanh quá dài
                 if os.path.exists(full_audio_path):
                     shutil.move(full_audio_path, os.path.join(long_wav_folder, os.path.basename(audio_path)))
@@ -228,10 +228,53 @@ def move_long_audio(input_file, output_file, max_len=250, is_eval=False):
         print(f"Đã xảy ra lỗi: {e}")
 
 # Sử dụng hàm
-# input_csv = r"E:\Python\developping\review comic\dataset\en\eval.csv"
-# output_csv = r"E:\Python\developping\review comic\dataset\en\long_eval.csv"
-# move_long_audio(input_csv, output_csv, is_eval=True)
+input_csv = r"E:\Python\developping\review comic\dataset\vietnam\train.csv"
+output_csv = r"E:\Python\developping\review comic\dataset\vietnam\long_train.csv"
+is_eval= False
+# move_long_audio(input_csv, output_csv, is_eval=is_eval)
 
-# input_csv = r"E:\Python\developping\review comic\dataset\en\train.csv"
-# output_csv = r"E:\Python\developping\review comic\dataset\en\long_train.csv"
-# move_long_audio(input_csv, output_csv, is_eval=False)
+
+
+#đánh lại số thứ tự cho file csv
+def edit_index_csv_file(input_file, is_eval=False):
+    try:
+        current_folder = os.path.dirname(input_file)
+
+        # Xác định thư mục wav và thư mục đích dựa vào is_eval
+        wav_folder = os.path.join(current_folder, 'eval' if is_eval else 'wavs')
+        long_wav_folder = os.path.join(current_folder, 'long_eval' if is_eval else '_long_wavs')
+        os.makedirs(long_wav_folder, exist_ok=True)
+
+        # Đọc file CSV gốc
+        with open(input_file, 'r', encoding='utf-8') as csvfile:
+            reader = csv.reader(csvfile, delimiter='|')
+            rows = [row for row in reader]
+
+        header = ["audio_file", "text", "speaker_name"]
+        valid_rows = [header]
+
+        for i, row in enumerate(rows):
+            if i == 0:
+                continue  # Bỏ qua header gốc
+
+            audio_path, text, voice_tag = row[0], row[1], row[2]
+
+            # Đổi tên file audio mới
+            new_filename = f"{'eval_' if is_eval else ''}{i}.wav"
+            # Đường dẫn mới ghi vào file CSV
+            new_audio_path_csv = f"{'eval' if is_eval else 'wavs'}/{new_filename}"
+            valid_rows.append([new_audio_path_csv, text, voice_tag])
+
+        output_file = input_file.replace('.csv', '_new.csv')
+        # Ghi đè lại file CSV gốc
+        with open(output_file, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f, delimiter='|')
+            writer.writerows(valid_rows)
+
+    except Exception as e:
+        print(f"Đã xảy ra lỗi: {e}")
+
+# Sử dụng hàm
+input_csv = r"E:\Python\developping\review comic\dataset\vietnam\train.csv"
+is_eval= False
+# edit_index_csv_file(input_csv, is_eval=is_eval)

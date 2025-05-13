@@ -556,6 +556,7 @@ class MainApp:
 
                     if len(sentence) > max_lenth_text:
                         total_texts.extend(split_text_into_chunks(sentence, max_lenth_text))
+                        temp_text = ""
                     else:
                         if len(sentence) < min_lenth_text and sentence != sentences[-1].strip():
                             temp_text = sentence
@@ -763,7 +764,11 @@ class MainApp:
                 tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
 
             print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
-
+            background_music = get_file_in_folder_by_type(folder_story, '.wav') or []
+            if len(background_music) > 0:
+                first_text = None
+                mid_text = None
+                end_text = None
             for i, txt_file in enumerate(txt_files):
                 one_file_start_time = time()
                 print(f'  --->  Bắt đầu chuyển text sang audio: {txt_file}')
@@ -783,14 +788,17 @@ class MainApp:
                     current_image = img_path
                 else:
                     img_path = current_image
+                
                 if is_short_story:
                     if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, image_path=img_path, final_folder=output_folder):
                         print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
                         continue
                     else:
+                        print(f"{thatbai} Thời gian lỗi {datetime.now()}")
                         return False
                 else:
                     if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
+                        print(f"{thatbai} Thời gian lỗi {datetime.now()}")
                         return False
                 start_idx = 0
                 if speed_talk == 1.0:
@@ -825,6 +833,49 @@ class MainApp:
                         else:
                             print(f"{thatbai} Định dạng không hỗ trợ.")
                             return
+                        
+                        if len(background_music) > 0:
+                            background_music_path = os.path.join(folder_story, background_music[0])
+                            audio_info = get_audio_info(output_audio_path)
+                            duration = audio_info.get('duration', None)
+                            if not duration:
+                                print(f"Có lỗi khi lấy thông tin audio {output_audio_path}")
+                                return
+                            duration = float(duration)
+                            # Bước 1: Lặp nhạc nền và cắt đúng độ dài
+                            looped_music_path = "temp_looped_music.wav"
+                            loop_cmd = [
+                                "ffmpeg", "-y",
+                                "-stream_loop", "-1",       # lặp vô hạn
+                                "-i", background_music_path,
+                                "-t", str(duration),        # cắt đúng thời lượng giọng nói
+                                "-ar", "24000",
+                                "-ac", "1",
+                                "-sample_fmt", "s16",
+                                looped_music_path
+                            ]
+                            if not run_command_ffmpeg(loop_cmd):
+                                print(f"{thatbai} Có lỗi khi tạo file {looped_music_path}")
+                                return
+
+                            mixed_audio_path = "mixed_audio.wav"
+                            mix_audio_cmd = [
+                                "ffmpeg", "-y",
+                                "-i", output_audio_path,  # audio giọng nói
+                                "-i", looped_music_path,  # nhạc nền
+                                "-filter_complex",
+                                "[0:a]aresample=24000,volume=1.2,pan=mono|c0=c0[va]; "
+                                "[1:a]aresample=24000,volume=0.5,pan=mono|c0=c0[bg]; "
+                                "[va][bg]amix=inputs=2:duration=first:dropout_transition=0",
+                                "-ar", "24000",              # đảm bảo sample rate đầu ra
+                                "-ac", "1",                  # mono
+                                "-c:a", "pcm_s16le",         # codec chuẩn cho WAV
+                                mixed_audio_path
+                            ]
+                            if run_command_ffmpeg(mix_audio_cmd):
+                                remove_file(output_audio_path)
+                                remove_file(looped_music_path)
+                                output_audio_path = mixed_audio_path
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
                             command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
