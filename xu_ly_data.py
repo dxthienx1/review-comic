@@ -188,7 +188,9 @@ def convert_mp3_to_wav_in_directory(input_folder, speed):
         # Kiểm tra xem file có phải là MP3 hay không
         if filename.lower().endswith(".mp3"):
             mp3_path = os.path.join(input_folder, filename)
-            wav_path = os.path.join(input_folder, filename[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
+            output_folder = os.path.join(input_folder, 'out')
+            os.makedirs(output_folder, exist_ok=True)
+            wav_path = os.path.join(output_folder, filename[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
 
             # Cấu hình lệnh ffmpeg
             ffmpeg_cmd = [
@@ -206,9 +208,9 @@ def convert_mp3_to_wav_in_directory(input_folder, speed):
             run_command_ffmpeg(ffmpeg_cmd)
             print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
 
-input_folder = r"E:\info\nhac nen"
+input_folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\Wake Up In Ancient Rome You Won--t Make It Till Nightfall"
 speed = 1
-# convert_mp3_to_wav_in_directory(input_folder, speed)
+convert_mp3_to_wav_in_directory(input_folder, speed)
 
 
 
@@ -311,3 +313,57 @@ def speed_up_video_ffmpeg(input_path, speed=1.05):
 input_path = ""
 speed = 1.07
 # speed_up_video_ffmpeg(input_path, speed=speed)
+
+
+
+#Xử lý file txt trước khi dùng phần mềm tts mua
+def process_txt_file(folder, language='en'):
+    try:
+        output_folder = os.path.join(folder, 'output_txt_files')
+        os.makedirs(output_folder, exist_ok=True)
+        txt_files = get_file_in_folder_by_type(folder, '.txt')
+        for txt_file in txt_files:
+            name = txt_file.replace('.txt', '_train.txt')
+            new_txt_path = os.path.join(output_folder, txt_file.replace("'", '--'))
+            train_txt_path = os.path.join(output_folder, name.replace("'", '--'))
+            txt_path = os.path.join(folder, txt_file)
+            texts = get_json_data(txt_path)
+            final_texts = []
+            for text in texts:
+                text = text.replace('“', '').replace('”', '').strip()
+                if not text:
+                    continue
+                sub_texts = text.split('. ')
+                sub_texts = [subtext.strip() for subtext in sub_texts if subtext.strip()]
+                temp = ''
+                for sub_text in sub_texts:
+                    if not sub_text.endswith(('.', '?', '!')):
+                        sub_text = sub_text + '.'
+                    if temp:
+                        sub_text = temp + ' ' + sub_text
+                        temp = ''
+                    if len(sub_text) < 20:
+                        temp = sub_text
+                        continue
+                    else:
+                        final_texts.append(sub_text)
+                if temp:
+                    final_texts[-1] = final_texts[-1] + ' ' + temp
+                    temp = ''
+                
+            with open(new_txt_path, 'w', encoding='utf-8') as fff:
+                for final_text in final_texts:
+                    fff.write(f"{final_text}\n\n")
+            with open(train_txt_path, 'w', encoding='utf-8') as fff_train:
+                cnt = 1
+                for final_text in final_texts:
+                    final_text = cleaner_text(final_text, language=language)
+                    final_text = final_text.replace('..', '.')
+                    fff_train.write(f"{cnt}\n{final_text}\n")
+                    cnt += 1
+    except:
+        getlog()
+
+folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\file goc"
+language = 'en'
+# process_txt_file(folder, language)

@@ -531,7 +531,7 @@ class MainApp:
             folder_mp3 = self.videos_edit_folder_var.get().strip()
             background_folder = self.background_folder_var.get().strip()
             try:
-                background_music_volumn = float(self.background_music_volumn_var.get().strip())
+                background_music_volumn = float(self.background_music_volumn_var.get().strip())/100
             except:
                 print(f"{thatbai} Âm lượng nhạc nền không hợp lệ.")
                 return
@@ -614,10 +614,6 @@ class MainApp:
                     txt_path = os.path.join(folder_mp3, f"{name}.txt")
                     if os.path.exists(txt_path):
                         remove_or_move_file(txt_path, finish_folder=output_folder)
-                    temp_audios = get_file_in_folder_by_type(output_folder, '.mp3') or []
-                    for temp_audio in temp_audios:
-                        temp_audio_path = os.path.join(output_folder, temp_audio)
-                        remove_file(temp_audio_path)
                     print(f'{thanhcong} Xuất video thành công: {output_video_path}')
         except:
             getlog()
@@ -933,7 +929,7 @@ class MainApp:
                     img_path = current_image
                 
                 if is_short_story:
-                    if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, image_path=img_path, final_folder=output_folder):
+                    if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=None, end_text=None, image_path=img_path, final_folder=output_folder):
                         print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
                         continue
                     else:
