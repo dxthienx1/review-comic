@@ -498,10 +498,7 @@ class MainApp:
         self.is_merge_var = self.create_settings_input(text="Có gộp video không?", values=['Yes', 'No'], left=0.3, right=0.7)
         self.is_merge_var.set('No')
         self.background_music_volumn_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volumn', values=['50', '80', '100'], left=0.3, right=0.7)
-        self.background_folder_var = create_frame_button_and_input(self.root,text="Thư mục video/nhạc nền", command=self.choose_background_folder, width=self.width, left=0.3, right=0.7)
-        background_folder = self.config.get('background_folder', self.config['folder_story'])
 
-        self.background_folder_var.insert(0, background_folder)
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Thư mục chứa truyện", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
         self.videos_edit_folder_var.insert(0, self.config['folder_story'])
         self.output_folder_var = create_frame_button_and_input(self.root,text="Thư mục xuất video", command=self.choose_videos_output_folder, width=self.width, left=0.3, right=0.7)
@@ -521,7 +518,6 @@ class MainApp:
         self.setting_window_size()
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Thư mục chứa file mp3", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
         self.videos_edit_folder_var.insert(0, self.config['folder_mp3'] if 'folder_mp3' in self.config else "")
-        self.background_folder_var = create_frame_button_and_input(self.root,text="Thư mục video/nhạc nền", command=self.choose_background_folder, width=self.width, left=0.3, right=0.7)
         self.background_music_volumn_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volumn', values=['50', '80', '100'], left=0.3, right=0.7)
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_mp3_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
@@ -529,26 +525,28 @@ class MainApp:
     def export_video_from_mp3_and_background(self, audio_type='.mp3'):
         try:
             folder_mp3 = self.videos_edit_folder_var.get().strip()
-            background_folder = self.background_folder_var.get().strip()
+  
             try:
                 background_music_volumn = float(self.background_music_volumn_var.get().strip())/100
             except:
                 print(f"{thatbai} Âm lượng nhạc nền không hợp lệ.")
                 return
-            if not check_folder(background_folder, noti=False) or not check_folder(folder_mp3, noti=False):
+            if not check_folder(folder_mp3, noti=False):
                 print(f"{thatbai} Thư mục không hợp lệ.")
                 return
 
-            background_music = get_file_in_folder_by_type(background_folder, audio_type) or []
-            background_videos = get_file_in_folder_by_type(background_folder, '.mp4') or []
+            background_music = get_file_in_folder_by_type(folder_mp3, audio_type) or []
+            background_videos = get_file_in_folder_by_type(folder_mp3, '.mp4') or []
+            if not background_videos:
+                background_videos = get_file_in_folder_by_type(folder_mp3, '.png')
             if len(background_videos) == 0:
-                print(f"{thatbai} Không tìm thấy file video nền.")
+                print(f"{thatbai} Không tìm thấy file video hoặc ảnh nền.")
                 return
             if len(background_music) == 0:
                 background_music_path = None
             else:
-                background_music_path = os.path.join(background_folder, random.choice(background_music))
-            background_video_path = os.path.join(background_folder, random.choice(background_videos))
+                background_music_path = os.path.join(folder_mp3, random.choice(background_music))
+            background_path = os.path.join(folder_mp3, random.choice(background_videos))
 
             input_audios = get_file_in_folder_by_type(folder_mp3, audio_type)
             for audio_file in input_audios:
@@ -565,6 +563,7 @@ class MainApp:
                         print(f"Có lỗi khi lấy thông tin audio {audio_file}")
                         return
                     duration = float(duration)
+                    print(f"Đang load nhạc nền và video nền. Vui lòng đợi...")
                     # Lặp và chuyển nhạc nền theo thông số giọng nói
                     looped_music_path = "temp_looped_music.mp3"
                     loop_cmd = [
@@ -603,7 +602,7 @@ class MainApp:
                         remove_file(looped_music_path)
                         input_audio_path = mixed_audio_path
 
-                input_flags = ["-stream_loop", "-1", "-i", background_video_path]
+                input_flags = ["-stream_loop", "-1", "-i", background_path] if background_path.lower().endswith('.mp4') else  ["-loop", "1", "-i", background_path]
                 if torch.cuda.is_available():
                     print("---> Dùng GPU để xuất video...")
                     command = ["ffmpeg", "-y", *input_flags, "-i", input_audio_path, "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", "-threads", "4", output_video_path]
@@ -815,7 +814,6 @@ class MainApp:
             start_idx = self.start_idx_var.get().strip()
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
-            background_folder = self.background_folder_var.get().strip()
             background_music_volumn = self.background_music_volumn_var.get().strip()
             model_path = os.path.join(current_dir, "models", "last_version_en")
             first_text = f"Welcome to {channel_name}! Enjoy the story, and don't forget to like and subscribe to support the channel."
@@ -851,7 +849,6 @@ class MainApp:
             self.config["current_channel"] = channel_name
             self.config["output_folder"] = output_folder
             self.config["folder_story"] = folder_story
-            self.config["background_folder"] = background_folder
             self.config["background_music_volumn"] = background_music_volumn
             if channel_name not in self.config["channels"]:
                 self.config["channels"].append(channel_name)
@@ -861,11 +858,11 @@ class MainApp:
                 print(f'{thatbai} Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
                 return False
             is_mp4 = True
-            images = get_file_in_folder_by_type(background_folder, file_type='.mp4', noti=False) or []
+            images = get_file_in_folder_by_type(folder_story, file_type='.mp4', noti=False) or []
             if len(images) == 0:
-                images = get_file_in_folder_by_type(background_folder, file_type='.png', noti=False) or []
+                images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
                 if len(images) == 0:
-                    print(f"{thatbai} Phải có ít nhất 1 video nền(.mp4) hoặc 1 ảnh (.png) trong thư mục {background_folder}")
+                    print(f"{thatbai} Phải có ít nhất 1 video nền(.mp4) hoặc 1 ảnh (.png) trong thư mục {folder_story}")
                     return False
                 is_mp4 = False
             temp_output_folder = os.path.join(folder_story, 'temp_output')
@@ -883,13 +880,13 @@ class MainApp:
                 tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
 
             print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
-            background_musics = get_file_in_folder_by_type(background_folder, '.wav') or []
+            background_musics = get_file_in_folder_by_type(folder_story, '.wav') or []
             if not background_musics:
-                background_musics = get_file_in_folder_by_type(background_folder, '.mp3') or []
+                background_musics = get_file_in_folder_by_type(folder_story, '.mp3') or []
                 if background_musics:
                     mp3_file = random.choice(background_musics)
-                    mp3_path = os.path.join(background_folder, mp3_file)
-                    wav_path = os.path.join(background_folder, mp3_path[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
+                    mp3_path = os.path.join(folder_story, mp3_file)
+                    wav_path = os.path.join(folder_story, mp3_path[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
 
                     # Cấu hình lệnh ffmpeg
                     ffmpeg_cmd = [
@@ -902,11 +899,7 @@ class MainApp:
                         wav_path  # đường dẫn file WAV đầu ra
                     ]
                     if run_command_ffmpeg(ffmpeg_cmd):
-                        background_musics = get_file_in_folder_by_type(background_folder, '.wav') or []
-            if len(background_musics) > 0:
-                first_text = None
-                mid_text = None
-                end_text = None
+                        background_musics = get_file_in_folder_by_type(folder_story, '.wav') or []
 
             for i, txt_file in enumerate(txt_files):
                 one_file_start_time = time()
@@ -1004,7 +997,7 @@ class MainApp:
                                 "-i", looped_music_path,  # nhạc nền
                                 "-filter_complex",
                                 "[0:a]aresample=24000,volume=1,pan=mono|c0=c0[va]; "
-                                f"[1:a]aresample=24000,volume={float(background_music_volumn)},pan=mono|c0=c0[bg]; "
+                                f"[1:a]aresample=24000,volume={float(background_music_volumn)/100},pan=mono|c0=c0[bg]; "
                                 "[va][bg]amix=inputs=2:duration=first:dropout_transition=0",
                                 "-ar", "24000",              # đảm bảo sample rate đầu ra
                                 "-ac", "1",                  # mono
@@ -2408,12 +2401,6 @@ class MainApp:
         if self.output_folder_var:
             self.output_folder_var.delete(0, ctk.END)
             self.output_folder_var.insert(0, output_folder)
-
-    def choose_background_folder(self):
-        background_folder = filedialog.askdirectory()
-        if self.background_folder_var:
-            self.background_folder_var.delete(0, ctk.END)
-            self.background_folder_var.insert(0, background_folder)
 
     def choose_videos_edit_file(self):
         videos_edit_path = choose_file()
