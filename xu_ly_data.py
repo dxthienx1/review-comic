@@ -186,7 +186,7 @@ def convert_mp3_to_wav_in_directory(input_folder, speed):
     mp3_files = get_file_in_folder_by_type(input_folder, '.mp3') or []
     for filename in mp3_files:
         # Kiểm tra xem file có phải là MP3 hay không
-        if filename.endswith(".mp3"):
+        if filename.lower().endswith(".mp3"):
             mp3_path = os.path.join(input_folder, filename)
             wav_path = os.path.join(input_folder, filename[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
 
@@ -206,7 +206,7 @@ def convert_mp3_to_wav_in_directory(input_folder, speed):
             run_command_ffmpeg(ffmpeg_cmd)
             print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
 
-input_folder = r"C:\Users\dxthi\Downloads\extract_audios"
+input_folder = r"E:\info\nhac nen"
 speed = 1
 # convert_mp3_to_wav_in_directory(input_folder, speed)
 

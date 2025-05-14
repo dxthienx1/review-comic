@@ -1,7 +1,7 @@
 from common_function import *
 
 
-def export_video(folder_story, background_folder, audio_type='.mp3'):
+def export_video_from_mp3_and_background(folder_story, background_folder, audio_type='.mp3'):
     try:
         if not check_folder(background_folder, noti=False) or not check_folder(folder_story, noti=False):
             print(f"{thatbai} Thư mục không hợp lệ.")
@@ -92,4 +92,4 @@ def export_video(folder_story, background_folder, audio_type='.mp3'):
         getlog()
 folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP"
 background_folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\fire"
-export_video(folder, background_folder)
+export_video_from_mp3_and_background(folder, background_folder)
