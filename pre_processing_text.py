@@ -30,10 +30,10 @@ def add_txt_to_metadata(txt_file, csv_file, start_idx=1, type_audio='wav', speak
         getlog()
 
 txt_file_path = r"E:\Python\developping\review comic\test\du lieu train\vbee\2.txt"
-language = 'vi'
-speaker_name='vi_female'
+language = 'en'
+speaker_name='ffffffff'
 start_idx = 31113
-is_eval = False
+is_eval = True
 
 if language == 'vi':
     if is_eval:
@@ -47,8 +47,6 @@ elif language == 'en':
         metadata_path = os.path.join(current_dir, 'dataset', 'en', 'train.csv')
 
 # add_txt_to_metadata(txt_file_path, metadata_path, start_idx, speaker_name=speaker_name, is_eval=is_eval, language=language)
-
-
 
 
 
@@ -75,19 +73,30 @@ def add_voice_to_csv(input_file, output_file, voice_tag="vi_female"):
         with open(output_file, 'w', encoding='utf-8', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter='|')
             writer.writerows(updated_rows)
-        
-    
-    except Exception as e:
-        print(f"Đã xảy ra lỗi: {e}")
+    except:
+        getlog()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #edit file csv
-def change_index_csv_train(input_file, output_file, voice_tag="vi_female"):
+def change_index_csv_train(input_file, output_file, start_idx=1, speaker_name="jameson", is_eval=False):
     try:
         # Đọc nội dung file CSV
         with open(input_file, 'r', encoding='utf-8') as csvfile:
             reader = csv.reader(csvfile, delimiter='|')
-            rows = [row for row in reader]
+            rows = [row for row in reader if row]
         
         # Thêm voice tag vào cuối mỗi dòng
         updated_rows = []
@@ -96,8 +105,9 @@ def change_index_csv_train(input_file, output_file, voice_tag="vi_female"):
                 row = ["audio_file", "text", "speaker_name"]
                 updated_rows.append(row)
             else:
-                row[0] = f'wavs/{i}.wav'
-                updated_rows.append([row[0], row[1], voice_tag])
+                row[0] = f'eval/{start_idx}.wav' if is_eval else f'wavs/{start_idx}.wav'
+                updated_rows.append([row[0], row[1], speaker_name])
+                start_idx += 1
         
         # Ghi nội dung mới vào file đầu ra
         with open(output_file, 'w', encoding='utf-8', newline='') as csvfile:
@@ -109,47 +119,14 @@ def change_index_csv_train(input_file, output_file, voice_tag="vi_female"):
         print(f"Đã xảy ra lỗi: {e}")
 
 # Sử dụng hàm
-# input_csv = "E:\\Python\developping\\review comic\\test\\vietnam\\train.csv"
-# output_csv = "E:\\Python\developping\\review comic\\test\\vietnam\\train1111.csv"
-# change_index_csv_train(input_csv, output_csv)
+input_csv = r"E:\Python\developping\XTTS-v2\dataset\en\eval copy.csv"
+output_csv = r"E:\Python\developping\XTTS-v2\dataset\en\eval fff.csv"
+speaker_name = 'ian_cartwell'
+is_eval=True
+start_idx = 3566
+# change_index_csv_train(input_csv, output_csv, start_idx=start_idx, speaker_name=speaker_name, is_eval=is_eval)
 
 
-
-
-#edit nội dung file csv tiếng anh
-def change_index_csv_train(input_file, output_file, voice_tag="en_female"):
-    try:
-        # Đọc nội dung file CSV
-        with open(input_file, 'r', encoding='utf-8') as csvfile:
-            reader = csv.reader(csvfile, delimiter='|')
-            rows = [row for row in reader]
-        
-        # Thêm voice tag vào cuối mỗi dòng
-        updated_rows = []
-        for i, row in enumerate(rows):
-            if i == 0:  # Header đã sửa ở bước trên
-                row = ["audio_file", "text", "speaker_name"]
-                updated_rows.append(row)
-            else:
-                row[1] = cleaner_text(row[1], language='en')
-                if row[1].endswith(','):
-                    row[1] = row[1][:-1] + '.'
-                if not row[1].endswith('.'):
-                    row[1] = row[1] + '.'
-                updated_rows.append([row[0], row[1], voice_tag])
-        
-        # Ghi nội dung mới vào file đầu ra
-        with open(output_file, 'w', encoding='utf-8', newline='') as csvfile:
-            writer = csv.writer(csvfile, delimiter='|')
-            writer.writerows(updated_rows)
-    except Exception as e:
-        print(f"Đã xảy ra lỗi: {e}")
-
-# Sử dụng hàm
-voice_tag = 'en_female'
-input_csv = r"E:\Python\developping\review comic\dataset\en\train.csv"
-output_csv = r"E:\Python\developping\review comic\dataset\en\train_edited.csv"
-# change_index_csv_train(input_csv, output_csv, voice_tag=voice_tag)
 
 
 

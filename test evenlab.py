@@ -200,4 +200,9 @@ emails = [
 input_txt_path = r"E:\Python\developping\review comic\test\du lieu train\evenlab\3.txt"
 start_idx = 352
 
-text_to_speeed_by_evenlab_with_multi_email(input_txt_path=input_txt_path, emails=emails, start_idx=start_idx)
+# text_to_speeed_by_evenlab_with_multi_email(input_txt_path=input_txt_path, emails=emails, start_idx=start_idx)
+
+
+
+
+

@@ -174,50 +174,54 @@ def adjust_audio_speed(input_folder, speed=1.0, volume_factor=1.0):
         print(f"Có lỗi xảy ra: {e}")
 
 
-input_folder = r"E:\Python\developping\review comic\test\du lieu train\Hoàn Thành\2"
-speed = 1.08
+input_folder = r"E:\Python\developping\review comic\dataset\en_old\eval"
+speed = 1
 # adjust_audio_speed(input_folder, speed=speed, volume_factor=1)
 
 
 
 
 #chuyển mp3 sang wav chuẩn training
-def convert_mp3_to_wav_in_directory(input_folder, speed):
-    mp3_files = get_file_in_folder_by_type(input_folder, '.mp3') or []
-    for filename in mp3_files:
-        # Kiểm tra xem file có phải là MP3 hay không
-        if filename.lower().endswith(".mp3"):
-            mp3_path = os.path.join(input_folder, filename)
-            output_folder = os.path.join(input_folder, 'out')
-            os.makedirs(output_folder, exist_ok=True)
-            wav_path = os.path.join(output_folder, filename[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
+def convert_mp3_to_wav_in_directory(input_folder, speed, volume_level=1.0):
+    all_folders = get_file_in_folder_by_type(input_folder, file_type='')
+    for folder in all_folders:
+        mp3_folder = os.path.join(input_folder, folder)
+        mp3_files = get_file_in_folder_by_type(mp3_folder, '.mp3') or []
+        for filename in mp3_files:
+            # Kiểm tra xem file có phải là MP3 hay không
+            if filename.lower().endswith(".mp3"):
+                mp3_path = os.path.join(mp3_folder, filename)
+                output_folder = os.path.join(mp3_folder, 'out')
+                os.makedirs(output_folder, exist_ok=True)
+                wav_path = os.path.join(output_folder, filename[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
 
-            # Cấu hình lệnh ffmpeg
-            ffmpeg_cmd = [
-                "ffmpeg", 
-                "-y",  # ghi đè file nếu đã tồn tại
-                "-i", mp3_path,  # đường dẫn đến file MP3
-                "-ac", "1",  # 1 kênh âm thanh (mono)
-                "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
-                "-filter:a", f"atempo={speed}",  # tốc độ phát lại
-                "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
-                wav_path  # đường dẫn file WAV đầu ra
-            ]
-            
-            # Chạy lệnh ffmpeg để chuyển đổi
-            run_command_ffmpeg(ffmpeg_cmd)
-            print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
+                # Cấu hình lệnh ffmpeg
+                ffmpeg_cmd = [
+                    "ffmpeg", 
+                    "-y",  # ghi đè file nếu đã tồn tại
+                    "-i", mp3_path,  # đường dẫn đến file MP3
+                    "-ac", "1",  # 1 kênh âm thanh (mono)
+                    "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
+                    "-filter:a", f"atempo={speed},volume={volume_level}",  # tốc độ phát lại
+                    "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
+                    wav_path  # đường dẫn file WAV đầu ra
+                ]
+                
+                # Chạy lệnh ffmpeg để chuyển đổi
+                if run_command_ffmpeg(ffmpeg_cmd):
+                    print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
 
-input_folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\Wake Up In Ancient Rome You Won--t Make It Till Nightfall"
-speed = 1
-convert_mp3_to_wav_in_directory(input_folder, speed)
+input_folder = r"D:\Train\Hoan Thanh\Ian Cartwell 1.07 x 1.1"
+speed = 1.06
+volume_level = 0.8
+# convert_mp3_to_wav_in_directory(input_folder, speed, volume_level=volume_level)
 
 
 
 
 
 #chuyển wav thường sang wav chuẩn training
-def convert_wav_to_training_format(input_folder, speed=1.0, trim_end=0):
+def convert_wav_to_training_format(input_folder, speed=1.0, volume_level=1.0, trim_end=0):
     wav_files = get_file_in_folder_by_type(input_folder, '.wav') or []
     output_folder = os.path.join(input_folder, 'out')
     os.makedirs(output_folder, exist_ok=True)
@@ -246,7 +250,7 @@ def convert_wav_to_training_format(input_folder, speed=1.0, trim_end=0):
                 "-i", wav_input,
                 "-ac", "1",                  # mono
                 "-ar", "24000",              # sample rate 24kHz
-                "-filter:a", f"atempo={speed}",
+                "-filter:a", f"atempo={speed},volume={volume_level}",
                 "-t", f"{trim_duration}",    # cắt đi 0.3s cuối
                 "-sample_fmt", "s16",        # 16-bit
                 wav_output
@@ -258,7 +262,7 @@ def convert_wav_to_training_format(input_folder, speed=1.0, trim_end=0):
                 "-i", wav_input,
                 "-ac", "1",
                 "-ar", "24000",
-                "-filter:a", f"atempo={speed}",
+                "-filter:a", f"atempo={speed},volume={volume_level}",
                 "-sample_fmt", "s16",
                 wav_output
             ]
@@ -266,10 +270,11 @@ def convert_wav_to_training_format(input_folder, speed=1.0, trim_end=0):
         run_command_ffmpeg(ffmpeg_cmd)
         print(f"Đã chuẩn hóa {filename} thành {wav_output}")
 
-input_folder = r"E:\Python\developping\review comic\dataset\dieu chinh vbee"
-speed = 1
-trim_end = 0.38
-# convert_wav_to_training_format(input_folder, speed, trim_end=trim_end)
+input_folder = r"E:\Python\developping\XTTS-v2\dataset\en\ryan"
+speed = 1.06
+volume_level = 0.3
+trim_end = 0
+# convert_wav_to_training_format(input_folder, speed, volume_level, trim_end=trim_end)
 
 
 
@@ -311,13 +316,22 @@ def speed_up_video_ffmpeg(input_path, speed=1.05):
         print("❌ Lỗi khi tăng tốc video.")
         return False
 input_path = ""
-speed = 1.07
+speed = 0.96
 # speed_up_video_ffmpeg(input_path, speed=speed)
 
 
 
+
+
+
 #Xử lý file txt trước khi dùng phần mềm tts mua
-def process_txt_file(folder, language='en'):
+replacements = [
+    ('🧡', ''), ('.“', '.'), ('”.', '.'), (',“', ','), ('”,', ','),
+    (' “', ' '), ('” ', ' '), ('“', ' '), ('”', ' '), ('."', '.'),
+    (',"', ','), (' "', ' '), ('" ', ' '), ('".', '.'), ('",', ','), (':.', '.'), (';', '.'),
+    ('... ', '. '), ('...', '. '), ('***', ''), ('**', ''), ('*', ''), ('---', '')
+]
+def process_txt_file(folder):
     try:
         output_folder = os.path.join(folder, 'output_txt_files')
         os.makedirs(output_folder, exist_ok=True)
@@ -329,27 +343,40 @@ def process_txt_file(folder, language='en'):
             txt_path = os.path.join(folder, txt_file)
             texts = get_json_data(txt_path)
             final_texts = []
+            temp = ''
             for text in texts:
-                text = text.replace('“', '').replace('”', '').strip()
                 if not text:
                     continue
+                if text.strip() == '***' or text.strip() == '**' or text.strip() == '—' or text.strip() == '.' or text.strip() == '---':
+                    continue
+
+                for old, new in replacements:
+                    text = text.replace(old, new)
+
+                text = text.strip()
+
                 sub_texts = text.split('. ')
                 sub_texts = [subtext.strip() for subtext in sub_texts if subtext.strip()]
-                temp = ''
                 for sub_text in sub_texts:
-                    if not sub_text.endswith(('.', '?', '!')):
-                        sub_text = sub_text + '.'
+                    if not sub_text.endswith(('.', '?', '!', ':')):
+                        sub_text += '.'
                     if temp:
+                        if temp.startswith('<break time='):
+                            final_texts[-1] += temp
+                            temp = ''
+                            continue
                         sub_text = temp + ' ' + sub_text
-                        temp = ''
+                        temp = ""
                     if len(sub_text) < 20:
                         temp = sub_text
-                        continue
                     else:
                         final_texts.append(sub_text)
-                if temp:
-                    final_texts[-1] = final_texts[-1] + ' ' + temp
-                    temp = ''
+
+            if temp:
+                if final_texts:
+                    final_texts[-1] += ' ' + temp
+                else:
+                    final_texts.append(temp)
                 
             with open(new_txt_path, 'w', encoding='utf-8') as fff:
                 for final_text in final_texts:
@@ -357,13 +384,14 @@ def process_txt_file(folder, language='en'):
             with open(train_txt_path, 'w', encoding='utf-8') as fff_train:
                 cnt = 1
                 for final_text in final_texts:
-                    final_text = cleaner_text(final_text, language=language)
-                    final_text = final_text.replace('..', '.')
                     fff_train.write(f"{cnt}\n{final_text}\n")
                     cnt += 1
+            remove_or_move_file(txt_path)
+            
     except:
         getlog()
 
-folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\file goc"
-language = 'en'
-# process_txt_file(folder, language)
+folder = r"D:\youtube\Truyen tieng anh\HISTORY & SHOCKING EVENT"
+# process_txt_file(folder)
+
+

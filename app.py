@@ -21,7 +21,7 @@ class MainApp:
             self.edit_audio_thread = threading.Thread()
             self.config = load_config()
             self.config_xtts_last = get_json_data(last_config_xtts_path) or {}
-            self.support_languages = self.config_xtts_last.get('languages', ['vi'])
+            self.support_languages = supported_languages
             remove_file("log.txt")
             self.icon = None
             self.is_start_app = True
@@ -56,6 +56,7 @@ class MainApp:
             self.edit_image_window = False
             self.export_video_window = False
             self.export_video_from_mp3_window = False
+            self.create_video_with_multi_audio_window = False
             self.is_extract_sub_image_audio_from_video_window = False
             self.en_language = False
             self.xtts = None
@@ -87,7 +88,8 @@ class MainApp:
         create_button(frame=self.root, text="Tải truyện tranh", command=self.open_download_image_window)
         create_button(frame=self.root, text="Lấy phụ đề từ ảnh", command=self.get_subtitle_from_image_window)
         create_button(frame=self.root, text="Xuất video từ file txt và ảnh/video nền", command=self.export_video_from_subtitles_window)
-        create_button(frame=self.root, text="Xuất video từ file mp3 và video nền", command=self.export_video_from_mp3_and_background_video_window)
+        create_button(frame=self.root, text="Xuất video từ audio tổng và video nền", command=self.export_video_from_mp3_and_background_video_window)
+        create_button(frame=self.root, text="Xuất video từ nhiều audio và video nền + hiển thị chữ", command=self.export_video_with_multi_audio_and_background_window)
         create_button(frame=self.root, text="Tải video", command=self.open_other_download_video_window)
         create_button(frame=self.root, text="Xử lý video", command=self.open_edit_video_menu)
         create_button(frame=self.root, text="Xử lý audio", command=self.open_edit_audio_window)
@@ -145,14 +147,14 @@ class MainApp:
                 self.noti("Hãy nhập link truyện muốn tải trước.")
                 return
             if is_use_profile:
-                driver = get_driver_with_profile(show=True)
+                driver = get_firefox_driver_with_profile(show=True)
             else:
                 driver = get_driver(show=True)
             sleep(1)
             driver.get(base_url)
             sleep(8)
             list_linkes = []
-            skip_text = ['discord', 'http', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads']
+            skip_text = ['discord', 'http', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads', '~ support & read', 'chapters available on']
             start_down = True
             cnt_err = 0
             first_content = ""
@@ -187,6 +189,8 @@ class MainApp:
                                     if len(list_contents) > 0:
                                         for p_ele in list_contents:
                                             content = p_ele.text
+                                            if i == 0 and content.strip().lower().startswith('chapter'):
+                                                continue
                                             chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
                                 if not chapter_content.strip():
                                     if cnt_err < 2:
@@ -200,6 +204,28 @@ class MainApp:
                                         continue
                                     else:
                                         break
+                            elif 'https://www.empirenovel' in  base_url:
+                                xpath = get_xpath_by_multi_attribute('div', ['id="read-novel"'])
+                                ele = get_element_by_xpath(driver, xpath)
+                                if ele:
+                                    list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                    if len(list_contents) > 0:
+                                        for i, p_ele in enumerate(list_contents):
+                                            content = p_ele.text
+                            
+                                            if any(word.lower() in content.lower() for word in skip_text):
+                                                continue
+                                            chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+
+                                        if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
+                                            first_content = chapter_content.strip()
+                                            file.write(f'{chapter_content.strip()}')
+                                            start_chapter += 1
+                                            cnt_err = 0
+                                            continue
+                                        else:
+                                            print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                            break
                             elif 'http://vietnamthuquan' in  link:
                                 xpath_links = "//div[contains(@onclick, 'chuongid')]"
                                 all_links = get_element_by_xpath(driver, xpath_links, multiple=True)
@@ -278,8 +304,13 @@ class MainApp:
                             if ele:
                                 list_contents = ele.find_elements(By.XPATH, './/p') or []
                                 if len(list_contents) > 0:
-                                    for p_ele in list_contents:
+                                    for i, p_ele in enumerate(list_contents):
                                         content = p_ele.text
+                                        if i == 0 and content.strip().lower().startswith('chapter'):
+                                            continue
+                                        if i == 1 and content.strip().lower().startswith('chapter'):
+                                            continue
+                                        
                                         if any(word.lower() in content.lower() for word in skip_text):
                                             continue
                                         chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
@@ -304,8 +335,68 @@ class MainApp:
                                     next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
                                     if next_chap_ele:
                                         next_chap_ele.click()
-                                        sleep(3)
+                                        sleep(4)
                                         continue
+                        elif 'https://www.lightnovelpub' in  base_url:
+                            xpath = get_xpath_by_multi_attribute('div', ['id="chapter-container"'])
+                            ele = get_element_by_xpath(driver, xpath)
+                            if ele:
+                                list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                if len(list_contents) > 0:
+                                    for i, p_ele in enumerate(list_contents):
+                                        content = p_ele.text
+                         
+                                        if any(word.lower() in content.lower() for word in skip_text):
+                                            continue
+                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+
+                                    if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
+                                        first_content = chapter_content.strip()
+                                        file.write(f'{chapter_content.strip()}')
+                                        start_chapter += 1
+                                        cnt_err = 0
+                                    else:
+                                        print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        break
+                                    next_xpath = get_xpath('a', 'nextchap', contain=True)
+                                    next_chap_ele = get_element_by_xpath(driver, next_xpath)
+                                    if next_chap_ele:
+                                        next_chap = next_chap_ele.get_attribute('href')
+                                        if next_chap and 'lightnovelpub' in next_chap:
+                                            driver.get(next_chap)
+                                            sleep(4)
+                                            continue
+                                    break
+                        elif 'https://www.empirenovel' in  base_url:
+                            xpath = get_xpath_by_multi_attribute('div', ['id="read-novel"'])
+                            ele = get_element_by_xpath(driver, xpath)
+                            if ele:
+                                list_contents = ele.find_elements(By.XPATH, './/p') or []
+                                if len(list_contents) > 0:
+                                    for i, p_ele in enumerate(list_contents):
+                                        content = p_ele.text
+                         
+                                        if any(word.lower() in content.lower() for word in skip_text):
+                                            continue
+                                        chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
+
+                                    if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
+                                        first_content = chapter_content.strip()
+                                        file.write(f'{chapter_content.strip()}')
+                                        start_chapter += 1
+                                        cnt_err = 0
+                                    else:
+                                        print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        break
+                                    next_xpath = get_xpath_by_multi_attribute('a', ['id="chapter-right"'])
+                                    next_chap_ele = get_element_by_xpath(driver, next_xpath)
+                                    if next_chap_ele:
+                                        next_chap = next_chap_ele.get_attribute('href')
+                                        if next_chap and 'lightnovelpub' in next_chap:
+                                            driver.get(next_chap)
+                                            sleep(4)
+                                            continue
+                                    break
                         elif 'https://truyenfull' in  base_url or 'https://truyenhoan' in base_url:
                             xpath = get_xpath('div', 'chapter-c', contain=True)
                             ele = get_element_by_xpath(driver, xpath)
@@ -321,7 +412,7 @@ class MainApp:
                                     for content in lines:
                                         chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
 
-                                    if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
+                                    if chapter_content.strip() and first_content.startswith(chapter_content.strip()[:200]):
                                         first_content = chapter_content.strip()
                                         file.write(f'{chapter_content.strip()}')
                                         start_chapter += 1
@@ -497,7 +588,7 @@ class MainApp:
         self.start_idx_var.set(start_idx)
         self.is_merge_var = self.create_settings_input(text="Có gộp video không?", values=['Yes', 'No'], left=0.3, right=0.7)
         self.is_merge_var.set('No')
-        self.background_music_volumn_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volumn', values=['50', '80', '100'], left=0.3, right=0.7)
+        self.background_music_volume_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volume', values=['50', '80', '100'], left=0.3, right=0.7)
 
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Thư mục chứa truyện", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
         self.videos_edit_folder_var.insert(0, self.config['folder_story'])
@@ -506,10 +597,298 @@ class MainApp:
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_subtitles_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
+    def export_video_with_multi_audio_and_background_window(self):
+        def start_export_video_from_mp3_thread():
+            self.is_stop_edit = False
+            export_thread_3 = threading.Thread(target=self.create_video_with_multi_audio_and_background)
+            export_thread_3.start()
+        
+        self.reset()
+        self.create_video_with_multi_audio_window = True
+        self.show_window()
+        self.setting_window_size()
+        self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Thư mục chứa file .txt", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
+        self.videos_edit_folder_var.insert(0, self.config['folder_txt'] if 'folder_txt' in self.config else "")
+        self.audio_speed_var = self.create_settings_input(text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
+        self.audio_speed_var.set(self.config['audio_speed'] if 'audio_speed' in self.config else "1")
+        self.audio_volume_var = self.create_settings_input(text="Âm lượng giọng đọc(%)", values=['100', '200', '300'], left=0.3, right=0.7)
+        self.audio_volume_var.set(self.config['audio_volume'] if 'audio_volume' in self.config else "100")
+        self.background_music_volume_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volume', values=['30', '50', '70'], left=0.3, right=0.7)
+        self.background_music_volume_var.set(self.config['background_music_volume'] if 'background_music_volume' in self.config else "20")
+        self.image_display_ratio_var = self.create_settings_input(text="Thời lượng hiển thị ảnh(%)", values=['30', '50', '100'], left=0.3, right=0.7)
+        self.image_display_ratio_var.set('100')
+        self.alpha_var = self.create_settings_input(text="Độ mờ hiển thị ảnh(%)", values=['30', '50', '100'], left=0.3, right=0.7)
+        self.alpha_var.set(self.config['alpha'] if 'alpha' in self.config else "50")
+        self.random_img_var = self.create_settings_input(text="Thứ tự lấy ảnh", values=['random', 'vị trí', 'sắp xếp theo tên'], left=0.3, right=0.7)
+        self.random_img_var.set('sắp xếp theo tên')
+        self.is_show_text_var = self.create_settings_input(text="Hiển thị chữ", values=['Yes', 'No'], left=0.3, right=0.7)
+        self.is_show_text_var.set('Yes')
+        self.text_size_var = self.create_settings_input(text="Kích thước chữ", values=['0.8', '1.0', '1.2'], left=0.3, right=0.7)
+        self.text_size_var.set('1.0')
+        self.text_position_var = self.create_settings_input(text="Vị trí chữ", values=['bottom', 'center'], left=0.3, right=0.7)
+        self.text_position_var.set('bottom')
+        create_button(self.root, text="Bắt đầu", command=start_export_video_from_mp3_thread, width=self.width)
+        create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
+
+
+    def create_video_with_multi_audio_and_background(
+        self,
+        sample_rate=44100,
+        channels=1,
+        font_path=r"C:\Windows\Fonts\Calibri.ttf",
+        font_size=18,
+        base_color=(0, 255, 255),
+        highlight_color=(255, 255, 0),
+        fps=30,
+        random_img=False
+    ):
+        try:
+            input_folder = self.videos_edit_folder_var.get().strip()
+            output_folder = os.path.join(input_folder, 'out_videos')
+            os.makedirs(output_folder, exist_ok=True)
+
+            # Load and normalize configuration values
+            background_music_volume = float(self.background_music_volume_var.get().strip()) / 100
+            audio_volume = float(self.audio_volume_var.get().strip()) / 100
+            audio_speed = float(self.audio_speed_var.get().strip())
+            image_display_ratio = float(self.image_display_ratio_var.get().strip()) / 100
+            alpha = float(self.alpha_var.get().strip()) / 100
+            try:
+                font_size = int(float(self.text_size_var.get().strip()) * font_size)
+            except:
+                font_size = 18
+            is_show_text = self.is_show_text_var.get().strip() == 'Yes'
+            is_random_img = self.random_img_var.get().strip()
+            if is_random_img == 'random':
+                random_img = True
+            elif is_random_img == 'vị trí':
+                pass
+            position = self.text_position_var.get().strip()
+            if position != 'bottom':
+                position = 'center'
+            
+            self.config.update({
+                'background_music_volume': self.background_music_volume_var.get().strip(),
+                'audio_volume': self.audio_volume_var.get().strip(),
+                'audio_speed': self.audio_speed_var.get().strip(),
+                'image_display_ratio': self.image_display_ratio_var.get().strip(),
+                'alpha': self.alpha_var.get().strip()
+            })
+            self.save_config()
+
+            txt_paths = get_file_in_folder_by_type(input_folder, '.txt') or None
+            if not txt_paths:
+                print(f"{thatbai} Có lỗi khi xuất video.")
+                return
+            for txt_file in txt_paths:
+                if self.is_stop_export_next_video:
+                    return
+                start_time = time()
+                txt_path = os.path.join(input_folder, txt_file)
+                txt_name = os.path.splitext(txt_file)[0]
+                print(f"{tot} Bắt đầu xử lý file: {txt_file} --> Vui lòng đợi...")
+
+                # Prepare paths
+                audio_concat = f"temp_voice_{txt_name}.wav"
+                looped_music = f"temp_music_{txt_name}.wav"
+                mixed_audio = f"temp_mix_{txt_name}.mp3"
+                bg_video_temp = f"temp_video_bg_{txt_name}.mp4"
+                temp_video_path = f"temp_video_{txt_name}.mp4"
+                output_path = os.path.join(output_folder, f"{txt_name}.mp4")
+
+                # Load texts
+                texts = get_json_data(txt_path, readline=True)
+                texts = [t.strip() for t in texts if t.strip()]
+
+                # Audio folder and files
+                audio_folder = os.path.join(input_folder, txt_name)
+                if not os.path.exists(audio_folder):
+                    print(f"Không tìm thấy audio cho {txt_file}")
+                    continue
+                try:
+                    silent_paths = [os.path.join(audio_folder, f) for f in get_file_in_folder_by_type(audio_folder, '.mp3') if f.startswith('silent')]
+                except:
+                    silent_paths = []
+                for silent_path in silent_paths:
+                    remove_file(silent_path)
+                list_txt_path = os.path.join(audio_folder, 'list.txt')
+                remove_file(list_txt_path)
+
+                audio_paths = [os.path.join(audio_folder, f) for f in get_file_in_folder_by_type(audio_folder, '.mp3') if not f.startswith('silent')]
+
+                # Change speed if needed
+                if audio_speed != 1.0:
+                    audio_paths = [speed_up_audio(path, audio_speed) for path in audio_paths]
+
+                # Image paths
+                img_folder = os.path.join(audio_folder, 'img')
+                image_paths = []
+                if os.path.isdir(img_folder):
+                    image_paths = [os.path.join(img_folder, f) for f in get_file_in_folder_by_type(img_folder, '.png')] or []
+                    if random_img:
+                        random.shuffle(image_paths)
+
+                # Background media
+                bg_folder = os.path.join(input_folder, 'background')
+                os.makedirs(bg_folder, exist_ok=True)
+                
+                video_files = get_file_in_folder_by_type(bg_folder, '.mp4')
+                bg_video = os.path.join(bg_folder, random.choice(video_files)) if video_files else None
+                music_files = get_file_in_folder_by_type(bg_folder, '.mp3')
+                bg_music = os.path.join(bg_folder, random.choice(music_files)) if music_files else None
+                if not bg_video:
+                    print(f"{thatbai} Không tìm thấy file video nền.")
+                    return
+
+                # Audio durations and timeline
+                audio_durations = [get_audio_duration(p) for p in audio_paths]
+                total_duration = sum(audio_durations)
+                audio_starts = [sum(audio_durations[:i]) for i in range(len(audio_durations))]
+
+                # 1. Concat voice
+                concat_txt = f"temp_concat_{txt_name}.txt"
+                with open(concat_txt, 'w', encoding="utf-8") as f:
+                    for p in audio_paths:
+                        f.write(f"file '{os.path.abspath(p)}'\n")
+                run_command_ffmpeg(["ffmpeg","-y","-f","concat","-safe","0","-i",concat_txt,"-c","copy",audio_concat])
+
+                # 2. Loop background music
+                if bg_music:
+                    run_command_ffmpeg([
+                        "ffmpeg","-y","-stream_loop","-1","-i",bg_music,
+                        "-t", str(total_duration),"-acodec","pcm_s16le",looped_music
+                    ])
+                    # 3. Mix audio
+                    run_command_ffmpeg([
+                        "ffmpeg","-y",
+                        "-i",audio_concat,
+                        "-i",looped_music,
+                        "-filter_complex",
+                        f"[0:a]aresample={sample_rate},volume={audio_volume}[va];"
+                        f"[1:a]aresample={sample_rate},volume={background_music_volume}[bg];"
+                        "[va][bg]amix=inputs=2:duration=first:dropout_transition=0",
+                        "-ar",str(sample_rate),"-ac",str(channels),"-c:a","libmp3lame","-q:a","2",mixed_audio
+                    ])
+                final_audio = mixed_audio if bg_music else audio_concat
+
+                # 4. Prepare background video
+                if bg_video and not os.path.exists(bg_video_temp):
+                    run_command_ffmpeg([
+                        "ffmpeg","-y","-i",bg_video,
+                        "-t",str(total_duration),"-vf","scale=1280:720",bg_video_temp
+                    ])
+
+                # 5. Render frames
+                cap = cv2.VideoCapture(bg_video_temp or '')
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                out = cv2.VideoWriter(temp_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width,height))
+                font = ImageFont.truetype(font_path, font_size)
+                total_frames = int(total_duration * fps)
+                image_frames = int(total_duration * image_display_ratio * fps)
+                # per_img = image_frames // max(len(image_paths),1)
+                # image_effects = [random.choice(['left', 'right', 'zoom']) for _ in image_paths]
+                min_frame_per_img = 20
+
+                # Số lượng ảnh không vượt quá image_frames // min_frame_per_img
+                max_img_displayable = image_frames // min_frame_per_img
+
+                # Chỉ dùng số ảnh phù hợp để đảm bảo mỗi ảnh có đủ frame
+                safe_image_paths = image_paths[:max_img_displayable] if max_img_displayable > 0 else []
+
+                # Cập nhật lại các biến liên quan
+                image_effects = [random.choice(['left', 'right', 'zoom']) for _ in safe_image_paths]
+                per_img = image_frames // max(len(safe_image_paths), 1)
+                for frame_idx in range(total_frames):
+                    ret, frame = cap.read()
+                    if not ret:
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        ret, frame = cap.read()
+                    if image_paths and frame_idx < image_frames:
+                        img_idx = min(frame_idx // per_img, len(image_paths) - 1)
+                        img = cv2.imread(image_paths[img_idx])
+                        img = cv2.resize(img, (width, height))
+
+                        effect = image_effects[img_idx]
+                        local_frame = frame_idx % per_img
+                        progress = local_frame / per_img
+
+                        zoom_scale = 1.15  # Zoom mạnh hơn nhẹ
+                        pan_max_shift = 60
+
+                        if effect == 'zoom':
+                            zoom_factor = 1 + (zoom_scale - 1) * progress
+                            new_w = int(width * zoom_factor)
+                            new_h = int(height * zoom_factor)
+                            resized_img = cv2.resize(img, (new_w, new_h))
+                            x_start = (new_w - width) // 2
+                            y_start = (new_h - height) // 2
+                            cropped_img = resized_img[y_start:y_start+height, x_start:x_start+width]
+                        elif effect == 'left':
+                            x_shift = int(pan_max_shift * progress)
+                            new_w = width + pan_max_shift
+                            resized_img = cv2.resize(img, (new_w, height))
+                            cropped_img = resized_img[:, x_shift:x_shift+width]
+                        elif effect == 'right':
+                            x_shift = int(pan_max_shift * progress)
+                            new_w = width + pan_max_shift
+                            resized_img = cv2.resize(img, (new_w, height))
+                            cropped_img = resized_img[:, pan_max_shift - x_shift:pan_max_shift - x_shift + width]
+                        else:
+                            cropped_img = img  # fallback
+
+                        frame = cv2.addWeighted(frame, 1 - alpha, cropped_img, alpha, 0)
+
+                    if is_show_text:
+                        t = frame_idx / fps
+                        for i, txt in enumerate(texts):
+                            if audio_starts[i] <= t < audio_starts[i] + audio_durations[i]:
+                                portion = (t - audio_starts[i]) / audio_durations[i]
+                                chars = int(len(txt) * portion)
+                                frame = draw_single_text_with_highlight(
+                                    frame, txt, chars, font,
+                                    base_color=base_color,
+                                    highlight_color=highlight_color,
+                                    position = position
+                                )
+                                break
+                    out.write(frame)
+
+                cap.release()
+                out.release()
+
+                # 6. Merge audio without -shortest, ensure full duration
+                cmd_merge = [
+                    "ffmpeg","-y",
+                    "-i",temp_video_path,
+                    "-i",final_audio,
+                    "-c:v","h264_nvenc","-preset","fast",
+                    "-c:a","aac","-b:a","192k",
+                    "-t",str(total_duration),
+                    output_path
+                ]
+                if not run_command_ffmpeg(cmd_merge):
+                    for f in [concat_txt,audio_concat,looped_music,mixed_audio,bg_video_temp, temp_video_path]:
+                        remove_file(f)
+                    print(f"{thatbai} Có lỗi khi xuất video cho file: {txt_path}")
+                    return
+                # 7. Cleanup temp files
+                for f in [concat_txt,audio_concat,looped_music,mixed_audio,bg_video_temp, temp_video_path]:
+                    remove_file(f)
+                remove_or_move_file(txt_path)
+                sleep(1)
+                if os.path.exists(output_path):
+                    new_path = output_path.replace("--", "'")
+                    os.rename(output_path, new_path)
+                    print(f"✅ Video created: {new_path} - Time: {time()-start_time:.2f}s")
+
+        except Exception:
+            getlog()
+
     def export_video_from_mp3_and_background_video_window(self):
         def start_export_video_from_mp3_thread():
             self.is_stop_edit = False
-            export_thread_2 = threading.Thread(target=self.export_video_from_mp3_and_background)
+            export_thread_2 = threading.Thread(target=self.export_video_with_single_audio_and_background)
             export_thread_2.start()
         
         self.reset()
@@ -518,42 +897,69 @@ class MainApp:
         self.setting_window_size()
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Thư mục chứa file mp3", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
         self.videos_edit_folder_var.insert(0, self.config['folder_mp3'] if 'folder_mp3' in self.config else "")
-        self.background_music_volumn_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volumn', values=['50', '80', '100'], left=0.3, right=0.7)
+        self.speed_talk_var = self.create_settings_input(text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
+        if not self.speed_talk_var.get().strip():
+            self.speed_talk_var.insert(0, '1.0')
+        self.background_music_volume_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volume', values=['50', '80', '100'], left=0.3, right=0.7)
         create_button(self.root, text="Bắt đầu", command=start_export_video_from_mp3_thread, width=self.width)
         create_button(self.root, text="Lùi lại", command=self.get_start_window, width=self.width)
 
-    def export_video_from_mp3_and_background(self, audio_type='.mp3'):
+    def export_video_with_single_audio_and_background(self, audio_type='.mp3'):
         try:
             folder_mp3 = self.videos_edit_folder_var.get().strip()
-  
             try:
-                background_music_volumn = float(self.background_music_volumn_var.get().strip())/100
+                audio_speed = float(self.speed_talk_var.get().strip())
+            except:
+                audio_speed = 1.0
+            try:
+                background_music_volume = float(self.background_music_volume_var.get().strip())/100
             except:
                 print(f"{thatbai} Âm lượng nhạc nền không hợp lệ.")
                 return
             if not check_folder(folder_mp3, noti=False):
                 print(f"{thatbai} Thư mục không hợp lệ.")
                 return
-
-            background_music = get_file_in_folder_by_type(folder_mp3, audio_type) or []
-            background_videos = get_file_in_folder_by_type(folder_mp3, '.mp4') or []
+            background_folder = os.path.join(folder_mp3, 'background')
+            os.makedirs(background_folder, exist_ok=True)
+            background_music = get_file_in_folder_by_type(background_folder, audio_type) or []
+            background_videos = get_file_in_folder_by_type(background_folder, '.mp4') or []
             if not background_videos:
-                background_videos = get_file_in_folder_by_type(folder_mp3, '.png')
+                background_videos = get_file_in_folder_by_type(background_folder, '.png')
             if len(background_videos) == 0:
-                print(f"{thatbai} Không tìm thấy file video hoặc ảnh nền.")
+                print(f"{thatbai} Không tìm thấy file video(.mp4) hoặc ảnh nền(.png).")
                 return
             if len(background_music) == 0:
                 background_music_path = None
             else:
-                background_music_path = os.path.join(folder_mp3, random.choice(background_music))
-            background_path = os.path.join(folder_mp3, random.choice(background_videos))
-
-            input_audios = get_file_in_folder_by_type(folder_mp3, audio_type)
+                background_music_path = os.path.join(background_folder, random.choice(background_music))
+            background_path = os.path.join(background_folder, random.choice(background_videos))
+            output_folder = os.path.join(folder_mp3, 'out_videos')
+            os.makedirs(output_folder, exist_ok=True)
+            input_audios = get_file_in_folder_by_type(folder_mp3, audio_type) or []
             for audio_file in input_audios:
+                if self.is_stop_export_next_video:
+                    return
                 input_audio_path = os.path.join(folder_mp3, audio_file)
                 name = audio_file.replace(audio_type, '')
-                output_folder = os.path.join(folder_mp3, name)
-                os.makedirs(output_folder, exist_ok=True)
+
+                if audio_speed != 1.0:
+                    temp_speed_path = os.path.join(folder_mp3, f"speed_{audio_file}")
+                    # Giới hạn tốc độ hợp lệ trong khoảng 0.5 đến 2.0
+                    if audio_speed > 2.0:
+                        adjusted_speed = 2.0
+                    elif audio_speed < 0.5:
+                        adjusted_speed = 0.5
+                    else:
+                        adjusted_speed = audio_speed
+
+                    speed_cmd = [ "ffmpeg", "-y", "-i", input_audio_path, "-filter:a", f"atempo={adjusted_speed:.3f}", "-vn", "-c:a", "libmp3lame", "-q:a", "2", temp_speed_path ]
+                    if run_command_ffmpeg(speed_cmd):
+                        remove_or_move_file(input_audio_path, finish_folder=output_folder)
+                        input_audio_path = temp_speed_path
+                    else:
+                        print(f"{thatbai} Lỗi khi đổi tốc độ audio.")
+                        return
+                    
                 if background_music_path:
                     audio_info = get_audio_info(input_audio_path)
                     duration = audio_info.get('duration', None)
@@ -563,7 +969,7 @@ class MainApp:
                         print(f"Có lỗi khi lấy thông tin audio {audio_file}")
                         return
                     duration = float(duration)
-                    print(f"Đang load nhạc nền và video nền. Vui lòng đợi...")
+                    print(f"{tot} Đang load nhạc nền và video nền. Vui lòng đợi...")
                     # Lặp và chuyển nhạc nền theo thông số giọng nói
                     looped_music_path = "temp_looped_music.mp3"
                     loop_cmd = [
@@ -588,8 +994,8 @@ class MainApp:
                         "-i", input_audio_path,
                         "-i", looped_music_path,
                         "-filter_complex",
-                        f"[0:a]aresample={sample_rate},volume=2,pan=mono|c0=c0[va]; "
-                        f"[1:a]aresample={sample_rate},volume={background_music_volumn},pan=mono|c0=c0[bg]; "
+                        f"[0:a]aresample={sample_rate},volume=3,pan=mono|c0=c0[va]; "
+                        f"[1:a]aresample={sample_rate},volume={background_music_volume},pan=mono|c0=c0[bg]; "
                         "[va][bg]amix=inputs=2:duration=first:dropout_transition=0",
                         "-ar", str(sample_rate),
                         "-ac", str(channels),
@@ -605,9 +1011,31 @@ class MainApp:
                 input_flags = ["-stream_loop", "-1", "-i", background_path] if background_path.lower().endswith('.mp4') else  ["-loop", "1", "-i", background_path]
                 if torch.cuda.is_available():
                     print("---> Dùng GPU để xuất video...")
-                    command = ["ffmpeg", "-y", *input_flags, "-i", input_audio_path, "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", "-threads", "4", output_video_path]
+                    command = [
+                        "ffmpeg", "-y",
+                        *input_flags,
+                        "-i", input_audio_path,            # đây là mixed audio
+                        "-map", "0:v",                     # chỉ lấy video từ đầu vào thứ nhất
+                        "-map", "1:a",                     # chỉ lấy audio từ mixed_audio
+                        "-t", str(duration),
+                        "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p",
+                        "-c:a", "aac", "-b:a", "192k",
+                        "-shortest", "-threads", "4",
+                        output_video_path
+                    ]
                 else:
-                    command = ["ffmpeg", "-y", *input_flags, "-i", input_audio_path, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-tune", "stillimage", "-c:a", "aac", "-b:a", "192k", "-shortest", "-threads", "4", output_video_path]
+                    command = [
+                        "ffmpeg", "-y",
+                        *input_flags,
+                        "-i", input_audio_path,
+                        "-map", "0:v",
+                        "-map", "1:a",
+                        "-t", str(duration),
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-tune", "stillimage",
+                        "-c:a", "aac", "-b:a", "192k",
+                        "-shortest", "-threads", "4",
+                        output_video_path
+                    ]
                 if run_command_ffmpeg(command, False):
                     remove_file(mixed_audio_path)
                     txt_path = os.path.join(folder_mp3, f"{name}.txt")
@@ -617,7 +1045,7 @@ class MainApp:
         except:
             getlog()
 
-    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text="", image_path=None, final_folder=None, mid_text=None):
+    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text="", image_path=None, final_folder=None, mid_text=None, background_music_path=None, background_music_volume=0.5):
         try:
             if language != 'vi':
                 max_lenth_text = 250
@@ -710,7 +1138,7 @@ class MainApp:
                                 temp_audio_files.append(temp_audio_path)
                             continue
                         current_text_chunk += text_chunk
-                        if text_chunk and text_chunk != '.' and text_chunk != '..' and text_chunk != '. .' and text_chunk != ',':
+                        if text_chunk and text_chunk != '.' and text_chunk != '..' and text_chunk != '. .' and text_chunk != ',' and text_chunk != ',,' and text_chunk != '-' and text_chunk != ',,,':
                             if len(current_text_chunk) >= min_lenth_text:
                                 task_queue.put((current_text_chunk, temp_audio_path))
                                 temp_audio_files.append(temp_audio_path)
@@ -725,7 +1153,7 @@ class MainApp:
                                     text_chunk = text_chunk[3:]
                                 elif text_chunk.startswith('. ') or text_chunk.startswith(',.') or text_chunk.startswith('..'):
                                     text_chunk = text_chunk[2:]
-                                elif text_chunk.startswith('.'):
+                                elif text_chunk.startswith('.') or text_chunk.startswith(',') or text_chunk.startswith('-'):
                                     text_chunk = text_chunk[1:]
                                 elif text_chunk.startswith("' "):
                                     text_chunk = text_chunk[2:]
@@ -736,9 +1164,15 @@ class MainApp:
                                 try:
                                     torch.cuda.empty_cache()
                                     tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
+                                    if not os.path.exists(temp_audio_path):
+                                        print(f"{thatbai} chuyển văn bản thành giọng nói thất bại --> {text_chunk}")
+                                        return False
+                                    
+                                    mix_audio_path = mix_audio_with_background(temp_audio_path, background_music_path, background_music_volume)
                                     if image_path:
-                                        output_video_path = export_video_from_audio_image_text(temp_audio_path, image_path, text_chunk)
-                                        if output_video_path:
+                                        output_video_path = export_video_from_audio_image_text(mix_audio_path, image_path, text_chunk)
+                                        if output_video_path and os.path.exists(output_video_path):
+                                            remove_file(mix_audio_path)
                                             list_videos.append(output_video_path)
                                 except:
                                     try:
@@ -814,17 +1248,29 @@ class MainApp:
             start_idx = self.start_idx_var.get().strip()
             channel_name = self.channel_name_var.get().strip()
             language = self.language_var.get().strip()
-            background_music_volumn = self.background_music_volumn_var.get().strip()
+            try:
+                background_music_volume = float(self.background_music_volume_var.get().strip())/100
+            except:
+                print(f"{thatbai} Chọn âm lượng nhạc nền không hợp lệ.")
+                return
             model_path = os.path.join(current_dir, "models", "last_version_en")
-            first_text = f"Welcome to {channel_name}! Enjoy the story, and don't forget to like and subscribe to support the channel."
-            mid_text = f"You're listening to a story on {channel_name}. Don't forget to subscribe to follow the next episodes."
-            end_text = f"Thank you for listening! If you enjoyed the story, don't forget to like and subscribe. See you next time!"
+            first_text = mid_text = end_text = None
+            if channel_name:
+                first_text = f"Welcome to {channel_name}! Enjoy the story, and don't forget to like and subscribe to support the channel."
+                mid_text = f"You're listening to a story on {channel_name}. Don't forget to subscribe to follow the next episodes."
+                end_text = f"Thank you for listening! If you enjoyed the story, don't forget to like and subscribe. See you next time!"
             if language == 'vi':
-                first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các bộ truyện dịch, hãy like và đăng ký để giúp kênh ngày càng phát triển hơn nhé."
-                mid_text = f"Bạn đang nghe truyện tại {channel_name}, đừng quên đăng ký kênh để theo dõi các tập tiếp theo nhé."
-                end_text = f"Cảm ơn bạn đã xem hết video. Nhớ like, đăng ký kênh và ủng hộ mình ở các tập tiếp theo nhé."
+                model_path = os.path.join(current_dir, "models", "last_version_vi")
+                if channel_name:
+                    first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các bộ truyện dịch, hãy like và đăng ký để giúp kênh ngày càng phát triển hơn nhé."
+                    mid_text = f"Bạn đang nghe truyện tại {channel_name}, đừng quên đăng ký kênh để theo dõi các tập tiếp theo nhé."
+                    end_text = f"Cảm ơn bạn đã xem hết video. Nhớ like, đăng ký kênh và ủng hộ mình ở các tập tiếp theo nhé."
+            else:
+                try:
+                    language, speaker = language.strip().split('-')
+                except:
+                    language, speaker = 'en', 'brian'
 
-                model_path = os.path.join(current_dir, "models", "last_version_vi")  
             xtts_config_path = os.path.join(model_path, "config.json")
 
             speed_talk = self.speed_talk_var.get().strip()
@@ -833,7 +1279,7 @@ class MainApp:
                     speed_talk = float(speed_talk)
                 except:
                     speed_talk = 1.0
-            speaker_wav = get_ref_speaker_by_language(language)
+            speaker_wav = get_ref_speaker_by_language(language, speaker)
             if not speaker_wav:
                 return
             
@@ -844,12 +1290,12 @@ class MainApp:
                 return False
             output_folder = self.output_folder_var.get().strip()
             os.makedirs(output_folder, exist_ok=True)
-            self.config["language_tts"] = language
+            self.config["language_tts"] = self.language_var.get().strip()
             self.config["speed_talk"] = str(speed_talk)
             self.config["current_channel"] = channel_name
             self.config["output_folder"] = output_folder
             self.config["folder_story"] = folder_story
-            self.config["background_music_volumn"] = background_music_volumn
+            self.config["background_music_volume"] = self.background_music_volume_var.get().strip()
             if channel_name not in self.config["channels"]:
                 self.config["channels"].append(channel_name)
             self.save_config()
@@ -902,6 +1348,7 @@ class MainApp:
                         background_musics = get_file_in_folder_by_type(folder_story, '.wav') or []
 
             for i, txt_file in enumerate(txt_files):
+                background_music_path = os.path.join(folder_story, random.choice(background_musics)) if background_musics else None
                 one_file_start_time = time()
                 print(f'  --->  Bắt đầu chuyển text sang audio: {txt_file}')
                 t = time()
@@ -922,7 +1369,7 @@ class MainApp:
                     img_path = current_image
                 
                 if is_short_story:
-                    if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=None, end_text=None, image_path=img_path, final_folder=output_folder):
+                    if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=None, end_text=None, image_path=img_path, final_folder=output_folder, background_music_path=background_music_path, background_music_volume=background_music_volume):
                         print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
                         continue
                     else:
@@ -966,55 +1413,46 @@ class MainApp:
                             print(f"{thatbai} Định dạng không hỗ trợ.")
                             return
                         
-                        if len(background_musics) > 0:
-                            background_music_path = os.path.join(folder_story, random.choice(background_musics))
-                            audio_info = get_audio_info(output_audio_path)
-                            duration = audio_info.get('duration', None)
-                            if not duration:
-                                print(f"Có lỗi khi lấy thông tin audio {output_audio_path}")
-                                return
-                            duration = float(duration)
-                            # Bước 1: Lặp nhạc nền và cắt đúng độ dài
-                            looped_music_path = "temp_looped_music.wav"
-                            loop_cmd = [
-                                "ffmpeg", "-y",
-                                "-stream_loop", "-1",       # lặp vô hạn
-                                "-i", background_music_path,
-                                "-t", str(duration),        # cắt đúng thời lượng giọng nói
-                                "-ar", "24000",
-                                "-ac", "1",
-                                "-sample_fmt", "s16",
-                                looped_music_path
-                            ]
-                            if not run_command_ffmpeg(loop_cmd):
-                                print(f"{thatbai} Có lỗi khi tạo file {looped_music_path}")
-                                return
-
-                            mixed_audio_path = "mixed_audio.wav"
-                            mix_audio_cmd = [
-                                "ffmpeg", "-y",
-                                "-i", output_audio_path,  # audio giọng nói
-                                "-i", looped_music_path,  # nhạc nền
-                                "-filter_complex",
-                                "[0:a]aresample=24000,volume=1,pan=mono|c0=c0[va]; "
-                                f"[1:a]aresample=24000,volume={float(background_music_volumn)/100},pan=mono|c0=c0[bg]; "
-                                "[va][bg]amix=inputs=2:duration=first:dropout_transition=0",
-                                "-ar", "24000",              # đảm bảo sample rate đầu ra
-                                "-ac", "1",                  # mono
-                                "-c:a", "pcm_s16le",         # codec chuẩn cho WAV
-                                mixed_audio_path
-                            ]
-                            if run_command_ffmpeg(mix_audio_cmd):
-                                remove_file(output_audio_path)
-                                remove_file(looped_music_path)
-                                output_audio_path = mixed_audio_path
+                        output_audio_path = mix_audio_with_background(output_audio_path, background_music_path, background_music_volume)
+                        audio_info = get_audio_info(output_audio_path) or {}
+                        duration = audio_info.get('duration', None)
+                        if not duration:
+                            print(f"{thatbai} Không lấy được thông tin audio {output_audio_path}")
+                            return
+                        # if torch.cuda.is_available():
+                        #     print("---> Dùng GPU để xuất video...")
+                        #     command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-map", "0:v", "-map", "1:a", "-t", str(duration), "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+                        # else:
+                        #     input_str = ' '.join(input_flags)
+                        #     command = 
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
-                            command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
+                            command = [
+                                "ffmpeg", "-y",
+                                *input_flags,
+                                "-i", output_audio_path,
+                                "-map", "0:v", "-map", "1:a",
+                                "-t", str(duration),
+                                "-c:v", "h264_nvenc", "-cq", "30",
+                                "-pix_fmt", "yuv420p",
+                                "-c:a", "aac", "-b:a", "128k",
+                                "-shortest", "-threads", "4",
+                                output_video_path
+                            ]
                         else:
-                            input_str = ' '.join(input_flags)
-                            command = f'ffmpeg -y {input_str} -i "{output_audio_path}" -c:v libx264 -pix_fmt yuv420p -tune stillimage -c:a aac -b:a 128k -shortest -threads 4 "{output_video_path}"'
-
+                            print("---> Dùng CPU để xuất video...")
+                            command = [
+                                "ffmpeg", "-y",
+                                *input_flags,
+                                "-i", output_audio_path,
+                                "-map", "0:v", "-map", "1:a",
+                                "-t", str(duration),
+                                "-c:v", "libx264", "-tune", "stillimage",
+                                "-pix_fmt", "yuv420p",
+                                "-c:a", "aac", "-b:a", "128k",
+                                "-shortest", "-threads", "4",
+                                output_video_path
+                            ]
                         if run_command_ffmpeg(command, False):
                             print(f'{thanhcong} Xuất video thành công: {output_video_path}')
                             remove_or_move_file(txt_path)
@@ -2480,6 +2918,7 @@ class MainApp:
         self.edit_image_window = False
         self.export_video_window = False
         self.export_video_from_mp3_window = False
+        self.create_video_with_multi_audio_window = False
         self.is_extract_sub_image_audio_from_video_window = False
         self.is_convert_jpg_to_png = False
         self.clear_after_action()
@@ -2581,12 +3020,12 @@ class MainApp:
     def setting_window_size(self):
         if self.is_start_app:
             self.width = 500
-            self.height_window = 480
+            self.height_window = 530
         else:
             if self.is_start_window:
                 self.root.title("Review App")
                 self.width = 500
-                self.height_window = 480
+                self.height_window = 530
                 self.is_start_window = False
             elif self.is_open_common_setting:
                 self.root.title("Common Setting")
@@ -2698,6 +3137,11 @@ class MainApp:
                 self.width = 600
                 self.height_window = 313
                 self.export_video_from_mp3_window = False              
+            elif self.create_video_with_multi_audio_window:
+                self.root.title("Xuất video từ nhiều audio + hiển thị chữ")
+                self.width = 600
+                self.height_window = 650
+                self.create_video_with_multi_audio_window = False              
             elif self.is_extract_sub_image_audio_from_video_window:
                 self.root.title("Lấy âm thanh/ phụ đề/ ảnh từ video")
                 self.width = 700

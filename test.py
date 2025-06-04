@@ -29,6 +29,24 @@ def join_mp3_with_ffmpeg(input_folder, output_folder=None):
         remove_file(list_path)
         print(f"{thanhcong} Gộp file thành công.")
 
-input_folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\file goc"
-output_folder =r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP"
-# join_mp3_with_ffmpeg(input_folder, output_folder)
+input_folder = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\Sleepy History Channel\output_txt_files\tes"
+output_folder =r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\Sleepy History Channel\output_txt_files"
+join_mp3_with_ffmpeg(input_folder, output_folder)
+
+
+
+
+
+
+
+# # Loại bỏ audio nền trong video nền
+# background_path = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\background\lua.mp4"
+# background_out_path = r"E:\Python\developping\review comic\test\Truyen tieng anh\HISTORY STORY FOR SLEEP\background\lua_1.mp4"
+# command = [
+#     "ffmpeg", "-y",
+#     "-i", background_path,
+#     "-an",                     # xóa audio
+#     "-c:v", "copy",            # giữ nguyên video codec
+#     background_out_path
+# ]
+# run_command_ffmpeg(command)

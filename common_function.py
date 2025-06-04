@@ -53,6 +53,7 @@ from operator import itemgetter
 import pytesseract
 from selenium.webdriver.firefox.service import Service as ff_Service
 from selenium.webdriver.firefox.options import Options
+import textwrap
 
 print(f'torch_version: {torch.__version__}')  # Kiểm tra phiên bản PyTorch
 print(f'cuda_version: {torch.version.cuda}')  # Kiểm tra phiên bản CUDA mà PyTorch sử dụng
@@ -492,9 +493,15 @@ def get_firefox_driver_with_profile(target_email=None, show=True, proxy=None, em
 
     def get_profile_name_by_gmail():
         try:
-            if not target_email:
-                return None, False
             profiles = [name for name in os.listdir(firefox_profile_folder) if os.path.isdir(os.path.join(firefox_profile_folder, name))]
+            if not target_email:
+                for profile in profiles:
+                    lll = profile.split('.')[1]
+                    if lll == 'default':
+                        print(f"Dùng profile mặc định: {profile}")
+                        return profile, True
+                print(f"{canhbao} Không tìm thấy profile mặc định.")
+                return None, False
             for profile in profiles:
                 if f".{target_email}" in profile:
                     print(profile)
@@ -614,7 +621,7 @@ def get_firefox_driver_with_profile(target_email=None, show=True, proxy=None, em
             getlog()
 
     try:
-        target_email = target_email.replace(' ', '')
+        target_email = target_email.replace(' ', '') if target_email else None
         firefox_profile_folder = get_firefox_profile_folder()
         profile_name, is_create = get_profile_name_by_gmail()
         if not profile_name:
@@ -1691,6 +1698,15 @@ def get_audio_info(audio_path):
     streams_info = streams_info[0]
     return streams_info
 
+def get_audio_duration(audio_path):
+    try:
+        audio_info = get_audio_info(audio_path)
+        return float(audio_info.get('duration', None))
+    except:
+        print(f"{thatbai} Có lỗi khi lấy thông tin audio {audio_path}")
+        return None
+    
+
 def get_image_info(image_path):
     try:
         with Image.open(image_path) as img:
@@ -1858,39 +1874,39 @@ def merge_videos_use_ffmpeg(videos_folder, file_name=None, is_delete=False, vide
         return False, "Có lỗi trong quá trình gộp video"
 
 def merge_audio_use_ffmpeg(audios_folder, file_name=None, fast_combine=True, file_start_with="", output_folder=None):
-    print("Bắt đầu nối audio...")
-    temp_file_path = os.path.join(audios_folder, "temp.txt")
-    audios = get_file_in_folder_by_type(audios_folder, file_type=".mp3", start_with=file_start_with) or []
-    if len(audios) == 0:
-        audios = get_file_in_folder_by_type(audios_folder, file_type=".wav", start_with=file_start_with) or []
-        if len(audios) == 0:
-            return
-    if len(audios) <= 1:
-        return False, "Phải có ít nhất 2 video trong videos folder"
-    file_type = audios[0].split('.')[-1]
-    with open(temp_file_path, 'w') as f:
-        for audio in audios:
-            audio_path = os.path.join(audios_folder, audio)
-            f.write(f"file '{audio_path}'\n")
-    if not output_folder:
-        output_folder = f"{audios_folder}\\merge_audios"
-    os.makedirs(output_folder, exist_ok=True)
-    if file_name:
-        file_path = f"{output_folder}\\{file_name}.{file_type}"
-    else:
-        file_path = f"{output_folder}\\merge_audio.{file_type}"
-    command = connect_audio(temp_file_path, file_path, fast_connect=fast_combine)
     try:
+        print("Bắt đầu nối audio...")
+        temp_file_path = os.path.join(audios_folder, "temp.txt")
+        audios = get_file_in_folder_by_type(audios_folder, file_type=".mp3", start_with=file_start_with, noti=False) or []
+        if len(audios) == 0:
+            audios = get_file_in_folder_by_type(audios_folder, file_type=".wav", start_with=file_start_with, noti=False) or []
+            if len(audios) == 0:
+                print(f"{thatbai} Không tìm thấy audio trong thư mục {audios_folder}")
+                return
+        if len(audios) <= 1:
+            print(f"{thatbai} Phải có ít nhất 2 video trong videos folder")
+            return
+        file_type = audios[0].split('.')[-1]
+        with open(temp_file_path, 'w') as f:
+            for audio in audios:
+                audio_path = os.path.join(audios_folder, audio)
+                f.write(f"file '{audio_path}'\n")
+        if not output_folder:
+            output_folder = f"{audios_folder}\\merge_audios"
+        os.makedirs(output_folder, exist_ok=True)
+        if file_name:
+            file_path = f"{output_folder}\\{file_name}.{file_type}"
+        else:
+            file_path = f"{output_folder}\\merge_audio.{file_type}"
+        command = connect_audio(temp_file_path, file_path)
         if run_command_ffmpeg(command, False):
-            try:
-                remove_file(temp_file_path)
-            except:
-                pass
-            return True, f"Gộp audio thành công vào file {file_path}"
+            print(f"Gộp audio thành công vào file {file_path}")
+            remove_file(temp_file_path)
+        else:
+            print("Có lỗi khi gộp audio")
     except:
         getlog()
-    return False, "Có lỗi khi gộp audio"
-
+        print("Có lỗi khi gộp audio")
 
 def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=None):
     print("---> đang nối video...")
@@ -1900,18 +1916,6 @@ def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=N
             '-vf', 'fps=25', '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', 
             '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', output_file_path
         ]
-        # if torch.cuda.is_available():
-        #     print("---> Dùng GPU để nối video...")
-        #     command = [
-        #         "ffmpeg", "-f", "concat", "-safe", "0", "-i", temp_file_path,
-        #         "-vf", "fps=25",
-        #         "-c:v", "h264_nvenc",  # Sử dụng GPU
-        #         "-cq", "23",  # Chất lượng tương đương CRF 23
-        #         "-preset", "medium",  # Thay thế "veryfast" bằng preset tối ưu cho NVENC
-        #         "-pix_fmt", "yuv420p",  # Đảm bảo định dạng pixel phổ biến
-        #         "-c:a", "aac", "-b:a", "128k",
-        #         "-movflags", "+faststart", "-y", output_file_path
-        #     ]
     else:
         if max_fps:
             command = [
@@ -1923,19 +1927,18 @@ def connect_video(temp_file_path, output_file_path, fast_connect=True, max_fps=N
             ]
     return command
 
-def connect_audio(temp_file_path, output_file_path, fast_connect=True):
-    if fast_connect:
-        print("---> đang nối audio...")
-        command = [
-            'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
-            '-c:a', 'libmp3lame', '-b:a', '128k', '-y', output_file_path, '-loglevel', 'quiet'
-        ]
+def connect_audio(temp_file_path, output_file_path):
+    ext = os.path.splitext(output_file_path)[1].lower()
+    if ext == ".mp3":
+        codec = ['-c:a', 'libmp3lame', '-b:a', '192k']
+    elif ext == ".wav":
+        codec = ['-c:a', 'pcm_s16le']  # codec chuẩn cho wav
     else:
-        print("---> đang nối audio...")
-        command = [
-            'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path, 
-            '-c:a', 'libmp3lame', '-b:a', '128k', '-y', output_file_path, '-loglevel', 'quiet'
-        ]
+        raise ValueError(f"Định dạng đuôi không được hỗ trợ: {ext}")
+    command = [
+        'ffmpeg', '-f', 'concat', '-safe', '0', '-i', temp_file_path,
+        *codec, '-y', output_file_path, '-loglevel', 'quiet'
+    ]
     return command
     
 def add_watermark_by_ffmpeg(video_width, video_height, horizontal_watermark_position, vertical_watermark_position):
@@ -2520,11 +2523,22 @@ def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, spe
     except:
         print("Có lỗi khi thêm phụ đề và chuyển thành giọng nói !!!")
 
-def get_ref_speaker_by_language(language):
+def get_ref_speaker_by_language(language, speaker):
     if language == 'vi': 
         speaker_wav = os.path.join(current_dir, "models\\ref_data\\vi.wav")
     elif language == 'en':
-        speaker_wav = os.path.join(current_dir, "models\\ref_data\\en.wav")
+        if speaker == 'ian_cartwell':
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\ian_cartwell.wav")
+        elif speaker == 'jameson':
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\jameson.wav")
+        elif speaker == 'mellow_matt':
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\mellow_matt.wav")
+        elif speaker == 'joshua':
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\joshua.wav")
+        elif speaker == 'benjamin':
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\benjamin.wav")
+        else:
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\brian.wav")
     elif language == 'zh':
         speaker_wav = os.path.join(current_dir, "models\\ref_data\\zh.wav")
     else:
@@ -3121,113 +3135,61 @@ def add_star_effect(frame, frame_idx, w, h, star_list, max_stars=80):
 
     return frame, active_stars
 
-# def export_video_from_audio_image_text(
-#     audio_path, image_path, text=None,
-#     font_path=r"C:\Windows\Fonts\Calibri.ttf",
-#     font_size_ratio=0.06,
-#     base_color=(0, 255, 255),
-#     highlight_color=(0, 255, 0),
-#     fps=30,
-#     horizontal_padding=60
-# ):
-#     if not os.path.exists(audio_path) or not os.path.exists(image_path) or not text:
-#         print("❌ Thiếu dữ liệu đầu vào")
-#         return None
+def mix_audio_with_background(input_audio_path, background_music_path, background_music_volumn=0.5):
+    if not background_music_path:
+        return input_audio_path
+    folder = os.path.dirname(input_audio_path)
+    name = os.path.basename(input_audio_path)
+    audio_info = get_audio_info(input_audio_path)
+    duration = audio_info.get('duration', None)
+    if not duration:
+        print(f"Có lỗi khi lấy thông tin audio {input_audio_path}")
+        return None
 
-#     output_video_path = audio_path.replace('.wav', '.mp4')
-#     temp_video_path = "temp.mp4"
+    duration = float(duration)
 
-#     # Lấy thông tin audio
-#     audio_info = get_audio_info(audio_path)
-#     try:
-#         duration = float(audio_info.get('duration', 0))
-#     except Exception:
-#         duration = 0
+    # Bước 1: Lặp nhạc nền và cắt đúng độ dài
+    looped_music_path = "temp_looped_music.wav"
+    loop_cmd = [
+        "ffmpeg", "-y",
+        "-stream_loop", "-1",       # lặp vô hạn
+        "-i", background_music_path,
+        "-t", str(duration),        # cắt đúng thời lượng giọng nói
+        "-ar", "24000",
+        "-ac", "1",
+        "-sample_fmt", "s16",
+        looped_music_path
+    ]
+    if not run_command_ffmpeg(loop_cmd):
+        print(f"❌ Có lỗi khi tạo file {looped_music_path}")
+        return None
 
-#     if duration <= 0:
-#         print("❌ Không lấy được thời lượng audio.")
-#         return None
+    # Bước 2: Trộn giọng nói và nhạc nền
+    mixed_audio_path = os.path.join(folder, f"mix_{name}")
+    mix_audio_cmd = [
+        "ffmpeg", "-y",
+        "-i", input_audio_path,  # audio giọng nói
+        "-i", looped_music_path,  # nhạc nền
+        "-filter_complex",
+        "[0:a]aresample=24000,volume=1,pan=mono|c0=c0[va]; "
+        f"[1:a]aresample=24000,volume={background_music_volumn},pan=mono|c0=c0[bg]; "
+        "[va][bg]amix=inputs=2:duration=first:dropout_transition=0",
+        "-ar", "24000",
+        "-ac", "1",
+        "-c:a", "pcm_s16le",
+        mixed_audio_path
+    ]
+    if run_command_ffmpeg(mix_audio_cmd):
+        remove_file(input_audio_path)
+        remove_file(looped_music_path)
+        return mixed_audio_path
+    else:
+        print("❌ Có lỗi khi trộn audio.")
+        return None
 
-#     total_frames = int(duration * fps)
-#     highlight_end_frame = int(total_frames * 0.9)
 
-#     is_video = os.path.splitext(image_path)[-1].lower() in ['.mp4', '.mov', '.avi', '.mkv']
 
-#     if is_video:
-#         cap = cv2.VideoCapture(image_path)
-#         if not cap.isOpened():
-#             print(f"❌ Không thể mở video: {image_path}")
-#             return None
-#         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-#         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-#         total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-#     else:
-#         image = cv2.imread(image_path)
-#         if image is None:
-#             print(f"❌ Không thể đọc ảnh: {image_path}")
-#             return None
-#         h, w, _ = image.shape
 
-#     writer = cv2.VideoWriter(temp_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-
-#     # Load font
-#     try:
-#         font_size = int(h * font_size_ratio)
-#         font = ImageFont.truetype(font_path, font_size)
-#     except Exception as e:
-#         print(f"❌ Không thể load font: {e}")
-#         return None
-
-#     lines = split_text_into_lines_pil(text, w, font, horizontal_padding)
-#     total_chars = sum(len(line) for line in lines)
-
-#     video_frame_idx = 0  # Đếm số frame đang đọc trong video nền
-
-#     for frame_idx in range(total_frames):
-#         progress_ratio = min(1.0, frame_idx / highlight_end_frame)
-#         chars_to_highlight = int(total_chars * progress_ratio)
-
-#         if is_video:
-#             ret, frame = cap.read()
-#             if not ret:
-#                 # Lặp lại video nếu hết
-#                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-#                 ret, frame = cap.read()
-#             if not ret:
-#                 print("❌ Không thể đọc frame từ video nền.")
-#                 break
-#         else:
-#             frame = image.copy()
-
-#         frame = draw_text_with_highlight(
-#             frame, lines, chars_to_highlight,
-#             font, base_color, highlight_color
-#         )
-#         writer.write(frame)
-
-#     if is_video:
-#         cap.release()
-#     writer.release()
-
-#     # Ghép audio
-#     cmd = [
-#         "ffmpeg", "-y",
-#         "-i", temp_video_path,
-#         "-i", audio_path,
-#         "-c:v", "h264_nvenc",
-#         "-preset", "fast",
-#         "-c:a", "aac",
-#         "-b:a", "128k",
-#         "-shortest",
-#         output_video_path
-#     ]
-#     if run_command_ffmpeg(cmd):
-#         remove_file(temp_video_path)
-#         print(f"✅ Đã tạo video: {output_video_path}")
-#         return output_video_path
-#     else:
-#         print("❌ Ghép audio thất bại.")
-#         return None
 def export_video_from_audio_image_text(
     audio_path, image_path, text=None,
     font_path=r"C:\Windows\Fonts\Calibri.ttf",
@@ -3241,6 +3203,7 @@ def export_video_from_audio_image_text(
         print("❌ Thiếu dữ liệu đầu vào")
         return None
 
+    text = upper_first_character_of_sentences(text)
     output_video_path = audio_path.replace('.wav', '.mp4')
     temp_video_path = "temp.mp4"
 
@@ -3267,7 +3230,6 @@ def export_video_from_audio_image_text(
             return None
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     else:
         image = cv2.imread(image_path)
         if image is None:
@@ -3276,8 +3238,6 @@ def export_video_from_audio_image_text(
         h, w, _ = image.shape
 
     writer = cv2.VideoWriter(temp_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-
-    # Load font
     try:
         font_size = int(h * font_size_ratio)
         font = ImageFont.truetype(font_path, font_size)
@@ -3288,7 +3248,6 @@ def export_video_from_audio_image_text(
     lines = split_text_into_lines_pil(text, w, font, horizontal_padding)
     total_chars = sum(len(line) for line in lines)
 
-    stars = []
     for frame_idx in range(total_frames):
         progress_ratio = min(1.0, frame_idx / highlight_end_frame)
         chars_to_highlight = int(total_chars * progress_ratio)
@@ -3305,8 +3264,7 @@ def export_video_from_audio_image_text(
         else:
             frame = image.copy()
 
-        frame = draw_text_with_highlight( frame, lines, chars_to_highlight, font, base_color, highlight_color )
-        # frame, stars = add_star_effect(frame, frame_idx, w, h, stars)
+        frame = draw_multi_text_with_highlight( frame, lines, chars_to_highlight, font, base_color, highlight_color )
         writer.write(frame)
 
     if is_video:
@@ -3360,7 +3318,144 @@ def split_text_into_lines_pil(text, max_width, font, horizontal_padding=0):
 
     return lines
 
-def draw_text_with_highlight(img_cv2, lines, chars_to_highlight, font, base_color, highlight_color):
+def speed_up_audio(input_audio_path, speed=1.0):
+    try:
+        input_folder = os.path.dirname(input_audio_path)
+        file_name = os.path.basename(input_audio_path)
+        output_folder = os.path.join(input_folder, 'speeded_audios')
+        os.makedirs(output_folder, exist_ok=True)
+        output_path = os.path.join(output_folder, file_name)
+        if not (0.5 <= speed <= 2.0):
+            raise ValueError("Speed phải nằm trong khoảng từ 0.5 đến 2.0 do giới hạn của filter 'atempo'.")
+
+        # Lệnh ffmpeg
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-y",                      # Ghi đè nếu output đã tồn tại
+            "-i", input_audio_path,         # Đầu vào
+            "-filter:a", f"atempo={speed}",  # Thay đổi tốc độ âm thanh
+            "-vn",                    # Không xử lý video
+            output_path
+        ]
+        if run_command_ffmpeg(ffmpeg_cmd):
+            return output_path
+        return None
+    except:
+        return None
+
+# def draw_single_text_with_highlight(img_cv2, text, chars_to_highlight, font, base_color, highlight_color, margin=40, line_spacing=10):
+#     chars_to_highlight = int(chars_to_highlight * 1.05) 
+#     img_pil = Image.fromarray(cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB))
+#     draw = ImageDraw.Draw(img_pil)
+#     w, h = img_pil.size
+
+#     # Tách dòng tự động nếu dòng quá dài
+#     words = text.split()
+#     lines = []
+#     current_line = ""
+
+#     for word in words:
+#         test_line = current_line + (' ' if current_line else '') + word
+#         bbox = draw.textbbox((0, 0), test_line, font=font)
+#         if bbox[2] - bbox[0] > w - 2 * margin:
+#             lines.append(current_line)
+#             current_line = word
+#         else:
+#             current_line = test_line
+#     if current_line:
+#         lines.append(current_line)
+
+#     # Tính tổng chiều cao đoạn text
+#     line_heights = [draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines]
+#     total_height = sum(line_heights) + line_spacing * (len(lines) - 1)
+#     y_start = (h - total_height) // 2
+
+#     current_y = y_start
+#     highlighted = 0
+
+#     for line in lines:
+#         bbox_line = draw.textbbox((0, 0), line, font=font)
+#         line_width = bbox_line[2] - bbox_line[0]
+#         line_height = bbox_line[3] - bbox_line[1]
+#         x = (w - line_width) // 2
+
+#         # Vẽ từng ký tự để bôi màu
+#         for char in line:
+#             color = highlight_color if highlighted < chars_to_highlight else base_color
+#             draw.text((x, current_y), char, font=font, fill=color)
+
+#             bbox_char = draw.textbbox((0, 0), char, font=font)
+#             char_width = bbox_char[2] - bbox_char[0]
+#             x += char_width
+#             highlighted += 1
+
+#         current_y += line_height + line_spacing
+
+#     return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
+def draw_single_text_with_highlight(
+    img_cv2, text, chars_to_highlight, font,
+    base_color, highlight_color,
+    margin=40, line_spacing=8,
+    position='bottom'  # hoặc 'center'
+):
+    chars_to_highlight = int(chars_to_highlight * 1.05)
+    img_pil = Image.fromarray(cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(img_pil)
+    w, h = img_pil.size
+
+    # Tách dòng nếu dài quá
+    words = text.split()
+    lines = []
+    current_line = ""
+
+    for word in words:
+        test_line = current_line + (' ' if current_line else '') + word
+        bbox = draw.textbbox((0, 0), test_line, font=font)
+        if bbox[2] - bbox[0] > w - 2 * margin:
+            lines.append(current_line)
+            current_line = word
+        else:
+            current_line = test_line
+    if current_line:
+        lines.append(current_line)
+
+    # Tổng chiều cao text
+    line_heights = [
+        draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1]
+        for line in lines
+    ]
+    total_height = sum(line_heights) + line_spacing * (len(lines) - 1)
+
+    # Tính y_start theo vị trí
+    if position == 'bottom':
+        y_start = int(h * 0.97) - total_height  # cách đáy 10% chiều cao
+    else:  # center
+        y_start = (h - total_height) // 2
+
+    current_y = y_start
+    highlighted = 0
+
+    for line in lines:
+        bbox_line = draw.textbbox((0, 0), line, font=font)
+        line_width = bbox_line[2] - bbox_line[0]
+        line_height = bbox_line[3] - bbox_line[1]
+        x = (w - line_width) // 2
+
+        for char in line:
+            color = highlight_color if highlighted < chars_to_highlight else base_color
+            draw.text((x, current_y), char, font=font, fill=color)
+
+            bbox_char = draw.textbbox((0, 0), char, font=font)
+            char_width = bbox_char[2] - bbox_char[0]
+            x += char_width
+            highlighted += 1
+
+        current_y += line_height + line_spacing
+
+    return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
+def draw_multi_text_with_highlight(img_cv2, lines, chars_to_highlight, font, base_color, highlight_color):
     img_pil = Image.fromarray(cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(img_pil)
 
@@ -3724,15 +3819,27 @@ def load_config():
     save_to_json_file(config, config_path)
     return config
 
-supported_languages = {
-      "cn": "Chinese",
-      "en1": "English",
-      "en2": "English",
-      "vi": "Vietnamese"
-}
+supported_languages = ['vi', 'en-brian', 'en-jameson', 'en-mellow_matt', 'en-ian_cartwell', 'en-joshua', 'en-benjamin']
 
 
 special_word = {
+    " — ": ", ",
+    "— ":", ",
+    "—":", ",
+    "…": ".",
+    "“": "",
+    "”": "",
+    '"""': '"',
+    '""': '',
+    '—.': '.',
+    " ?": ".",
+    "?": ".",
+    "?.": ".",
+    "!.": ".",
+    " !": ".",
+    "!": ".",
+    ":": ".",
+    "...!": " ",
     "******":"",
     "*****":"",
     "****":"",
@@ -3743,6 +3850,8 @@ special_word = {
     "✓✓":"",
     "✓":"",
     "•":"",
+    ">":"",
+    "<":"",
     "♣ ♣ ♣ ♣ ♣ ♣":"",
     "♣ ♣ ♣ ♣ ♣":"",
     "♣ ♣ ♣ ♣":"",
@@ -3777,19 +3886,11 @@ special_word = {
     "---": "",
     "--": "",
     "_": " ",
-    " - ": ", ",
     "???": ".",
     "??": ".",
-    " ?": ".",
-    "?": ".",
-    "?.": ".",
     "!!!!": ".",
     "!!!": ".",
     "!!": ".",
-    "!.": ".",
-    " !": ".",
-    "!": ".",
-    ":": ".",
     "......": "",
     "...": ".",
     "..": ".",
@@ -3816,9 +3917,6 @@ special_word = {
     ". ,": ".",
     ".,": ".",
     ",.": ".",
-    "…": "",
-    "“": "",
-    "”": "",
     "‘": "",
     "’ ": "",
     "’.": ".",
@@ -3842,18 +3940,14 @@ special_word = {
     "キ":"",
     "Д゚":"",
     "`゚":"",
+    "⸻":"",
     "======":"",
     "=====":"",
     "====":"",
     "===":"",
     "==":"",
     "=>":" ",
-    "":"",
     "✔":"",
-    "en thunderscans.com":"",
-    "thunderscans.com":"",
-    "vng.com":"",
-    "ng.com":"",
     "!?":".",
     "?!":".",
     "...": ".",
@@ -3864,9 +3958,6 @@ special_word = {
     "————":" ",
     "———":" ",
     "——":" ",
-    " — ": ", ",
-    "— ":", ",
-    "—":", ",
     "╯":"",
     "╰":"",
     "┓":"",
@@ -3893,7 +3984,6 @@ special_word = {
     "〚": " ",
     "〛": " ",
     "–": " ",
-    "—": " ",
     "·": " ",
     "😂": "",
     "🤣": "",
@@ -4010,6 +4100,7 @@ special_word = {
     "✿": "",
     "❀": "",
     "❁": "",
+    "✍️": "",
     "❤": "",
     "♡": "",
     "♦": "",
@@ -4072,7 +4163,10 @@ special_word = {
     "✏": "",
     "<>>":"",
     "<>":"",
-    "fff":"",
+    "O(╯□╰)o":"",
+    "[○・`Д ́・○]":"",
+    "(キ`゚Д゚ ́)!!":"",
+    "(キ`゚Д゚ ́)":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -4130,15 +4224,31 @@ loai_bo_tieng_anh = {
     "LV. ":"level ",
     "To be continued":"",
     "FOR THE FASTEST RELEASES":"",
-    "O(╯□╰)o":"",
-    "[○・`Д ́・○]":"",
-    "(キ`゚Д゚ ́)!!":"",
-    "(キ`゚Д゚ ́)":"",
     "=":" ",
     "n/ô/vel/b//in dot c//om":"",
     "n/ô/vel/b//in":"",
     "dot c//om":"",
     "c//om":"",
+    "Discord: https://dsc.gg/wetried":"",
+    "Link to donations in the discord!":"",
+    "/translatingnovice":"",
+    "translatingnovice":"",
+    "Editor: Z0Rel":"",
+    "Translator: TranslatingNovice":"",
+    "Author's Q&A (5)":"",
+    "Author's Q&A":"",
+    "~ Support & Read 31 Advanced Chapters on My Patreon!":"",
+    "Support & Read 31 Advanced Chapters on My Patreon":"",
+    "(Just remove the hyphen to access Patreon normally.)":"",
+    "Just remove the hyphen to access Patreon normally":"",
+    "~ 31 Advanced Chapters Now Available on /dragonnx":"",
+    "31 Advanced Chapters Now Available on /dragonnx":"",
+    "/dragonnx":"",
+    "Long Chapter✍️":"",
+    "~ Thank you all so much for your support!":"",
+    "~ Support & Read 32 Advanced Chapters on My Patreon!":"",
+    "Advanced Chapters on My Patreon!":"",
+    "~ Support & Read":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -4149,12 +4259,19 @@ loai_bo_tieng_anh = {
 }
 
 loai_bo_tieng_viet = {
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
-    "fff": "",
+    " — ": ", ",
+    "— ":", ",
+    "—":", ",
+    "…": ".",
+    "“": "",
+    "”": "",
+    " ?": ".",
+    "?": ".",
+    "?.": ".",
+    "!.": ".",
+    " !": ".",
+    "!": ".",
+    ":": ".",
     "fff": "",
     "fff": "",
     "fff": "",
@@ -4166,7 +4283,7 @@ loai_bo_tieng_viet = {
     "’": "",
     " - ": ", ",
     "-": " ",
-    "NPC": "nờ pê xê",
+    " npc ": " nờ pê xê ",
     " nitơ ": " ni tơ ",
     "fff": "",
     "fff": "",
@@ -8114,6 +8231,8 @@ loi_chinh_ta = {
     "ffff": "ffff"
 }
 
+def upper_first_character_of_sentences(text):
+    return re.sub(r'(^|(?<=[.!?]\s))([a-z])', lambda m: m.group(1) + m.group(2).upper(), text)
 
 def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=True):
     try:
