@@ -21,7 +21,7 @@ download_info.json
 *.pem
 *.mp3
 *.mp4
-*.wav
+# *.wav
 *.pth
 vietnamese_dataset/
 dataset/
@@ -36,4 +36,3 @@ best_model*.pth
 *.pyc
 *.log
 /config.json
-# test*.py

@@ -2523,7 +2523,7 @@ def add_subtitle_into_video(video_path, subtitle_file, lang='vi', pitch=1.0, spe
     except:
         print("Có lỗi khi thêm phụ đề và chuyển thành giọng nói !!!")
 
-def get_ref_speaker_by_language(language, speaker):
+def get_ref_speaker_by_language(language, speaker=None):
     if language == 'vi': 
         speaker_wav = os.path.join(current_dir, "models\\ref_data\\vi.wav")
     elif language == 'en':

@@ -1260,6 +1260,7 @@ class MainApp:
                 mid_text = f"You're listening to a story on {channel_name}. Don't forget to subscribe to follow the next episodes."
                 end_text = f"Thank you for listening! If you enjoyed the story, don't forget to like and subscribe. See you next time!"
             if language == 'vi':
+                speaker = None
                 model_path = os.path.join(current_dir, "models", "last_version_vi")
                 if channel_name:
                     first_text = f"Chào mừng bạn đến với {channel_name}, kênh chuyên review các bộ truyện dịch, hãy like và đăng ký để giúp kênh ngày càng phát triển hơn nhé."
@@ -1419,12 +1420,7 @@ class MainApp:
                         if not duration:
                             print(f"{thatbai} Không lấy được thông tin audio {output_audio_path}")
                             return
-                        # if torch.cuda.is_available():
-                        #     print("---> Dùng GPU để xuất video...")
-                        #     command = ["ffmpeg", "-y", *input_flags, "-i", output_audio_path, "-map", "0:v", "-map", "1:a", "-t", str(duration), "-c:v", "h264_nvenc", "-cq", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-shortest", "-threads", "4", output_video_path]
-                        # else:
-                        #     input_str = ' '.join(input_flags)
-                        #     command = 
+
                         if torch.cuda.is_available():
                             print("---> Dùng GPU để xuất video...")
                             command = [
