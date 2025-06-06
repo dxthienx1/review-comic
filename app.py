@@ -23,6 +23,7 @@ class MainApp:
             self.config_xtts_last = get_json_data(last_config_xtts_path) or {}
             self.support_languages = supported_languages
             remove_file("log.txt")
+            self.device = device
             self.icon = None
             self.is_start_app = True
             self.is_start_window = False
@@ -1009,7 +1010,7 @@ class MainApp:
                         input_audio_path = mixed_audio_path
 
                 input_flags = ["-stream_loop", "-1", "-i", background_path] if background_path.lower().endswith('.mp4') else  ["-loop", "1", "-i", background_path]
-                if torch.cuda.is_available():
+                if self.device == 'cuda':
                     print("---> Dùng GPU để xuất video...")
                     command = [
                         "ffmpeg", "-y",
@@ -1047,8 +1048,6 @@ class MainApp:
 
     def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text="", image_path=None, final_folder=None, mid_text=None, background_music_path=None, background_music_volume=0.5):
         try:
-            if language != 'vi':
-                max_lenth_text = 250
             self.stop_audio_file = None
             if not output_path:
                 print(f'Chưa có tên file sau khi xuất video')
@@ -1289,6 +1288,7 @@ class MainApp:
             if not check_folder(folder_story):
                 print(f"{thatbai} Thư mục {folder_story} không hợp lệ hoặc không tồn tại.")
                 return False
+            background_folder = folder_story
             output_folder = self.output_folder_var.get().strip()
             os.makedirs(output_folder, exist_ok=True)
             self.config["language_tts"] = self.language_var.get().strip()
@@ -1305,51 +1305,58 @@ class MainApp:
                 print(f'{thatbai} Không tìm thấy file .txt chứa nội dung truyện trong thư mục {folder_story}')
                 return False
             is_mp4 = True
-            images = get_file_in_folder_by_type(folder_story, file_type='.mp4', noti=False) or []
+            background_musics = get_file_in_folder_by_type(background_folder, '.wav', noti=False) or []
+            if not background_musics:
+                background_musics = get_file_in_folder_by_type(background_folder, '.mp3', noti=False) or []
+            images = get_file_in_folder_by_type(background_folder, file_type='.mp4', noti=False) or []
             if len(images) == 0:
-                images = get_file_in_folder_by_type(folder_story, file_type='.png', noti=False) or []
+                images = get_file_in_folder_by_type(background_folder, file_type='.png', noti=False) or []
                 if len(images) == 0:
-                    print(f"{thatbai} Phải có ít nhất 1 video nền(.mp4) hoặc 1 ảnh (.png) trong thư mục {folder_story}")
-                    return False
+                    background_folder = os.path.join(current_dir, 'background')
+                    images = get_file_in_folder_by_type(background_folder, file_type='.mp4') or []
+                    if not images:
+                        print(f"{thatbai} Phải có ít nhất 1 video nền(.mp4) hoặc 1 ảnh (.png) trong thư mục {folder_story} hoặc thư mục {background_folder}")
+                        return False
+                    if not background_musics:
+                        background_musics = get_file_in_folder_by_type(background_folder, '.wav') or []
                 is_mp4 = False
             temp_output_folder = os.path.join(folder_story, 'temp_output')
             os.makedirs(temp_output_folder, exist_ok=True)
-            current_image = os.path.join(folder_story, images[0])
+            
             file_name = ""
             start_idx = int(start_idx) if start_idx.isdigit() else None
             num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
             
             tts_list = []
-            device = f"cuda:0" 
+            # device = f"cuda:0" if torch.cuda.is_available() else 'cpu'
+
             if num_gpus == 0:
-                device = 'cpu'
+                self.device = 'cpu'
             if start_idx is not None:
-                tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(device))
+                tts_list.append(TTS(model_path=model_path, config_path=xtts_config_path).to(self.device))
 
             print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
-            background_musics = get_file_in_folder_by_type(folder_story, '.wav') or []
-            if not background_musics:
-                background_musics = get_file_in_folder_by_type(folder_story, '.mp3') or []
-                if background_musics:
-                    mp3_file = random.choice(background_musics)
-                    mp3_path = os.path.join(folder_story, mp3_file)
-                    wav_path = os.path.join(folder_story, mp3_path[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
-
-                    # Cấu hình lệnh ffmpeg
-                    ffmpeg_cmd = [
-                        "ffmpeg", 
-                        "-y",  # ghi đè file nếu đã tồn tại
-                        "-i", mp3_path,  # đường dẫn đến file MP3
-                        "-ac", "1",  # 1 kênh âm thanh (mono)
-                        "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
-                        "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
-                        wav_path  # đường dẫn file WAV đầu ra
-                    ]
-                    if run_command_ffmpeg(ffmpeg_cmd):
-                        background_musics = get_file_in_folder_by_type(folder_story, '.wav') or []
+            
+            if len(background_musics) > 0:
+                mp3_file = random.choice(background_musics)
+                mp3_path = os.path.join(background_folder, mp3_file)
+                wav_path = os.path.join(background_folder, mp3_path[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
+                # Cấu hình lệnh ffmpeg
+                ffmpeg_cmd = [
+                    "ffmpeg", 
+                    "-y",  # ghi đè file nếu đã tồn tại
+                    "-i", mp3_path,  # đường dẫn đến file MP3
+                    "-ac", "1",  # 1 kênh âm thanh (mono)
+                    "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
+                    "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
+                    wav_path  # đường dẫn file WAV đầu ra
+                ]
+                if run_command_ffmpeg(ffmpeg_cmd):
+                    background_musics = get_file_in_folder_by_type(folder_story, '.wav') or []
 
             for i, txt_file in enumerate(txt_files):
-                background_music_path = os.path.join(folder_story, random.choice(background_musics)) if background_musics else None
+                current_image = os.path.join(background_folder, random.choice(images))
+                background_music_path = os.path.join(background_folder, random.choice(background_musics)) if background_musics else None
                 one_file_start_time = time()
                 print(f'  --->  Bắt đầu chuyển text sang audio: {txt_file}')
                 t = time()
@@ -1421,7 +1428,7 @@ class MainApp:
                             print(f"{thatbai} Không lấy được thông tin audio {output_audio_path}")
                             return
 
-                        if torch.cuda.is_available():
+                        if self.device == 'cuda':
                             print("---> Dùng GPU để xuất video...")
                             command = [
                                 "ffmpeg", "-y",

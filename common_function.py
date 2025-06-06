@@ -62,6 +62,7 @@ print(f'is_cuda_available: {torch.cuda.is_available()}')
 print(f"Số GPU khả dụng: {torch.cuda.device_count()}")
 for i in range(torch.cuda.device_count()):
     print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+# device = "cpu"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f'device: {device}')
 
@@ -2537,6 +2538,10 @@ def get_ref_speaker_by_language(language, speaker=None):
             speaker_wav = os.path.join(current_dir, "models\\ref_data\\joshua.wav")
         elif speaker == 'benjamin':
             speaker_wav = os.path.join(current_dir, "models\\ref_data\\benjamin.wav")
+        elif speaker == 'ryan':
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\ryan.wav")
+        elif speaker == 'female':
+            speaker_wav = os.path.join(current_dir, "models\\ref_data\\female.wav")
         else:
             speaker_wav = os.path.join(current_dir, "models\\ref_data\\brian.wav")
     elif language == 'zh':
@@ -3819,7 +3824,7 @@ def load_config():
     save_to_json_file(config, config_path)
     return config
 
-supported_languages = ['vi', 'en-brian', 'en-jameson', 'en-mellow_matt', 'en-ian_cartwell', 'en-joshua', 'en-benjamin']
+supported_languages = ['vi', 'en-brian', 'en-jameson', 'en-mellow_matt', 'en-ian_cartwell', 'en-joshua', 'en-benjamin', 'en-ryan', 'en-female']
 
 
 special_word = {

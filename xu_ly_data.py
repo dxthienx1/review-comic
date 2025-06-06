@@ -213,7 +213,7 @@ def convert_mp3_to_wav_in_directory(input_folder, speed, volume_level=1.0):
 
 input_folder = r"D:\Train\Hoan Thanh\Ian Cartwell 1.07 x 1.1"
 speed = 1.06
-volume_level = 0.8
+volume_level = 1
 # convert_mp3_to_wav_in_directory(input_folder, speed, volume_level=volume_level)
 
 
@@ -391,7 +391,7 @@ def process_txt_file(folder):
     except:
         getlog()
 
-folder = r"D:\youtube\Truyen tieng anh\HISTORY & SHOCKING EVENT"
+folder = r"D:\youtube\Truyen tieng anh\SHORT STORIES"
 # process_txt_file(folder)
 
 
