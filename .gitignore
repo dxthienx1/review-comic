@@ -20,7 +20,7 @@ download_info.json
 *.txt
 *.pem
 *.mp3
-*.mp4
+# *.mp4
 # *.wav
 *.pth
 vietnamese_dataset/
