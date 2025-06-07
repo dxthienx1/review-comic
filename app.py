@@ -155,7 +155,7 @@ class MainApp:
             driver.get(base_url)
             sleep(8)
             list_linkes = []
-            skip_text = ['discord', 'http', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads', '~ support & read', 'chapters available on']
+            skip_text = ['discord', "The author's patreon", 'by removing ads', 'tg://', '/user?', 'http:', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads', '~ support & read', 'chapters available on']
             start_down = True
             cnt_err = 0
             first_content = ""
@@ -188,9 +188,9 @@ class MainApp:
                                 if ele:
                                     list_contents = ele.find_elements(By.XPATH, './/p') or []
                                     if len(list_contents) > 0:
-                                        for p_ele in list_contents:
+                                        for j, p_ele in enumerate(list_contents):
                                             content = p_ele.text
-                                            if i == 0 and content.strip().lower().startswith('chapter'):
+                                            if (j == 0 or j == 1) and content.strip().lower().startswith('chapter'):
                                                 continue
                                             chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
                                 if not chapter_content.strip():
@@ -305,11 +305,11 @@ class MainApp:
                             if ele:
                                 list_contents = ele.find_elements(By.XPATH, './/p') or []
                                 if len(list_contents) > 0:
-                                    for i, p_ele in enumerate(list_contents):
+                                    for j, p_ele in enumerate(list_contents):
                                         content = p_ele.text
-                                        if i == 0 and content.strip().lower().startswith('chapter'):
+                                        if j == 0 and content.strip().lower().startswith('chapter'):
                                             continue
-                                        if i == 1 and content.strip().lower().startswith('chapter'):
+                                        if j == 1 and content.strip().lower().startswith('chapter'):
                                             continue
                                         
                                         if any(word.lower() in content.lower() for word in skip_text):
@@ -681,6 +681,10 @@ class MainApp:
             if not txt_paths:
                 print(f"{thatbai} Có lỗi khi xuất video.")
                 return
+            temp_folder = os.path.join(input_folder, 'temp_folder')
+            os.makedirs(temp_folder, exist_ok=True)
+            print(f"Tổng số file cần xử lý: {len(txt_paths)}")
+            cnt = 0
             for txt_file in txt_paths:
                 if self.is_stop_export_next_video:
                     return
@@ -690,11 +694,11 @@ class MainApp:
                 print(f"{tot} Bắt đầu xử lý file: {txt_file} --> Vui lòng đợi...")
 
                 # Prepare paths
-                audio_concat = f"temp_voice_{txt_name}.wav"
-                looped_music = f"temp_music_{txt_name}.wav"
-                mixed_audio = f"temp_mix_{txt_name}.mp3"
-                bg_video_temp = f"temp_video_bg_{txt_name}.mp4"
-                temp_video_path = f"temp_video_{txt_name}.mp4"
+                audio_concat = os.path.join(temp_folder, f"temp_voice_{txt_name}.wav")
+                looped_music = os.path.join(temp_folder, f"temp_music_{txt_name}.wav")
+                mixed_audio = os.path.join(temp_folder, f"temp_mix_{txt_name}.mp3")
+                bg_video_temp = os.path.join(temp_folder, f"temp_video_bg_{txt_name}.mp4")
+                temp_video_path = os.path.join(temp_folder, f"temp_video_{txt_name}.mp4")
                 output_path = os.path.join(output_folder, f"{txt_name}.mp4")
 
                 # Load texts
@@ -881,8 +885,9 @@ class MainApp:
                 if os.path.exists(output_path):
                     new_path = output_path.replace("--", "'")
                     os.rename(output_path, new_path)
-                    print(f"✅ Video created: {new_path} - Time: {time()-start_time:.2f}s")
-
+                    print(f"✅ Đã xuất video từ file {txt_file}\n---> Thời gian xử lý: {time()-start_time:.2f}s")
+                cnt += 1
+                print(f"Đã xử lý {cnt}/{len(txt_paths)} file")
         except Exception:
             getlog()
 

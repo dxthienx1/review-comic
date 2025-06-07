@@ -392,6 +392,6 @@ def process_txt_file(folder):
         getlog()
 
 folder = r"D:\youtube\Truyen tieng anh\SHORT STORIES"
-# process_txt_file(folder)
+process_txt_file(folder)
 
 
