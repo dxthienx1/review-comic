@@ -155,7 +155,7 @@ class MainApp:
             driver.get(base_url)
             sleep(8)
             list_linkes = []
-            skip_text = ['discord', "The author's patreon", 'by removing ads', 'tg://', '/user?', 'http:', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads', '~ support & read', 'chapters available on']
+            skip_text = ['discord', "The author's patreon", 'by removing ads', 'tg://', '/user', 'Link to donation', 'http:', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads', '~ support & read', 'chapters available on', 'Advanced Chapters']
             start_down = True
             cnt_err = 0
             first_content = ""
@@ -194,17 +194,9 @@ class MainApp:
                                                 continue
                                             chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
                                 if not chapter_content.strip():
-                                    if cnt_err < 2:
-                                        webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
-                                        sleep(2)
-                                        webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
-                                        print(f'Xác minh capcha')
-                                        sleep(5)
-                                        cnt_err += 1
-                                        start_chapter -= 1
-                                        continue
-                                    else:
-                                        break
+                                    print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                    remove_file(txt_path)
+                                    return
                             elif 'https://www.empirenovel' in  base_url:
                                 xpath = get_xpath_by_multi_attribute('div', ['id="read-novel"'])
                                 ele = get_element_by_xpath(driver, xpath)
@@ -225,8 +217,9 @@ class MainApp:
                                             cnt_err = 0
                                             continue
                                         else:
-                                            print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
-                                            break
+                                            print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                            remove_file(txt_path)
+                                            return
                             elif 'http://vietnamthuquan' in  link:
                                 xpath_links = "//div[contains(@onclick, 'chuongid')]"
                                 all_links = get_element_by_xpath(driver, xpath_links, multiple=True)
@@ -244,8 +237,9 @@ class MainApp:
                                             chapter_content = ""
                                             start_chapter += 1
                                         else:
-                                            print(f'Không trích xuất được nội dung truyện tại chương {i}!!!')
-                                            break
+                                            print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                            remove_file(txt_path)
+                                            return
                                 return
                             elif 'https://banlong.us/' in  link:
                                 xpath = get_xpath('div', 'published-content', contain=True)
@@ -291,9 +285,9 @@ class MainApp:
                                 cnt_err = 0
                                 start_chapter += 1
                             else:
-                                print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
                                 remove_file(txt_path)
-                                break
+                                return
             else:
                 for i in range(0, end_chapter-start_chapter+1):
                     txt_path = os.path.join(main_folder, f'{start_chapter}.txt')
@@ -322,17 +316,9 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        if cnt_err < 2:
-                                            webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
-                                            sleep(2)
-                                            webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
-                                            print(f'Xác minh capcha')
-                                            sleep(5)
-                                            cnt_err += 1
-                                            continue
-                                        else:
-                                            print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
-                                            break
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        remove_file(txt_path)
+                                        return
                                     next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
                                     if next_chap_ele:
                                         next_chap_ele.click()
@@ -357,8 +343,9 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
-                                        break
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        remove_file(txt_path)
+                                        return
                                     next_xpath = get_xpath('a', 'nextchap', contain=True)
                                     next_chap_ele = get_element_by_xpath(driver, next_xpath)
                                     if next_chap_ele:
@@ -387,8 +374,9 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
-                                        break
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        remove_file(txt_path)
+                                        return
                                     next_xpath = get_xpath_by_multi_attribute('a', ['id="chapter-right"'])
                                     next_chap_ele = get_element_by_xpath(driver, next_xpath)
                                     if next_chap_ele:
@@ -419,17 +407,9 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        if cnt_err < 2:
-                                            webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
-                                            sleep(2)
-                                            webdriver.ActionChains(driver).send_keys(Keys.SPACE).perform()
-                                            print(f'Xác minh capcha')
-                                            sleep(5)
-                                            cnt_err += 1
-                                            continue
-                                        else:
-                                            print(f'Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
-                                            break
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        remove_file(txt_path)
+                                        return
                                 next_xpath = get_xpath_by_multi_attribute('a', ['id="next_chap"'])
                                 next_ele = get_element_by_xpath(driver, next_xpath)
                                 if next_ele:
@@ -442,8 +422,8 @@ class MainApp:
         except:
             remove_file(txt_path)
             getlog()
-        finally:
-            self.close_driver()
+        # finally:
+        #     self.close_driver()
 
     def get_subtitle_from_image_window(self):
         def start_get_subtitle_from_image_thread():
@@ -644,6 +624,7 @@ class MainApp:
         random_img=False
     ):
         try:
+            self.is_stop_export_next_video = False
             input_folder = self.videos_edit_folder_var.get().strip()
             output_folder = os.path.join(input_folder, 'out_videos')
             os.makedirs(output_folder, exist_ok=True)
@@ -737,13 +718,19 @@ class MainApp:
                 bg_folder = os.path.join(input_folder, 'background')
                 os.makedirs(bg_folder, exist_ok=True)
                 
-                video_files = get_file_in_folder_by_type(bg_folder, '.mp4')
+                video_files = get_file_in_folder_by_type(bg_folder, '.mp4', noti=False) or []
+                music_files = get_file_in_folder_by_type(bg_folder, '.mp3', noti=False) or []
+                if not video_files:
+                    bg_folder = os.path.join(current_dir, 'background')
+                    os.makedirs(bg_folder, exist_ok=True)
+                    video_files = get_file_in_folder_by_type(bg_folder, '.mp4') or []
+                    if not video_files:
+                        print(f"{thatbai} Không tìm thấy file video nền.")
+                        return
+                    if not music_files:
+                        music_files = get_file_in_folder_by_type(bg_folder, '.mp3') or []
                 bg_video = os.path.join(bg_folder, random.choice(video_files)) if video_files else None
-                music_files = get_file_in_folder_by_type(bg_folder, '.mp3')
                 bg_music = os.path.join(bg_folder, random.choice(music_files)) if music_files else None
-                if not bg_video:
-                    print(f"{thatbai} Không tìm thấy file video nền.")
-                    return
 
                 # Audio durations and timeline
                 audio_durations = [get_audio_duration(p) for p in audio_paths]
@@ -888,6 +875,9 @@ class MainApp:
                     print(f"✅ Đã xuất video từ file {txt_file}\n---> Thời gian xử lý: {time()-start_time:.2f}s")
                 cnt += 1
                 print(f"Đã xử lý {cnt}/{len(txt_paths)} file")
+                if self.is_stop_export_next_video:
+                    print(f"{stop} Đã dừng xuất video")
+                    return
         except Exception:
             getlog()
 
@@ -912,6 +902,7 @@ class MainApp:
 
     def export_video_with_single_audio_and_background(self, audio_type='.mp3'):
         try:
+            self.is_stop_export_next_video = False
             folder_mp3 = self.videos_edit_folder_var.get().strip()
             try:
                 audio_speed = float(self.speed_talk_var.get().strip())
@@ -944,6 +935,7 @@ class MainApp:
             input_audios = get_file_in_folder_by_type(folder_mp3, audio_type) or []
             for audio_file in input_audios:
                 if self.is_stop_export_next_video:
+                    print(f"{stop} Đã dừng xuất video")
                     return
                 input_audio_path = os.path.join(folder_mp3, audio_file)
                 name = audio_file.replace(audio_type, '')
@@ -1247,6 +1239,7 @@ class MainApp:
     
     def export_text_story_to_video(self, is_short_story=False):
         try:
+            self.is_stop_export_next_video = False
             start_time = time()
             is_merge_videos = False
             start_idx = self.start_idx_var.get().strip()
@@ -1313,6 +1306,22 @@ class MainApp:
             background_musics = get_file_in_folder_by_type(background_folder, '.wav', noti=False) or []
             if not background_musics:
                 background_musics = get_file_in_folder_by_type(background_folder, '.mp3', noti=False) or []
+                if len(background_musics) > 0:
+                    mp3_file = random.choice(background_musics)
+                    mp3_path = os.path.join(background_folder, mp3_file)
+                    wav_path = os.path.join(background_folder, mp3_path[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
+                    # Cấu hình lệnh ffmpeg
+                    ffmpeg_cmd = [
+                        "ffmpeg", 
+                        "-y",  # ghi đè file nếu đã tồn tại
+                        "-i", mp3_path,  # đường dẫn đến file MP3
+                        "-ac", "1",  # 1 kênh âm thanh (mono)
+                        "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
+                        "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
+                        wav_path  # đường dẫn file WAV đầu ra
+                    ]
+                    if run_command_ffmpeg(ffmpeg_cmd):
+                        background_musics = get_file_in_folder_by_type(background_folder, '.wav') or []
             images = get_file_in_folder_by_type(background_folder, file_type='.mp4', noti=False) or []
             if len(images) == 0:
                 images = get_file_in_folder_by_type(background_folder, file_type='.png', noti=False) or []
@@ -1326,6 +1335,8 @@ class MainApp:
                         background_musics = get_file_in_folder_by_type(background_folder, '.wav') or []
                 is_mp4 = False
             temp_output_folder = os.path.join(folder_story, 'temp_output')
+            # if os.path.isdir(temp_output_folder):
+            #     os.remove(temp_output_folder)
             os.makedirs(temp_output_folder, exist_ok=True)
             
             file_name = ""
@@ -1342,22 +1353,7 @@ class MainApp:
 
             print(f"Sử dụng {len(tts_list)} mô hình: {num_gpus} trên GPU, {len(tts_list) - num_gpus} trên CPU")
             
-            if len(background_musics) > 0:
-                mp3_file = random.choice(background_musics)
-                mp3_path = os.path.join(background_folder, mp3_file)
-                wav_path = os.path.join(background_folder, mp3_path[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
-                # Cấu hình lệnh ffmpeg
-                ffmpeg_cmd = [
-                    "ffmpeg", 
-                    "-y",  # ghi đè file nếu đã tồn tại
-                    "-i", mp3_path,  # đường dẫn đến file MP3
-                    "-ac", "1",  # 1 kênh âm thanh (mono)
-                    "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
-                    "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
-                    wav_path  # đường dẫn file WAV đầu ra
-                ]
-                if run_command_ffmpeg(ffmpeg_cmd):
-                    background_musics = get_file_in_folder_by_type(folder_story, '.wav') or []
+
 
             for i, txt_file in enumerate(txt_files):
                 current_image = os.path.join(background_folder, random.choice(images))
@@ -1381,26 +1377,25 @@ class MainApp:
                 else:
                     img_path = current_image
                 
-                if is_short_story:
-                    if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=None, end_text=None, image_path=img_path, final_folder=output_folder, background_music_path=background_music_path, background_music_volume=background_music_volume):
-                        print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
-                        continue
+                output_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
+                if not os.path.exists(output_audio_path):
+                    if is_short_story:
+                        if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=None, end_text=None, image_path=img_path, final_folder=output_folder, background_music_path=background_music_path, background_music_volume=background_music_volume):
+                            print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
+                            continue
+                        else:
+                            print(f"{thatbai} Thời gian lỗi {datetime.now()}")
+                            return False
                     else:
-                        print(f"{thatbai} Thời gian lỗi {datetime.now()}")
-                        return False
-                else:
-                    if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
-                        print(f"{thatbai} Thời gian lỗi {datetime.now()}")
-                        return False
-                start_idx = 0
-                if speed_talk == 1.0:
-                    output_audio_path = temp_audio_path
-                else:
-                    output_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
-                    if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
-                        output_audio_path = temp_audio_path
-                    else:
-                        remove_file(temp_audio_path)
+                        if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
+                            print(f"{thatbai} Thời gian lỗi {datetime.now()}")
+                            return False
+                    start_idx = 0
+                    if speed_talk != 1.0:
+                        if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
+                            output_audio_path = temp_audio_path
+                        else:
+                            remove_file(temp_audio_path)
 
                 if os.path.exists(output_audio_path):
                     print(f'{thanhcong} Thời gian chuyển file {txt_file} sang audio là {time() - t}s')

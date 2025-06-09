@@ -267,14 +267,14 @@ def convert_wav_to_training_format(input_folder, speed=1.0, volume_level=1.0, tr
                 wav_output
             ]
 
-        run_command_ffmpeg(ffmpeg_cmd)
-        print(f"Đã chuẩn hóa {filename} thành {wav_output}")
+        if run_command_ffmpeg(ffmpeg_cmd):
+            print(f"Đã chuẩn hóa {filename} thành {wav_output}")
 
-input_folder = r"E:\Python\developping\XTTS-v2\dataset\en\ryan"
-speed = 1.06
-volume_level = 0.3
+input_folder = r"E:\Python\developping\XTTS-v2\dataset\en\wavs"
+speed = 0.96
+volume_level = 1
 trim_end = 0
-# convert_wav_to_training_format(input_folder, speed, volume_level, trim_end=trim_end)
+convert_wav_to_training_format(input_folder, speed, volume_level, trim_end=trim_end)
 
 
 
@@ -392,6 +392,6 @@ def process_txt_file(folder):
         getlog()
 
 folder = r"D:\youtube\Truyen tieng anh\SHORT STORIES"
-process_txt_file(folder)
+# process_txt_file(folder)
 
 
