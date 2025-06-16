@@ -135,30 +135,34 @@ def normalize_to_reference(folder, ref_volume=-22, speed=1.0, file_type='.wav'):
                 continue
 
             diff_db = ref_volume - cur_volume
-
             new_file = os.path.join(out_folder, file)
-            cmd = [
-                'ffmpeg', '-y',
-                '-i', path,
-                '-filter:a', f'volume={diff_db:.2f}dB,atempo={speed:.2f}',
-                new_file
-            ]
-            if run_command_ffmpeg(cmd):
-                print(f"🎧 {file}: {cur_volume:.2f} dB → {ref_volume:.2f} dB  ✅ OK")
-                shutil.move(path, finish_path)
+            if abs(diff_db) > 1:
+                cmd = [
+                    'ffmpeg', '-y',
+                    '-i', path,
+                    '-filter:a', f'volume={diff_db:.2f}dB,atempo={speed:.2f}',
+                    new_file
+                ]
+                if run_command_ffmpeg(cmd):
+                    print(f"🎧 {file}: {cur_volume:.2f} dB → {ref_volume:.2f} dB  ✅ OK")
+                    shutil.move(path, finish_path)
+                else:
+                    print(f"❌ {file}: Lỗi khi điều chỉnh")
+                    return
             else:
-                print(f"❌ {file}: Lỗi khi điều chỉnh")
-                return
+                print(f"   ---> File {path} có âm lượng {cur_volume} ---> không lệch nhiều so với {ref_volume}")
+                shutil.copy(path, new_file)
+                shutil.move(path, finish_path)
     except:
         getlog()
 
 # 🔧 GỌI THỰC TẾ
-audio_folder   = r'E:\Python\developping\XTTS-v2\dataset\en\ryan'
+audio_folder   = r'D:\youtube\Truyen tieng anh\HORROR\output_txt_files\The Midnight Funeral Dream'
 speed = 1
-ref_volume = -23
-file_type = '.wav'
+ref_volume = -24
+file_type = '.mp3'
 
-# normalize_to_reference(audio_folder, ref_volume, speed, file_type=file_type)
+normalize_to_reference(audio_folder, ref_volume, speed, file_type=file_type)
 
 
 

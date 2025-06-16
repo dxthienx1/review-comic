@@ -1128,6 +1128,23 @@ class MainApp:
                     task_queue = queue.Queue()
                     current_text_chunk = ""
                     for idx, text_chunk in enumerate(total_texts):
+                        text_chunk = cleaner_text(text=text_chunk, language=language)
+                        if text_chunk.startswith(',. '):
+                            text_chunk = text_chunk[3:]
+                        elif text_chunk.startswith('. ') or text_chunk.startswith(',.') or text_chunk.startswith('..'):
+                            text_chunk = text_chunk[2:]
+                        elif text_chunk.startswith('.') or text_chunk.startswith(',') or text_chunk.startswith('-'):
+                            text_chunk = text_chunk[1:]
+                        elif text_chunk.startswith("' "):
+                            text_chunk = text_chunk[2:]
+                        elif text_chunk.startswith("'"):
+                            text_chunk = text_chunk[1:]
+                        elif text_chunk.startswith("’"):
+                            text_chunk = text_chunk[1:]
+                            
+                        if text_chunk.endswith("'.") or text_chunk.endswith(".."):
+                            text_chunk = f'{text_chunk[:-2]}.'
+                            
                         temp_audio_path = os.path.join(output_folder, f"temp_audio_{idx}.wav")
                         if idx < start_idx:
                             if os.path.exists(temp_audio_path):
@@ -1144,19 +1161,6 @@ class MainApp:
                         while not task_queue.empty():
                             try:
                                 text_chunk, temp_audio_path = task_queue.get_nowait()
-                                text_chunk = cleaner_text(text=text_chunk, language=language)
-                                if text_chunk.startswith(',. '):
-                                    text_chunk = text_chunk[3:]
-                                elif text_chunk.startswith('. ') or text_chunk.startswith(',.') or text_chunk.startswith('..'):
-                                    text_chunk = text_chunk[2:]
-                                elif text_chunk.startswith('.') or text_chunk.startswith(',') or text_chunk.startswith('-'):
-                                    text_chunk = text_chunk[1:]
-                                elif text_chunk.startswith("' "):
-                                    text_chunk = text_chunk[2:]
-                                elif text_chunk.startswith("'"):
-                                    text_chunk = text_chunk[1:]
-                                if text_chunk.endswith("'.") or text_chunk.endswith(".."):
-                                    text_chunk = f'{text_chunk[:-2]}.'
                                 try:
                                     torch.cuda.empty_cache()
                                     tts.tts_to_file(text=text_chunk, speaker_wav=speaker_wav, language=language, file_path=temp_audio_path, split_sentences=False)
@@ -1376,26 +1380,30 @@ class MainApp:
                     current_image = img_path
                 else:
                     img_path = current_image
-                
-                output_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
-                if not os.path.exists(output_audio_path):
-                    if is_short_story:
-                        if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=None, end_text=None, image_path=img_path, final_folder=output_folder, background_music_path=background_music_path, background_music_volume=background_music_volume):
-                            print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
-                            continue
+                temp_audios = get_file_in_folder_by_type(temp_output_folder, '.wav') or []
+                if len(temp_audios) != 1 or (len(temp_audios) == 1 and 'temp_audio' in temp_audios[0]):
+                    output_audio_path = os.path.join(temp_output_folder, f'{file_name}.wav')
+                    if not os.path.exists(output_audio_path):
+                        if is_short_story:
+                            if self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=None, end_text=None, image_path=img_path, final_folder=output_folder, background_music_path=background_music_path, background_music_volume=background_music_volume):
+                                print(f'{thanhcong} Tổng thời gian xử lý file {txt_file}: {time() - one_file_start_time}s')
+                                continue
+                            else:
+                                print(f"{thatbai} Thời gian lỗi {datetime.now()}")
+                                return False
                         else:
-                            print(f"{thatbai} Thời gian lỗi {datetime.now()}")
-                            return False
-                    else:
-                        if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
-                            print(f"{thatbai} Thời gian lỗi {datetime.now()}")
-                            return False
+                            if not self.text_to_speech_with_xtts_v2(txt_path, speaker_wav, language, output_path=temp_audio_path, tts_list=tts_list, start_idx=start_idx, first_text=first_text, end_text=end_text, mid_text=mid_text):
+                                print(f"{thatbai} Thời gian lỗi {datetime.now()}")
+                                return False
+                        start_idx = 0
+                        if speed_talk != 1.0:
+                            if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
+                                output_audio_path = temp_audio_path
+                            else:
+                                remove_file(temp_audio_path)
+                else:
                     start_idx = 0
-                    if speed_talk != 1.0:
-                        if not change_audio_speed(temp_audio_path, output_audio_path, speed_talk):
-                            output_audio_path = temp_audio_path
-                        else:
-                            remove_file(temp_audio_path)
+                    output_audio_path = os.path.join(temp_output_folder, temp_audios[0])
 
                 if os.path.exists(output_audio_path):
                     print(f'{thanhcong} Thời gian chuyển file {txt_file} sang audio là {time() - t}s')
@@ -1421,7 +1429,8 @@ class MainApp:
                             print(f"{thatbai} Định dạng không hỗ trợ.")
                             return
                         
-                        output_audio_path = mix_audio_with_background(output_audio_path, background_music_path, background_music_volume)
+                        if 'mix_' not in output_audio_path:
+                            output_audio_path = mix_audio_with_background(output_audio_path, background_music_path, background_music_volume)
                         audio_info = get_audio_info(output_audio_path) or {}
                         duration = audio_info.get('duration', None)
                         if not duration:

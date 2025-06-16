@@ -274,7 +274,7 @@ input_folder = r"E:\Python\developping\XTTS-v2\dataset\en\wavs"
 speed = 0.96
 volume_level = 1
 trim_end = 0
-convert_wav_to_training_format(input_folder, speed, volume_level, trim_end=trim_end)
+# convert_wav_to_training_format(input_folder, speed, volume_level, trim_end=trim_end)
 
 
 
@@ -391,7 +391,7 @@ def process_txt_file(folder):
     except:
         getlog()
 
-folder = r"D:\youtube\Truyen tieng anh\SHORT STORIES"
-# process_txt_file(folder)
+folder = r"D:\youtube\Truyen tieng anh\HISTORY STORY FOR SLEEP"
+process_txt_file(folder)
 
 
