@@ -119,12 +119,12 @@ def change_index_csv_train(input_file, output_file, start_idx=1, speaker_name="j
         print(f"Đã xảy ra lỗi: {e}")
 
 # Sử dụng hàm
-input_csv = r"E:\Python\developping\XTTS-v2\dataset\en\eval copy.csv"
-output_csv = r"E:\Python\developping\XTTS-v2\dataset\en\eval fff.csv"
+input_csv = r"E:\Python\developping\review comic\dataset\en\2.csv"
+output_csv = r"E:\Python\developping\review comic\dataset\en\2_edit.csv"
 speaker_name = 'ian_cartwell'
 is_eval=True
-start_idx = 3566
-# change_index_csv_train(input_csv, output_csv, start_idx=start_idx, speaker_name=speaker_name, is_eval=is_eval)
+start_idx = 130701
+change_index_csv_train(input_csv, output_csv, start_idx=start_idx, speaker_name=speaker_name, is_eval=is_eval)
 
 
 

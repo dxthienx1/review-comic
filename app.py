@@ -194,7 +194,7 @@ class MainApp:
                                                 continue
                                             chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
                                 if not chapter_content.strip():
-                                    print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                    print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                     remove_file(txt_path)
                                     return
                             elif 'https://www.empirenovel' in  base_url:
@@ -217,7 +217,7 @@ class MainApp:
                                             cnt_err = 0
                                             continue
                                         else:
-                                            print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                            print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                             remove_file(txt_path)
                                             return
                             elif 'http://vietnamthuquan' in  link:
@@ -237,7 +237,7 @@ class MainApp:
                                             chapter_content = ""
                                             start_chapter += 1
                                         else:
-                                            print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                            print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                             remove_file(txt_path)
                                             return
                                 return
@@ -285,7 +285,7 @@ class MainApp:
                                 cnt_err = 0
                                 start_chapter += 1
                             else:
-                                print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                 remove_file(txt_path)
                                 return
             else:
@@ -316,7 +316,7 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                         remove_file(txt_path)
                                         return
                                     next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
@@ -343,7 +343,7 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                         remove_file(txt_path)
                                         return
                                     next_xpath = get_xpath('a', 'nextchap', contain=True)
@@ -374,7 +374,7 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                         remove_file(txt_path)
                                         return
                                     next_xpath = get_xpath_by_multi_attribute('a', ['id="chapter-right"'])
@@ -407,7 +407,7 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}!!!')
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
                                         remove_file(txt_path)
                                         return
                                 next_xpath = get_xpath_by_multi_attribute('a', ['id="next_chap"'])

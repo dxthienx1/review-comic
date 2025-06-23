@@ -183,7 +183,25 @@ speed = 1
 
 #chuyển mp3 sang wav chuẩn training
 def convert_mp3_to_wav_in_directory(input_folder, speed, volume_level=1.0):
-    all_folders = get_file_in_folder_by_type(input_folder, file_type='')
+    def run_command_ffmpeg(command):
+        try:
+            completed = subprocess.run(
+                command,
+                check=True,
+                text=True,
+                encoding='utf-8',
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            print("❌ FFmpeg command failed:")
+            print("Command:", e.cmd)
+            print("Return code:", e.returncode)
+            print("Error output:\n", e.stderr)
+            return False
+        
+    all_folders = get_file_in_folder_by_type(input_folder, file_type='') or []
     for folder in all_folders:
         mp3_folder = os.path.join(input_folder, folder)
         mp3_files = get_file_in_folder_by_type(mp3_folder, '.mp3') or []
@@ -194,26 +212,31 @@ def convert_mp3_to_wav_in_directory(input_folder, speed, volume_level=1.0):
                 output_folder = os.path.join(mp3_folder, 'out')
                 os.makedirs(output_folder, exist_ok=True)
                 wav_path = os.path.join(output_folder, filename[:-4] + ".wav")  # Đổi phần mở rộng từ .mp3 thành .wav
-
+                if speed == 1:
+                    filter_audio = f"volume={volume_level}"
+                else:
+                    filter_audio = f"atempo={speed},volume={volume_level}"
                 # Cấu hình lệnh ffmpeg
                 ffmpeg_cmd = [
-                    "ffmpeg", 
-                    "-y",  # ghi đè file nếu đã tồn tại
-                    "-i", mp3_path,  # đường dẫn đến file MP3
-                    "-ac", "1",  # 1 kênh âm thanh (mono)
-                    "-ar", "24000",  # tần số mẫu (sampling rate) là 24kHz
-                    "-filter:a", f"atempo={speed},volume={volume_level}",  # tốc độ phát lại
-                    "-sample_fmt", "s16",  # định dạng mẫu âm thanh (16-bit)
-                    wav_path  # đường dẫn file WAV đầu ra
+                    "ffmpeg",
+                    "-y",
+                    "-i", mp3_path,
+                    "-ac", "1",
+                    "-ar", "24000",
+                    "-filter:a", filter_audio,
+                    "-sample_fmt", "s16",
+                    wav_path
                 ]
                 
                 # Chạy lệnh ffmpeg để chuyển đổi
                 if run_command_ffmpeg(ffmpeg_cmd):
                     print(f"Đã chuyển đổi {mp3_path} thành {wav_path}")
+                else:
+                    return
 
-input_folder = r"D:\Train\Hoan Thanh\Ian Cartwell 1.07 x 1.1"
-speed = 1.06
-volume_level = 1
+input_folder = r"E:\Train\brian"
+speed = 1
+volume_level = 1.1
 # convert_mp3_to_wav_in_directory(input_folder, speed, volume_level=volume_level)
 
 
@@ -392,6 +415,48 @@ def process_txt_file(folder):
         getlog()
 
 folder = r"D:\youtube\Truyen tieng anh\HISTORY STORY FOR SLEEP"
-process_txt_file(folder)
+# process_txt_file(folder)
 
 
+
+
+
+
+
+#đổi tên thư mục audio và file txt tương ứng trong thư mục train
+def rename_folders_and_txt(root_path, start_count = 1):
+    try:
+        folders = get_file_in_folder_by_type(root_path, file_type="") or []
+        for folder in folders:
+            folder_path = os.path.join(root_path, folder)
+            silent_audio_path = os.path.join(folder_path, "silent_0.4.mp3")
+            list_path = os.path.join(folder_path, "list.txt")
+            if os.path.exists(silent_audio_path):
+                remove_file(silent_audio_path)
+            if os.path.exists(list_path):
+                remove_file(list_path)
+            if folder.isdigit():
+                continue
+            if folder.endswith('_out'):
+                txt_file_path = os.path.join(root_path, f"{folder.replace('_out', '_train')}.txt")
+            else:
+                txt_file_path = os.path.join(root_path, f"{folder}_train.txt")
+
+            if os.path.exists(txt_file_path):
+                # Tạo tên mới theo thứ tự tăng dần
+                new_name = str(start_count)
+                new_folder_path = os.path.join(root_path, new_name)
+                new_txt_path = os.path.join(root_path, f"{new_name}.txt")
+
+                os.rename(folder_path, new_folder_path)
+                os.rename(txt_file_path, new_txt_path)
+
+                print(f"Đã đổi: '{folder}' và '{folder}.txt' → '{new_name}' và '{new_name}.txt'")
+                start_count += 1
+    except:
+        getlog()
+
+# Ví dụ sử dụng:
+root_dir = r"E:\Train\Ian Cartwell 1.07 x 1.1"
+start_count = 1
+# rename_folders_and_txt(root_dir, start_count)

@@ -1,24 +1,17 @@
 from common_function import *
 
-def prepare_xtts_training_data(base_dir, speaker_name, is_eval=False):
-    if is_eval:
-        wavs_dir=r'E:\Python\developping\review comic\dataset\en\eval'
-        csv_path=r'E:\Python\developping\review comic\dataset\en\eval.csv'
-    else:
-        # wavs_dir=r'E:\Python\developping\XTTS-v2\dataset\en\ryan'
-        wavs_dir=r'E:\Python\developping\XTTS-v2\dataset\en\wavs'
-        csv_path=r'E:\Python\developping\XTTS-v2\dataset\en\train.csv'
-
+def prepare_xtts_training_data(base_dir, wavs_dir, csv_path, speaker_name, is_eval=False, index=None):
     os.makedirs(wavs_dir, exist_ok=True)
     if not check_folder(base_dir):
         return
     
-    # Tìm số index lớn nhất trong thư mục wavs để đặt tên tiếp theo
-    existing_wavs = [
-        int(f.split('.')[0]) for f in os.listdir(wavs_dir)
-        if f.endswith('.wav') and f.split('.')[0].isdigit()
-    ]
-    index = max(existing_wavs, default=0) + 1
+    if not index:
+        # Tìm số index lớn nhất trong thư mục wavs để đặt tên tiếp theo
+        existing_wavs = [
+            int(f.split('.')[0]) for f in os.listdir(wavs_dir)
+            if f.endswith('.wav') and f.split('.')[0].isdigit()
+        ]
+        index = max(existing_wavs, default=0) + 1
 
     txt_files = get_file_in_folder_by_type(base_dir, '.txt') or []
     # Mở file CSV ở chế độ nối thêm
@@ -36,6 +29,10 @@ def prepare_xtts_training_data(base_dir, speaker_name, is_eval=False):
                         print(f"[WARNING] Không tìm thấy thư mục audio tương ứng: {audio_folder}")
                         return
                     wav_files = get_file_in_folder_by_type(audio_folder, '.wav') or None
+                    if not wav_files:
+                        print(f"{canhbao} Không tìm thấy audio trong thư mục: {audio_folder}")
+                        return
+
 
                 try:
                     with open(txt_path, 'r', encoding='utf-8') as f:
@@ -89,12 +86,13 @@ def prepare_xtts_training_data(base_dir, speaker_name, is_eval=False):
                 except Exception as e:
                     print(f"[ERROR] Lỗi khi xử lý file {txt_path}: {e}")
 
-
-# prepare_xtts_training_data(
-#     base_dir= r'D:\Train\Hoan Thanh\Ian Cartwell 1.07 x 1.1',
-#     speaker_name='ian_cartwell',
-#     is_eval=False
-# )
+is_eval = False
+base_dir = r"E:\Train\brian eval"
+wavs_dir = r'E:\Python\developping\review comic\dataset\en\1'
+csv_path = r"E:\Python\developping\review comic\dataset\en\1.csv"
+speaker_name = 'brian'
+index = 4400
+# prepare_xtts_training_data(base_dir=base_dir, wavs_dir=wavs_dir, csv_path=csv_path, speaker_name=speaker_name, is_eval=is_eval, index=index)
 
 
 
@@ -118,51 +116,54 @@ def get_mean_volume(filepath):
         print(f"Lỗi đo âm lượng file {filepath}: {e}")
     return None
 
-def normalize_to_reference(folder, ref_volume=-22, speed=1.0, file_type='.wav'):
+def normalize_to_reference(list_folders=[], ref_volume=-23, speed=1.0, file_type='.wav'):
     try:
-        out_folder = f"{folder}_out"
-        finish_folder = f"{folder}_done"
-        os.makedirs(out_folder, exist_ok=True)
-        os.makedirs(finish_folder, exist_ok=True)
-        wav_files = get_file_in_folder_by_type(folder, file_type) or []
-        for file in wav_files:
-            path = os.path.join(folder, file)
-            out_path = os.path.join(out_folder, file)
-            finish_path = os.path.join(finish_folder, file)
+        for folder in list_folders:
+            out_folder = f"{folder}_out"
+            finish_folder = f"{folder}_origine"
+            os.makedirs(out_folder, exist_ok=True)
+            os.makedirs(finish_folder, exist_ok=True)
+            wav_files = get_file_in_folder_by_type(folder, file_type) or []
+            for file in wav_files:
+                path = os.path.join(folder, file)
+                # out_path = os.path.join(out_folder, file)
+                finish_path = os.path.join(finish_folder, file)
 
-            cur_volume = get_mean_volume(path)
-            if cur_volume is None:
-                continue
+                cur_volume = get_mean_volume(path)
+                if cur_volume is None:
+                    continue
 
-            diff_db = ref_volume - cur_volume
-            new_file = os.path.join(out_folder, file)
-            if abs(diff_db) > 1:
-                cmd = [
-                    'ffmpeg', '-y',
-                    '-i', path,
-                    '-filter:a', f'volume={diff_db:.2f}dB,atempo={speed:.2f}',
-                    new_file
-                ]
-                if run_command_ffmpeg(cmd):
-                    print(f"🎧 {file}: {cur_volume:.2f} dB → {ref_volume:.2f} dB  ✅ OK")
-                    shutil.move(path, finish_path)
+                diff_db = ref_volume - cur_volume
+                new_file = os.path.join(out_folder, file)
+                if abs(diff_db) > 1:
+                    cmd = [
+                        'ffmpeg', '-y',
+                        '-i', path,
+                        '-filter:a', f'volume={diff_db:.2f}dB,atempo={speed:.2f}',
+                        new_file
+                    ]
+                    if run_command_ffmpeg(cmd):
+                        print(f"🎧 {file}: {cur_volume:.2f} dB → {ref_volume:.2f} dB  ✅ OK")
+                        shutil.move(path, finish_path)
+                    else:
+                        print(f"❌ {file}: Lỗi khi điều chỉnh")
+                        return
                 else:
-                    print(f"❌ {file}: Lỗi khi điều chỉnh")
-                    return
-            else:
-                print(f"   ---> File {path} có âm lượng {cur_volume} ---> không lệch nhiều so với {ref_volume}")
-                shutil.copy(path, new_file)
-                shutil.move(path, finish_path)
+                    print(f"   ---> File {path} có âm lượng {cur_volume} ---> không lệch nhiều so với {ref_volume}")
+                    shutil.copy(path, new_file)
+                    shutil.move(path, finish_path)
     except:
         getlog()
 
 # 🔧 GỌI THỰC TẾ
-audio_folder   = r'D:\youtube\Truyen tieng anh\HORROR\output_txt_files\The Midnight Funeral Dream'
-speed = 1
-ref_volume = -24
+audio_folder   = r'E:\Train\Mellow Matt'
+speed = 1.08
+ref_volume = -23
 file_type = '.mp3'
 
-normalize_to_reference(audio_folder, ref_volume, speed, file_type=file_type)
+list_folders_name = get_file_in_folder_by_type(audio_folder, file_type="") or []
+list_folders = [os.path.join(audio_folder, folder_name) for folder_name in list_folders_name]
+# normalize_to_reference(list_folders, ref_volume, speed, file_type=file_type)
 
 
 

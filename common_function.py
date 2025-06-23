@@ -3746,6 +3746,20 @@ def split_txt_by_chapter(input_file, max_chapters_per_file="50", start_text='ch�
     except:
         getlog()
         print(f'Có lỗi khi tách file {input_file}')
+
+
+def remove_dotted_words(text):
+    def replacer(match):
+        word = match.group()
+        if re.fullmatch(r'[A-Z.]+', word):  # toàn in hoa và dấu chấm
+            return word.replace('.', ' ')
+        elif re.search(r'[a-z]', word):     # có chữ thường
+            return word.replace('.', '')
+        else:
+            return word  # không thay đổi
+
+    # Tìm các từ có dấu . (và chứa ký tự chữ)
+    return re.sub(r'\b[\w.]*\.[\w.]*\b', replacer, text)
 #------------------------------------------------commond--------------------------------------------------
 
 def get_custom_model(folder):
@@ -3837,14 +3851,6 @@ special_word = {
     '"""': '"',
     '""': '',
     '—.': '.',
-    " ?": ".",
-    "?": ".",
-    "?.": ".",
-    "!.": ".",
-    " !": ".",
-    "!": ".",
-    ":": ".",
-    "...!": " ",
     "******":"",
     "*****":"",
     "****":"",
@@ -3893,10 +3899,20 @@ special_word = {
     "_": " ",
     "???": ".",
     "??": ".",
+    " ?": ".",
+    "?": ".",
+    "?.": ".",
     "!!!!": ".",
     "!!!": ".",
     "!!": ".",
+    "...!": " ",
+    "!.": ".",
+    " !": ".",
+    "!": ".",
+    ":": ".",
     "......": "",
+    ".....": "",
+    "....": "",
     "...": ".",
     "..": ".",
     ",,,": ",",
@@ -4254,7 +4270,6 @@ loai_bo_tieng_anh = {
     "~ Support & Read 32 Advanced Chapters on My Patreon!":"",
     "Advanced Chapters on My Patreon!":"",
     "~ Support & Read":"",
-    "fff":"",
     "fff":"",
     "fff":"",
     "fff":"",
@@ -8258,6 +8273,7 @@ def cleaner_text(text, is_loi_chinh_ta=False, language='vi', is_conver_number=Tr
                 for wrong, correct in loi_chinh_ta.items():
                     text = re.sub(rf'\b{re.escape(wrong)}(\W?)', rf'{correct}\1', text)
         elif language == 'en':
+            text = remove_dotted_words(text)
             text = text.lower().strip()
             # if is_conver_number:
             #     text = number_to_english_with_units(text)
