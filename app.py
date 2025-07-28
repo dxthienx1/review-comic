@@ -25,6 +25,7 @@ class MainApp:
             remove_file("log.txt")
             self.device = device
             self.icon = None
+            self.skip_texts = skip_texts
             self.is_start_app = True
             self.is_start_window = False
             self.is_edit_video_window = False
@@ -155,7 +156,7 @@ class MainApp:
             driver.get(base_url)
             sleep(8)
             list_linkes = []
-            skip_text = ['discord', "The author's patreon", 'by removing ads', 'tg://', '/user', 'Link to donation', 'http:', 'Translator:', 'TL:', 'For extra chapters', 'chapters ahead on patreon', 'by removing ads', '~ support & read', 'chapters available on', 'Advanced Chapters']
+            skip_text = self.skip_texts
             start_down = True
             cnt_err = 0
             first_content = ""
@@ -310,20 +311,26 @@ class MainApp:
                                             continue
                                         chapter_content = f'{chapter_content}\n{content}' if chapter_content else content
 
-                                    if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
-                                        first_content = chapter_content.strip()
-                                        file.write(f'{chapter_content.strip()}')
-                                        start_chapter += 1
-                                        cnt_err = 0
-                                    else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
-                                        remove_file(txt_path)
-                                        return
-                                    next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
-                                    if next_chap_ele:
-                                        next_chap_ele.click()
-                                        sleep(4)
-                                        continue
+                                else:
+                                    text = ele.text
+                                    if not text.startswith('Chapter') or not text.startswith('chapter'):
+                                        match = re.search(r'\b[Cc]hapter\b.*', text)
+                                        if match:
+                                            chapter_content = text[match.start():]
+
+                                if chapter_content.strip() and chapter_content.strip()[:200] not in first_content:
+                                    first_content = chapter_content.strip()
+                                    file.write(f'{chapter_content.strip()}')
+                                    start_chapter += 1
+                                else:
+                                    print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}')
+                                    remove_file(txt_path)
+                                    return
+                                next_chap_ele = get_element_by_text(driver, 'Next Chapter', 'span')
+                                if next_chap_ele:
+                                    next_chap_ele.click()
+                                    sleep(4)
+                                    continue
                         elif 'https://www.lightnovelpub' in  base_url:
                             xpath = get_xpath_by_multi_attribute('div', ['id="chapter-container"'])
                             ele = get_element_by_xpath(driver, xpath)
@@ -343,7 +350,7 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}')
                                         remove_file(txt_path)
                                         return
                                     next_xpath = get_xpath('a', 'nextchap', contain=True)
@@ -374,7 +381,7 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}')
                                         remove_file(txt_path)
                                         return
                                     next_xpath = get_xpath_by_multi_attribute('a', ['id="chapter-right"'])
@@ -407,7 +414,7 @@ class MainApp:
                                         start_chapter += 1
                                         cnt_err = 0
                                     else:
-                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter} ---> \n{link}')
+                                        print(f'{thatbai} Không trích xuất được nội dung truyện tại chương {start_chapter}')
                                         remove_file(txt_path)
                                         return
                                 next_xpath = get_xpath_by_multi_attribute('a', ['id="next_chap"'])
@@ -590,14 +597,15 @@ class MainApp:
         self.setting_window_size()
         self.videos_edit_folder_var = create_frame_button_and_input(self.root,text="Thư mục chứa file .txt", command=self.choose_videos_edit_folder, width=self.width, left=0.3, right=0.7)
         self.videos_edit_folder_var.insert(0, self.config['folder_txt'] if 'folder_txt' in self.config else "")
+        self.image_folder_var = create_frame_button_and_input(self.root, text="Thư mục chứa ảnh", command=self.choose_image_folder, width=self.width, left=0.3, right=0.7)
         self.audio_speed_var = self.create_settings_input(text="Tốc độ giọng đọc", config_key="speed_talk", values=['0.8', '0.9', '1.0', '1.1', '1.2'], left=0.3, right=0.7)
         self.audio_speed_var.set(self.config['audio_speed'] if 'audio_speed' in self.config else "1")
         self.audio_volume_var = self.create_settings_input(text="Âm lượng giọng đọc(%)", values=['100', '200', '300'], left=0.3, right=0.7)
         self.audio_volume_var.set(self.config['audio_volume'] if 'audio_volume' in self.config else "100")
         self.background_music_volume_var = self.create_settings_input(text="Âm lượng nhạc nền(%)", config_key='background_music_volume', values=['30', '50', '70'], left=0.3, right=0.7)
         self.background_music_volume_var.set(self.config['background_music_volume'] if 'background_music_volume' in self.config else "20")
-        self.image_display_ratio_var = self.create_settings_input(text="Thời lượng hiển thị ảnh(%)", values=['30', '50', '100'], left=0.3, right=0.7)
-        self.image_display_ratio_var.set('100')
+        self.input_image_duration_var = self.create_settings_input(text="Thời lượng hiển thị mỗi ảnh(s)", values=['6', '8', '10'], left=0.3, right=0.7)
+        self.input_image_duration_var.set('10')
         self.alpha_var = self.create_settings_input(text="Độ mờ hiển thị ảnh(%)", values=['30', '50', '100'], left=0.3, right=0.7)
         self.alpha_var.set(self.config['alpha'] if 'alpha' in self.config else "50")
         self.random_img_var = self.create_settings_input(text="Thứ tự lấy ảnh", values=['random', 'vị trí', 'sắp xếp theo tên'], left=0.3, right=0.7)
@@ -626,6 +634,7 @@ class MainApp:
         try:
             self.is_stop_export_next_video = False
             input_folder = self.videos_edit_folder_var.get().strip()
+            img_folder = self.image_folder_var.get().strip()
             output_folder = os.path.join(input_folder, 'out_videos')
             os.makedirs(output_folder, exist_ok=True)
 
@@ -633,8 +642,8 @@ class MainApp:
             background_music_volume = float(self.background_music_volume_var.get().strip()) / 100
             audio_volume = float(self.audio_volume_var.get().strip()) / 100
             audio_speed = float(self.audio_speed_var.get().strip())
-            image_display_ratio = float(self.image_display_ratio_var.get().strip()) / 100
-            alpha = float(self.alpha_var.get().strip()) / 100
+            input_image_duration = float(self.input_image_duration_var.get().strip())
+            opacity = float(self.alpha_var.get().strip()) / 100
             try:
                 font_size = int(float(self.text_size_var.get().strip()) * font_size)
             except:
@@ -653,7 +662,7 @@ class MainApp:
                 'background_music_volume': self.background_music_volume_var.get().strip(),
                 'audio_volume': self.audio_volume_var.get().strip(),
                 'audio_speed': self.audio_speed_var.get().strip(),
-                'image_display_ratio': self.image_display_ratio_var.get().strip(),
+                'image_display_ratio': self.input_image_duration_var.get().strip(),
                 'alpha': self.alpha_var.get().strip()
             })
             self.save_config()
@@ -707,10 +716,14 @@ class MainApp:
                     audio_paths = [speed_up_audio(path, audio_speed) for path in audio_paths]
 
                 # Image paths
-                img_folder = os.path.join(audio_folder, 'img')
+                if not check_folder(img_folder, noti=False):
+                    img_folder = os.path.join(audio_folder, 'img')
                 image_paths = []
                 if os.path.isdir(img_folder):
-                    image_paths = [os.path.join(img_folder, f) for f in get_file_in_folder_by_type(img_folder, '.png')] or []
+                    try:
+                        image_paths = [os.path.join(img_folder, f) for f in get_file_in_folder_by_type(img_folder, '.png', noti=False)] or []
+                    except:
+                        image_paths = [os.path.join(img_folder, f) for f in get_file_in_folder_by_type(img_folder, '.jpg')] or []
                     if random_img:
                         random.shuffle(image_paths)
 
@@ -761,7 +774,16 @@ class MainApp:
                         "[va][bg]amix=inputs=2:duration=first:dropout_transition=0",
                         "-ar",str(sample_rate),"-ac",str(channels),"-c:a","libmp3lame","-q:a","2",mixed_audio
                     ])
-                final_audio = mixed_audio if bg_music else audio_concat
+                else:
+                    run_command_ffmpeg([
+                        "ffmpeg", "-y",
+                        "-i", audio_concat,
+                        "-filter:a", f"volume={audio_volume}",
+                        "-ar", str(sample_rate), "-ac", str(channels),
+                        "-c:a", "libmp3lame", "-q:a", "2",
+                        mixed_audio  # Ghi đè vào mixed_audio hoặc tạo file riêng
+                    ])
+                final_audio = mixed_audio
 
                 # 4. Prepare background video
                 if bg_video and not os.path.exists(bg_video_temp):
@@ -777,57 +799,70 @@ class MainApp:
                 out = cv2.VideoWriter(temp_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width,height))
                 font = ImageFont.truetype(font_path, font_size)
                 total_frames = int(total_duration * fps)
-                image_frames = int(total_duration * image_display_ratio * fps)
-                # per_img = image_frames // max(len(image_paths),1)
-                # image_effects = [random.choice(['left', 'right', 'zoom']) for _ in image_paths]
-                min_frame_per_img = 20
+                min_image_duration = 6
+                min_fade = 1
+                max_fade = 3
+                zoom_scale = 1.15
+                pan_max_shift = 60
 
-                # Số lượng ảnh không vượt quá image_frames // min_frame_per_img
-                max_img_displayable = image_frames // min_frame_per_img
+                image_duration = max(min_image_duration, input_image_duration)
+                frames_per_image = int(image_duration * fps)
+                max_img_displayable = (total_frames + frames_per_image - 1) // frames_per_image
 
-                # Chỉ dùng số ảnh phù hợp để đảm bảo mỗi ảnh có đủ frame
                 safe_image_paths = image_paths[:max_img_displayable] if max_img_displayable > 0 else []
-
                 # Cập nhật lại các biến liên quan
                 image_effects = [random.choice(['left', 'right', 'zoom']) for _ in safe_image_paths]
-                per_img = image_frames // max(len(safe_image_paths), 1)
+
                 for frame_idx in range(total_frames):
                     ret, frame = cap.read()
                     if not ret:
                         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                         ret, frame = cap.read()
-                    if image_paths and frame_idx < image_frames:
-                        img_idx = min(frame_idx // per_img, len(image_paths) - 1)
-                        img = cv2.imread(image_paths[img_idx])
-                        img = cv2.resize(img, (width, height))
+
+                    def ease_in_out(t):  # cubic easing in-out
+                        return 3 * t**2 - 2 * t**3
+
+                    # Inside loop
+                    if safe_image_paths and frame_idx < total_frames:
+                        img_idx = min(frame_idx // frames_per_image, len(safe_image_paths) - 1)
+                        local_frame = frame_idx % frames_per_image
+                        per_img = frames_per_image
+                        img = cv2.imread(safe_image_paths[img_idx])
 
                         effect = image_effects[img_idx]
-                        local_frame = frame_idx % per_img
-                        progress = local_frame / per_img
+                        progress = ease_in_out(local_frame / per_img)  # dùng easing thay vì tuyến tính
+                        fade_frames = min( max(per_img // 5, int(fps * min_fade)), int(fps * max_fade), per_img // 2 )
 
-                        zoom_scale = 1.15  # Zoom mạnh hơn nhẹ
-                        pan_max_shift = 60
+                        if local_frame < fade_frames:
+                            alpha = local_frame / fade_frames
+                        elif local_frame >= per_img - fade_frames:
+                            alpha = (per_img - local_frame) / fade_frames
+                        else:
+                            alpha = 1.0
+                        alpha *= opacity
 
                         if effect == 'zoom':
                             zoom_factor = 1 + (zoom_scale - 1) * progress
-                            new_w = int(width * zoom_factor)
-                            new_h = int(height * zoom_factor)
-                            resized_img = cv2.resize(img, (new_w, new_h))
-                            x_start = (new_w - width) // 2
-                            y_start = (new_h - height) // 2
-                            cropped_img = resized_img[y_start:y_start+height, x_start:x_start+width]
+                            center = (img.shape[1] / 2, img.shape[0] / 2)
+                            M = cv2.getRotationMatrix2D(center, 0, zoom_factor)
+                            zoomed_img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
+                            if (zoomed_img.shape[1], zoomed_img.shape[0]) != (width, height):
+                                cropped_img = cv2.resize(zoomed_img, (width, height), interpolation=cv2.INTER_LINEAR)
+                            else:
+                                cropped_img = zoomed_img
                         elif effect == 'left':
-                            x_shift = int(pan_max_shift * progress)
+                            x_shift = pan_max_shift * progress
                             new_w = width + pan_max_shift
-                            resized_img = cv2.resize(img, (new_w, height))
-                            cropped_img = resized_img[:, x_shift:x_shift+width]
+                            resized_img = cv2.resize(img, (int(new_w), height), interpolation=cv2.INTER_LINEAR)
+                            cropped_img = resized_img[:, int(x_shift):int(x_shift + width)]
                         elif effect == 'right':
-                            x_shift = int(pan_max_shift * progress)
+                            x_shift = pan_max_shift * progress
                             new_w = width + pan_max_shift
-                            resized_img = cv2.resize(img, (new_w, height))
-                            cropped_img = resized_img[:, pan_max_shift - x_shift:pan_max_shift - x_shift + width]
+                            resized_img = cv2.resize(img, (int(new_w), height), interpolation=cv2.INTER_LINEAR)
+                            start = pan_max_shift - x_shift
+                            cropped_img = resized_img[:, int(start):int(start + width)]
                         else:
-                            cropped_img = img  # fallback
+                            cropped_img = cv2.resize(img, (width, height), interpolation=cv2.INTER_LINEAR)
 
                         frame = cv2.addWeighted(frame, 1 - alpha, cropped_img, alpha, 0)
 
@@ -1043,7 +1078,7 @@ class MainApp:
         except:
             getlog()
 
-    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=35, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text="", image_path=None, final_folder=None, mid_text=None, background_music_path=None, background_music_volume=0.5):
+    def text_to_speech_with_xtts_v2(self, txt_path, speaker_wav, language, output_path=None, min_lenth_text=40, max_lenth_text=250, readline=True, tts_list=[], start_idx=0, end_text="", first_text="", image_path=None, final_folder=None, mid_text=None, background_music_path=None, background_music_volume=0.5):
         try:
             self.stop_audio_file = None
             if not output_path:
@@ -1056,11 +1091,13 @@ class MainApp:
             else:
                 text = txt_path
             
-            text = cleaner_text(text, language=language)
+            # text = cleaner_text(text, language=language)
             if readline:
                 lines = text.split('\n')
                 sentences = []
                 for line in lines:
+                    if not line or not line.strip() or any(word.lower() in line.lower() for word in self.skip_texts):
+                        continue
                     if language == 'vi':
                         sub_sentences = line.split('.')
                     else:
@@ -1083,6 +1120,8 @@ class MainApp:
 
                     sentence = sentence.strip()
                     if not sentence:
+                        continue
+                    if any(word.lower() in sentence.lower() for word in self.skip_texts):
                         continue
                     if temp_text:
                         sentence = f"{temp_text} {sentence}"
@@ -1257,9 +1296,9 @@ class MainApp:
             model_path = os.path.join(current_dir, "models", "last_version_en")
             first_text = mid_text = end_text = None
             if channel_name:
-                first_text = f"Welcome to {channel_name}! Enjoy the story, and don't forget to like and subscribe to support the channel."
-                mid_text = f"You're listening to a story on {channel_name}. Don't forget to subscribe to follow the next episodes."
-                end_text = f"Thank you for listening! If you enjoyed the story, don't forget to like and subscribe. See you next time!"
+                first_text = f"Welcome to {channel_name}. If destiny led you here, leave your mark with a like or subscribe."
+                mid_text = f"You're listening to a story on {channel_name}. Don't forget to like and subscribe."
+                end_text = f"Thank you for listening. If this story meant something to you, consider subscribing. Until next time."
             if language == 'vi':
                 speaker = None
                 model_path = os.path.join(current_dir, "models", "last_version_vi")
@@ -1325,7 +1364,7 @@ class MainApp:
                         wav_path  # đường dẫn file WAV đầu ra
                     ]
                     if run_command_ffmpeg(ffmpeg_cmd):
-                        background_musics = get_file_in_folder_by_type(background_folder, '.wav') or []
+                        background_musics = get_file_in_folder_by_type(background_folder, '.wav', noti=False) or []
             images = get_file_in_folder_by_type(background_folder, file_type='.mp4', noti=False) or []
             if len(images) == 0:
                 images = get_file_in_folder_by_type(background_folder, file_type='.png', noti=False) or []
@@ -1336,7 +1375,7 @@ class MainApp:
                         print(f"{thatbai} Phải có ít nhất 1 video nền(.mp4) hoặc 1 ảnh (.png) trong thư mục {folder_story} hoặc thư mục {background_folder}")
                         return False
                     if not background_musics:
-                        background_musics = get_file_in_folder_by_type(background_folder, '.wav') or []
+                        background_musics = get_file_in_folder_by_type(background_folder, '.wav', noti=False) or []
                 is_mp4 = False
             temp_output_folder = os.path.join(folder_story, 'temp_output')
             # if os.path.isdir(temp_output_folder):
@@ -2845,6 +2884,11 @@ class MainApp:
         if self.videos_edit_folder_var:
             self.videos_edit_folder_var.delete(0, ctk.END)
             self.videos_edit_folder_var.insert(0, videos_edit_folder)
+    def choose_image_folder(self):
+        image_folder_var = filedialog.askdirectory()
+        if self.image_folder_var:
+            self.image_folder_var.delete(0, ctk.END)
+            self.image_folder_var.insert(0, image_folder_var)
 
     def choose_videos_output_folder(self):
         output_folder = filedialog.askdirectory()
@@ -3152,7 +3196,7 @@ class MainApp:
             elif self.create_video_with_multi_audio_window:
                 self.root.title("Xuất video từ nhiều audio + hiển thị chữ")
                 self.width = 600
-                self.height_window = 650
+                self.height_window = 697
                 self.create_video_with_multi_audio_window = False              
             elif self.is_extract_sub_image_audio_from_video_window:
                 self.root.title("Lấy âm thanh/ phụ đề/ ảnh từ video")

@@ -1,0 +1,6 @@
+python 3.11.5
+git clone https://github.com/dxthienx1/review-comic.git
+python -m venv venv
+Get-ExecutionPolicy
+Set-ExecutionPolicy Unrestricted -Scope Process
+venv\Scripts\Activate

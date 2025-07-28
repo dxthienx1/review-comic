@@ -17,7 +17,7 @@ app.py-*.json
 output.txt
 luu_tam.py
 download_info.json
-*.txt
+# *.txt
 *.pem
 # *.mp3
 # *.mp4
