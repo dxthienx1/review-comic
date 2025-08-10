@@ -347,7 +347,7 @@ speed = 0.96
 
 
 
-#Xử lý file txt trước khi dùng phần mềm tts mua
+#Xử lý file txt trước khi dùng phần mềm evenlab
 replacements = [
     ('🧡', ''), ('.“', '.'), ('”.', '.'), (',“', ','), ('”,', ','),
     (' “', ' '), ('” ', ' '), ('“', ' '), ('”', ' '), ('."', '.'),
@@ -414,8 +414,8 @@ def process_txt_file(folder):
     except:
         getlog()
 
-folder = r"D:\youtube\Truyen tieng anh\HISTORY STORY FOR SLEEP"
-# process_txt_file(folder)
+folder = r"D:\youtube\Truyen tieng anh\WISDOM WAY"
+process_txt_file(folder)
 
 
 
